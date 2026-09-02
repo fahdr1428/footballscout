@@ -49,12 +49,14 @@ def style(fig: go.Figure, height: int | None = None, title: str | None = None,
     if showlegend is not None:
         fig.update_layout(showlegend=showlegend)
     fig.update_xaxes(
-        gridcolor=THEME["grid"], zerolinecolor=THEME["baseline"],
+        gridcolor=THEME["grid"], zerolinecolor=THEME["baseline"], automargin=True,
         linecolor=THEME["baseline"], tickfont=dict(color=THEME["ink_muted"]),
+        title_font=dict(color=THEME["ink_secondary"], size=12),
     )
     fig.update_yaxes(
-        gridcolor=THEME["grid"], zerolinecolor=THEME["baseline"],
+        gridcolor=THEME["grid"], zerolinecolor=THEME["baseline"], automargin=True,
         linecolor=THEME["baseline"], tickfont=dict(color=THEME["ink_muted"]),
+        title_font=dict(color=THEME["ink_secondary"], size=12),
     )
     return fig
 
@@ -106,6 +108,7 @@ def radar_chart(
         )
     fig.update_layout(
         polar=dict(
+            domain=dict(x=[0.16, 0.84], y=[0.04, 0.92]),
             bgcolor=THEME["surface"],
             radialaxis=dict(
                 range=[0, 100], tickvals=[25, 50, 75, 100], tickfont=dict(color=THEME["ink_muted"], size=10),
@@ -117,7 +120,8 @@ def radar_chart(
             ),
         )
     )
-    return style(fig, height=height, title=title, showlegend=len(series) > 1)
+    return style(fig, height=height, title=title, showlegend=len(series) > 1,
+                 margin=dict(l=10, r=10, t=54 if title else 30, b=20))
 
 
 # --------------------------------------------------------------------------
@@ -245,6 +249,8 @@ def scatter(
         )
 
     if highlight is not None:
+        if not isinstance(highlight, pd.Series):
+            highlight = pd.Series(np.asarray(highlight), index=data.index)
         mask = highlight.reindex(data.index).fillna(False).astype(bool)
         add(data[~mask], THEME["context"], "All players", 7, 0.55)
         add(data[mask], THEME["series_1"], highlight_label, 10, 0.95)

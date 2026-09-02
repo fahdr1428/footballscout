@@ -13,6 +13,29 @@ streamlit run app.py
 
 The dataset builds itself on first run (a few seconds); no downloads or API keys are needed.
 
+![Player profile](assets/screenshot-player-profile.png)
+
+<details>
+<summary>More screenshots</summary>
+
+**Similar players, with the reason behind the match**
+
+![Similar players](assets/screenshot-similar-players.png)
+
+**Recruitment finder — weights and shortlist**
+
+![Recruitment finder](assets/screenshot-recruitment.png)
+
+**Archetypes — how k was chosen**
+
+![Archetypes](assets/screenshot-archetypes.png)
+
+**Home — pool composition and the cleaning report**
+
+![Home](assets/screenshot-home.png)
+
+</details>
+
 ---
 
 ## Read this first: the data is simulated

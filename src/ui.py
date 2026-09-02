@@ -48,10 +48,11 @@ CSS = f"""
   .sx-tiles {{ display: flex; gap: 0.6rem; flex-wrap: wrap; }}
   .sx-tile {{
     background: {THEME['panel']}; border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px; padding: 0.7rem 0.95rem; min-width: 118px; flex: 1 1 118px;
+    border-radius: 10px; padding: 0.7rem 0.95rem; min-width: 118px; max-width: 230px;
+    flex: 1 1 118px;
   }}
-  .sx-tile .k {{ font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em;
-                 color: {THEME['ink_muted']}; font-weight: 600; }}
+  .sx-tile .k {{ font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em;
+                 color: {THEME['ink_muted']}; font-weight: 600; min-height: 2.1em; }}
   .sx-tile .v {{ font-size: 1.42rem; font-weight: 680; color: {THEME['ink']}; line-height: 1.35; }}
   .sx-tile .s {{ font-size: 0.76rem; color: {THEME['ink_secondary']}; }}
 

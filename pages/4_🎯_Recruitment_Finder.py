@@ -82,7 +82,9 @@ with st.expander("Desired characteristics (hard thresholds on raw rates)", expan
         with columns[1]:
             operator = st.selectbox("Op", [">=", ">", "<=", "<"], key=f"rec_op_{i}")
         series = subset[metric].dropna()
-        default_value = float(round(series.quantile(0.65), 2)) if len(series) else 0.0
+        # Default to the positional median so the example brief returns a usable
+        # shortlist; the caption shows how many players clear each condition.
+        default_value = float(round(series.quantile(0.55), 2)) if len(series) else 0.0
         with columns[2]:
             value = st.number_input(
                 "Value", value=default_value, step=0.05, format="%.2f", key=f"rec_val_{i}"
@@ -219,8 +221,8 @@ if index is not None:
         ).sort_values("Points", ascending=False)
         st.dataframe(breakdown, hide_index=True)
         st.caption(
-            f"Points sum to the fit score ({breakdown['Points'].sum():.1f}). A high weight on a "
-            "category the player is weak in shows up here as a small contribution."
+            f"The points column sums to the fit score of {fit:.1f}. A high weight on a category "
+            "the player is weak in shows up here as a small contribution."
         )
         eyebrow("Brief")
         for line in threshold_summary(brief):

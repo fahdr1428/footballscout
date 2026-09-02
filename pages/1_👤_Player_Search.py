@@ -117,10 +117,14 @@ if filtered.empty:
     st.info("No players match those filters. Loosen a threshold or widen the age range.")
     st.stop()
 
-display_metrics = [sort_metric] + [
-    m for m in ["np_goals_per90", "xa_per90", "progressive_actions_per90", "defensive_actions_per90"]
-    if m != sort_metric and m in filtered.columns
+# `minutes` and `age` already have their own columns in the table below.
+BASE_COLUMNS = {"minutes", "age"}
+display_metrics = [
+    m for m in [sort_metric, "np_goals_per90", "xa_per90", "progressive_actions_per90",
+                "defensive_actions_per90"]
+    if m not in BASE_COLUMNS and m in filtered.columns
 ]
+display_metrics = list(dict.fromkeys(display_metrics))
 table = filtered.sort_values(sort_metric, ascending=ascending).head(int(limit))
 view = pd.DataFrame(
     {

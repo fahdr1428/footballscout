@@ -553,6 +553,21 @@ def simulate_season(
     df["long_passes_completed"] = rng.binomial(
         df["long_passes_attempted"], _prob_vector("long_pass_pct", groups, traits)
     )
+    # Passing under pressure: a share of passes are contested, and completion
+    # drops on those. Press-resistant players lose less.
+    pressure_share = np.clip(
+        0.24 * np.exp(-0.20 * traits["pass_volume"].to_numpy() + 0.15 * traits["carrying"].to_numpy())
+        * (50.0 / np.clip(poss, 25, 75)),
+        0.05, 0.55,
+    )
+    df["passes_under_pressure"] = rng.binomial(df["passes_attempted"], pressure_share)
+    p_pressed = _sigmoid(
+        _logit(np.clip(p_pass, 0.05, 0.95)) - 0.75 + 0.45 * traits["pass_accuracy"].to_numpy()
+    )
+    df["passes_completed_under_pressure"] = np.minimum(
+        rng.binomial(df["passes_under_pressure"], p_pressed),
+        df["passes_completed"],
+    )
     df["progressive_receptions"] = poisson("progressive_receptions", poss_pass_mult)
     df["touches"] = df["passes_attempted"] + poisson("touches", 0.45 * poss_pass_mult)
 
@@ -592,6 +607,12 @@ def simulate_season(
     df["pens_scored"] = rng.binomial(df["pens_taken"], 0.78)
     df["goals"] = df["np_goals"] + df["pens_scored"]
     df["xg"] = (df["npxg"] + 0.79 * df["pens_taken"]).round(2)
+    # Set-piece share of chances: taller, more aerial players feed on them.
+    set_piece_share = np.clip(
+        0.16 + 0.06 * traits["aerial"].to_numpy() - 0.04 * traits["dribbling"].to_numpy(), 0.02, 0.5
+    )
+    df["npxg_set_piece"] = (df["npxg"] * set_piece_share).round(2)
+    df["npxg_open_play"] = (df["npxg"] - df["npxg_set_piece"]).round(2)
 
     # ---- Creation ------------------------------------------------------
     df["key_passes"] = poisson("key_passes", poss_pass_mult)

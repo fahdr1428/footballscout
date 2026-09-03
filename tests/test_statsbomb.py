@@ -214,3 +214,52 @@ def test_penalties_are_kept_out_of_non_penalty_totals():
     assert counters["goals"] == 1 and counters["pens_scored"] == 1 and counters["pens_taken"] == 1
     assert counters["np_goals"] == 0 and counters["shots"] == 0 and counters["npxg"] == 0
     assert counters["xg"] == pytest.approx(0.78)
+
+
+def test_under_pressure_passes_are_counted_separately():
+    """Pressure is a flag only event data carries; it must not leak into totals."""
+    lineups = [{"team_id": 1, "team_name": "A", "lineup": [
+        {"player_id": 1, "player_name": "Passer", "player_nickname": None,
+         "country": {"name": "England"},
+         "positions": [{"position": "Center Midfield", "from": "00:00", "to": None,
+                        "start_reason": "Starting XI", "end_reason": "Final Whistle"}]}]}]
+    events = [
+        _event(1, "Pass", 1, 0, "A", (1, "Passer"), location=[60, 40],
+               **{"pass": {"end_location": [70, 40], "length": 10}}),
+        _event(2, "Pass", 2, 0, "A", (1, "Passer"), location=[60, 40], under_pressure=True,
+               **{"pass": {"end_location": [70, 40], "length": 10}}),
+        _event(3, "Pass", 3, 0, "A", (1, "Passer"), location=[60, 40], under_pressure=True,
+               **{"pass": {"end_location": [70, 40], "length": 10,
+                           "outcome": {"name": "Incomplete"}}}),
+        _event(4, "Half End", 47, 0, "A"),
+    ]
+    players, _ = parse_match(events, lineups)
+    counters = players[1].counters
+    assert counters["passes_attempted"] == 3
+    assert counters["passes_completed"] == 2
+    assert counters["passes_under_pressure"] == 2
+    assert counters["passes_completed_under_pressure"] == 1
+
+
+def test_set_piece_chances_are_split_from_open_play():
+    lineups = [{"team_id": 1, "team_name": "A", "lineup": [
+        {"player_id": 1, "player_name": "Striker", "player_nickname": None,
+         "country": {"name": "England"},
+         "positions": [{"position": "Striker", "from": "00:00", "to": None,
+                        "start_reason": "Starting XI", "end_reason": "Final Whistle"}]}]}]
+    events = [
+        _event(1, "Shot", 10, 0, "A", (1, "Striker"), location=[110, 40],
+               play_pattern={"name": "From Corner"},
+               shot={"statsbomb_xg": 0.20, "type": {"name": "Open Play"},
+                     "outcome": {"name": "Saved"}, "end_location": [120, 40]}),
+        _event(2, "Shot", 20, 0, "A", (1, "Striker"), location=[108, 40],
+               play_pattern={"name": "Regular Play"},
+               shot={"statsbomb_xg": 0.30, "type": {"name": "Open Play"},
+                     "outcome": {"name": "Goal"}, "end_location": [120, 40]}),
+        _event(3, "Half End", 47, 0, "A"),
+    ]
+    players, _ = parse_match(events, lineups)
+    counters = players[1].counters
+    assert counters["npxg"] == pytest.approx(0.50)
+    assert counters["npxg_set_piece"] == pytest.approx(0.20)
+    assert counters["npxg_open_play"] == pytest.approx(0.30)

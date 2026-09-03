@@ -81,6 +81,8 @@ COUNTING_STATS = {
     "pens_taken": "Penalties taken",
     "xg": "xG",
     "npxg": "Non-penalty xG",
+    "npxg_open_play": "Non-penalty xG from open play",
+    "npxg_set_piece": "Non-penalty xG from set pieces",
     "assists": "Assists",
     "xa": "xA (expected assists)",
     "shots": "Shots",
@@ -97,6 +99,8 @@ COUNTING_STATS = {
     # --- passing & possession ---
     "passes_attempted": "Passes attempted",
     "passes_completed": "Passes completed",
+    "passes_under_pressure": "Passes attempted under pressure",
+    "passes_completed_under_pressure": "Passes completed under pressure",
     "progressive_passes": "Progressive passes",
     "passes_into_final_third": "Passes into final third",
     "passes_into_pen_area": "Passes into penalty area",
@@ -139,6 +143,10 @@ COUNTING_STATS = {
 # that a player with three attempts never shows a "100%" success rate.
 RATIO_METRICS = {
     "pass_pct": ("passes_completed", "passes_attempted", 100, "Pass completion %"),
+    "pass_pct_under_pressure": (
+        "passes_completed_under_pressure", "passes_under_pressure", 40,
+        "Pass completion under pressure %",
+    ),
     "long_pass_pct": ("long_passes_completed", "long_passes_attempted", 30, "Long-pass completion %"),
     "tackle_win_pct": ("tackles_won", "tackles", 20, "Tackle success %"),
     "pressure_success_pct": ("pressures_successful", "pressures", 50, "Pressure success %"),
@@ -153,6 +161,8 @@ RATIO_METRICS = {
 # Derived metrics that are neither a plain per-90 nor a ratio.
 DERIVED_METRICS = {
     "npxg_per_shot": "Non-penalty xG per shot",
+    "pressured_pass_share": "Share of passes made under pressure %",
+    "open_play_npxg_share": "Share of non-penalty xG from open play %",
     "np_goals_minus_npxg_per90": "Non-penalty goals - xG per 90",
     "gk_psxg_minus_ga_per90": "Goals prevented vs post-shot xG per 90",
     "aerials_contested_per90": "Aerial duels contested per 90",
@@ -199,7 +209,9 @@ METRIC_LABELS.update(
 )
 
 # Percentage-style metrics are displayed with a % suffix and one decimal.
-PERCENT_METRICS = set(RATIO_METRICS) | {"team_possession"}
+PERCENT_METRICS = set(RATIO_METRICS) | {
+    "team_possession", "pressured_pass_share", "open_play_npxg_share",
+}
 
 # --------------------------------------------------------------------------
 # Attribute categories
@@ -212,6 +224,7 @@ OUTFIELD_CATEGORIES = {
     "Finishing": [
         "np_goals_per90",
         "npxg_per90",
+        "npxg_open_play_per90",
         "shots_per90",
         "shot_accuracy_pct",
         "npxg_per_shot",
@@ -231,6 +244,7 @@ OUTFIELD_CATEGORIES = {
     ],
     "Passing": [
         "pass_pct",
+        "pass_pct_under_pressure",
         "passes_attempted_per90",
         "long_pass_pct",
         "switches_per90",
@@ -308,6 +322,7 @@ POSITION_FEATURES = {
         "long_passes_attempted_per90",
     ],
     "CB": [
+        "pass_pct_under_pressure",
         "tackles_per90",
         "tackle_win_pct",
         "interceptions_per90",
@@ -329,6 +344,7 @@ POSITION_FEATURES = {
         "fouls_committed_per90",
     ],
     "FB": [
+        "pass_pct_under_pressure",
         "tackles_per90",
         "tackle_win_pct",
         "interceptions_per90",
@@ -351,6 +367,8 @@ POSITION_FEATURES = {
         "touches_att_pen_per90",
     ],
     "DM": [
+        "pass_pct_under_pressure",
+        "pressured_pass_share",
         "tackles_per90",
         "tackle_win_pct",
         "interceptions_per90",
@@ -373,6 +391,8 @@ POSITION_FEATURES = {
         "fouls_committed_per90",
     ],
     "CM": [
+        "pass_pct_under_pressure",
+        "pressured_pass_share",
         "tackles_per90",
         "interceptions_per90",
         "ball_recoveries_per90",
@@ -395,6 +415,8 @@ POSITION_FEATURES = {
         "touches_att_pen_per90",
     ],
     "AM": [
+        "pass_pct_under_pressure",
+        "npxg_open_play_per90",
         "np_goals_per90",
         "npxg_per90",
         "shots_per90",
@@ -417,6 +439,7 @@ POSITION_FEATURES = {
         "tackles_per90",
     ],
     "W": [
+        "npxg_open_play_per90",
         "np_goals_per90",
         "npxg_per90",
         "npxg_per_shot",
@@ -441,6 +464,7 @@ POSITION_FEATURES = {
         "tackles_per90",
     ],
     "FW": [
+        "npxg_open_play_per90",
         "np_goals_per90",
         "npxg_per90",
         "npxg_per_shot",

@@ -83,6 +83,9 @@ POSITION_NOUNS = {
     "FW": "forward",
 }
 
+MIN_CLUSTER_FLOOR = 20        # never accept an archetype with fewer players than this
+MIN_CLUSTER_SHARE = 0.04      # ...or fewer than this share of the position group
+
 STRONG_CONCEPT_Z = 0.30       # concept must be this far above average to name
 SECOND_CONCEPT_Z = 0.25       # second adjective threshold
 NOTABLE_FEATURE_Z = 0.45      # feature included in the written description
@@ -115,11 +118,13 @@ def evaluate_k(
     for k in range(k_min, k_max + 1):
         model = KMeans(n_clusters=k, n_init=10, random_state=random_state)
         labels = model.fit_predict(z)
+        sizes = pd.Series(labels).value_counts()
         rows.append(
             {
                 "k": k,
                 "inertia": float(model.inertia_),
                 "silhouette": float(silhouette_score(z, labels)) if len(set(labels)) > 1 else np.nan,
+                "smallest_cluster": int(sizes.min()),
             }
         )
     return pd.DataFrame(rows)
@@ -146,7 +151,9 @@ def elbow_k(evaluation: pd.DataFrame) -> int:
     return int(x[int(np.argmax(distances))])
 
 
-def choose_k(evaluation: pd.DataFrame, tolerance: float = 0.90) -> int:
+def choose_k(
+    evaluation: pd.DataFrame, tolerance: float = 0.90, min_cluster_size: int = 0
+) -> int:
     """Pick k from the silhouette curve, preferring granularity where it is free.
 
     Silhouette almost always favours k=2 on football data, because playing
@@ -154,12 +161,21 @@ def choose_k(evaluation: pd.DataFrame, tolerance: float = 0.90) -> int:
     argmax therefore returns "two kinds of centre-back", which is true but
     useless to a scout. Instead we take the **largest k whose silhouette is
     still within `tolerance` of the best score** - the most granular set of
-    archetypes that costs essentially nothing in cluster quality. The elbow of
-    the inertia curve is reported next to it as a cross-check.
+    archetypes that costs essentially nothing in cluster quality.
+
+    A second constraint keeps the result usable: any k that produces a cluster
+    smaller than `min_cluster_size` is rejected. An archetype supported by nine
+    players is a curiosity, not a role, and its centroid - and therefore its
+    generated name - is dominated by noise. The inertia elbow is reported
+    alongside as a cross-check.
     """
     valid = evaluation.dropna(subset=["silhouette"])
     if valid.empty:
         return int(evaluation["k"].iloc[0])
+    if min_cluster_size and "smallest_cluster" in valid.columns:
+        supported = valid[valid["smallest_cluster"] >= min_cluster_size]
+        if not supported.empty:
+            valid = supported
     best = valid["silhouette"].max()
     if best <= 0:
         return int(valid.loc[valid["silhouette"].idxmax(), "k"])
@@ -265,7 +281,10 @@ def fit_clusters(
 ) -> ClusterModel:
     """Fit K-Means for one position group and label the resulting archetypes."""
     evaluation = evaluate_k(z, k_min=k_min, k_max=k_max, random_state=random_state)
-    chosen = int(k or choose_k(evaluation))
+    # An archetype needs enough players behind it for its centroid - and so its
+    # generated name - to mean anything.
+    floor = max(MIN_CLUSTER_FLOOR, int(MIN_CLUSTER_SHARE * len(z)))
+    chosen = int(k or choose_k(evaluation, min_cluster_size=floor))
     chosen = max(2, min(chosen, len(z) - 1))
 
     kmeans = KMeans(n_clusters=chosen, n_init=10, random_state=random_state)

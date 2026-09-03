@@ -7,14 +7,14 @@ All models are fitted per position group. Nothing below is tuned to make the num
 
 | position_group | players | features | k | elbow_k | silhouette | inertia | smallest_cluster |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| GK | 211 | 11 | 3 | 6 | 0.216 | 1504.7 | 50 |
-| CB | 522 | 19 | 3 | 5 | 0.131 | 7486.3 | 125 |
-| FB | 502 | 20 | 5 | 5 | 0.099 | 6679.3 | 44 |
-| DM | 338 | 20 | 3 | 6 | 0.105 | 5222.9 | 87 |
-| CM | 225 | 20 | 3 | 5 | 0.178 | 3147.0 | 37 |
-| AM | 119 | 20 | 3 | 3 | 0.176 | 1660.2 | 23 |
-| W | 410 | 22 | 4 | 5 | 0.143 | 5918.6 | 37 |
-| FW | 299 | 21 | 6 | 6 | 0.111 | 3758.5 | 7 |
+| GK | 211 | 11 | 3 | 5 | 0.216 | 1504.7 | 50 |
+| CB | 522 | 20 | 3 | 5 | 0.126 | 7901.7 | 144 |
+| FB | 502 | 21 | 6 | 6 | 0.096 | 6800.8 | 40 |
+| DM | 338 | 22 | 4 | 6 | 0.094 | 5375.5 | 57 |
+| CM | 225 | 22 | 3 | 5 | 0.171 | 3524.4 | 37 |
+| AM | 119 | 22 | 3 | 3 | 0.179 | 1823.8 | 23 |
+| W | 410 | 23 | 3 | 6 | 0.167 | 6761.6 | 92 |
+| FW | 299 | 22 | 5 | 6 | 0.115 | 4150.6 | 23 |
 
 Silhouette scores in the 0.10-0.25 range are typical for football style data and should be read honestly: playing styles form a **continuum**, not well-separated groups. K-Means here is a useful summary of that continuum, not evidence that discrete player types exist. `k` is chosen as the largest k whose silhouette stays within 10% of the best score, with the inertia elbow reported alongside as a cross-check.
 
@@ -25,13 +25,13 @@ Silhouette scores in the 0.10-0.25 range are typical for football style data and
 | position_group | pc1_variance | pc2_variance | total_shown |
 | --- | --- | --- | --- |
 | GK | 0.382 | 0.188 | 0.57 |
-| CB | 0.247 | 0.161 | 0.408 |
-| FB | 0.306 | 0.134 | 0.44 |
-| DM | 0.243 | 0.129 | 0.372 |
-| CM | 0.345 | 0.153 | 0.497 |
-| AM | 0.301 | 0.203 | 0.504 |
-| W | 0.333 | 0.164 | 0.497 |
-| FW | 0.272 | 0.183 | 0.455 |
+| CB | 0.255 | 0.153 | 0.408 |
+| FB | 0.299 | 0.131 | 0.43 |
+| DM | 0.259 | 0.122 | 0.381 |
+| CM | 0.319 | 0.166 | 0.485 |
+| AM | 0.285 | 0.222 | 0.506 |
+| W | 0.332 | 0.179 | 0.511 |
+| FW | 0.276 | 0.192 | 0.468 |
 
 The cluster map compresses 12-22 features into two axes, so a large share of the variance is not on screen. Two players sitting close together on the map are not necessarily close in the full feature space - the similarity table is the authority.
 
@@ -40,13 +40,13 @@ The cluster map compresses 12-22 features into two axes, so a large share of the
 | position_group | player_seasons_tested | candidates | own_season_in_top10 | chance | lift | median_rank |
 | --- | --- | --- | --- | --- | --- | --- |
 | GK | 76 | 210 | 0.237 | 0.048 | 5.0 | 19 |
-| CB | 100 | 521 | 0.47 | 0.019 | 24.5 | 13 |
-| FB | 76 | 501 | 0.263 | 0.02 | 13.2 | 46 |
-| DM | 24 | 337 | 0.708 | 0.03 | 23.9 | 4 |
-| CM | 24 | 224 | 0.458 | 0.045 | 10.3 | 17 |
-| AM | 14 | 118 | 0.857 | 0.085 | 10.1 | 4 |
-| W | 70 | 409 | 0.329 | 0.024 | 13.4 | 18 |
-| FW | 30 | 298 | 0.333 | 0.034 | 9.9 | 44 |
+| CB | 100 | 521 | 0.46 | 0.019 | 24.0 | 13 |
+| FB | 76 | 501 | 0.263 | 0.02 | 13.2 | 54 |
+| DM | 24 | 337 | 0.667 | 0.03 | 22.5 | 5 |
+| CM | 24 | 224 | 0.417 | 0.045 | 9.3 | 16 |
+| AM | 14 | 118 | 0.786 | 0.085 | 9.3 | 5 |
+| W | 70 | 409 | 0.3 | 0.024 | 12.3 | 19 |
+| FW | 30 | 298 | 0.333 | 0.034 | 9.9 | 42 |
 
 For every player with two seasons in the pool, this asks where his *other* season ranks among his nearest neighbours. It is the only case where the right answer is known without any labels, which makes it the check that also works on real data. `chance` is what random ordering would give.
 
@@ -54,51 +54,51 @@ For every player with two seasons in the pool, this asks where his *other* seaso
 
 | position_group | team_mates_in_top10 | chance | lift |
 | --- | --- | --- | --- |
-| GK | 0.012 | 0.001 | 10.5 |
-| CB | 0.04 | 0.004 | 10.7 |
-| FB | 0.023 | 0.004 | 6.0 |
-| DM | 0.017 | 0.004 | 4.2 |
-| CM | 0.033 | 0.006 | 5.5 |
-| AM | 0.015 | 0.003 | 5.1 |
-| W | 0.017 | 0.004 | 4.0 |
-| FW | 0.015 | 0.004 | 3.9 |
+| GK | 0.013 | 0.001 | 11.4 |
+| CB | 0.037 | 0.004 | 10.0 |
+| FB | 0.029 | 0.004 | 7.5 |
+| DM | 0.019 | 0.004 | 4.7 |
+| CM | 0.035 | 0.006 | 6.0 |
+| AM | 0.016 | 0.003 | 5.3 |
+| W | 0.019 | 0.004 | 4.3 |
+| FW | 0.017 | 0.004 | 4.4 |
 
 Team style leaks into individual numbers: a defender in a possession side passes more because of the side. Some over-representation of team-mates is expected and correct; a large lift would mean the model is partly clustering clubs.
 
 ## 3. Is the model dominated by a few metrics?
 
-**W** - even share would be 0.045 per feature.
+**W** - even share would be 0.043 per feature.
 
 | metric | mean_distance_share | vs_even_share |
 | --- | --- | --- |
-| Dribble success % | 0.0556 | 1.22 |
-| Pass completion % | 0.0548 | 1.2 |
-| Pressures per 90 | 0.0538 | 1.18 |
-| Progressive passes received per 90 | 0.0527 | 1.16 |
-| Tackles per 90 | 0.0515 | 1.13 |
-| Non-penalty xG per shot | 0.0501 | 1.1 |
+| Dribble success % | 0.054 | 1.24 |
+| Pass completion % | 0.0531 | 1.22 |
+| Pressures per 90 | 0.0522 | 1.2 |
+| Progressive passes received per 90 | 0.0509 | 1.17 |
+| Tackles per 90 | 0.0499 | 1.15 |
+| Non-penalty xG per shot | 0.0474 | 1.09 |
 
-**CB** - even share would be 0.053 per feature.
-
-| metric | mean_distance_share | vs_even_share |
-| --- | --- | --- |
-| Interceptions per 90 | 0.0611 | 1.16 |
-| Fouls committed per 90 | 0.0596 | 1.13 |
-| Tackle success % | 0.0593 | 1.13 |
-| Tackles per 90 | 0.0585 | 1.11 |
-| Errors leading to shot per 90 | 0.0577 | 1.1 |
-| Aerial duel success % | 0.0557 | 1.06 |
-
-**DM** - even share would be 0.050 per feature.
+**CB** - even share would be 0.050 per feature.
 
 | metric | mean_distance_share | vs_even_share |
 | --- | --- | --- |
-| Fouls committed per 90 | 0.0576 | 1.15 |
-| Tackle success % | 0.0569 | 1.14 |
-| Pressure success % | 0.0556 | 1.11 |
-| Aerial duel success % | 0.055 | 1.1 |
-| Pressures per 90 | 0.0544 | 1.09 |
-| Ball recoveries per 90 | 0.0542 | 1.08 |
+| Interceptions per 90 | 0.0581 | 1.16 |
+| Fouls committed per 90 | 0.0567 | 1.13 |
+| Tackle success % | 0.0562 | 1.12 |
+| Tackles per 90 | 0.056 | 1.12 |
+| Errors leading to shot per 90 | 0.0553 | 1.11 |
+| Aerial duel success % | 0.053 | 1.06 |
+
+**DM** - even share would be 0.045 per feature.
+
+| metric | mean_distance_share | vs_even_share |
+| --- | --- | --- |
+| Fouls committed per 90 | 0.0527 | 1.16 |
+| Tackle success % | 0.0521 | 1.15 |
+| Pressure success % | 0.051 | 1.12 |
+| Aerial duel success % | 0.0503 | 1.11 |
+| Pressures per 90 | 0.0496 | 1.09 |
+| Ball recoveries per 90 | 0.0494 | 1.09 |
 
 
 ## 4. Sensitivity of the similarity rankings
@@ -107,72 +107,72 @@ Team style leaks into individual numbers: a defender in a possession side passes
 
 | removed | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Non-penalty xG per shot | 0.746 | 0.798 |
-| Shots per 90 | 0.811 | 0.861 |
-| Assists per 90 | 0.858 | 0.848 |
-| Non-penalty goals per 90 | 0.859 | 0.897 |
-| Key passes per 90 | 0.866 | 0.925 |
-| Non-penalty xG per 90 | 0.873 | 0.924 |
-| xA (expected assists) per 90 | 0.883 | 0.91 |
-| Touches in opposition box per 90 | 0.887 | 0.915 |
+| Non-penalty xG per shot | 0.748 | 0.841 |
+| Shots per 90 | 0.798 | 0.854 |
+| Assists per 90 | 0.833 | 0.854 |
+| xA (expected assists) per 90 | 0.861 | 0.915 |
+| Non-penalty goals per 90 | 0.867 | 0.89 |
+| Non-penalty xG from open play per 90 | 0.879 | 0.937 |
+| Non-penalty xG per 90 | 0.887 | 0.947 |
+| Touches in opposition box per 90 | 0.905 | 0.914 |
 
 ### W - tripling the weight on one category
 
 | category_weighted_x3 | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Finishing | 0.587 | 0.609 |
-| Ball Progression | 0.601 | 0.621 |
-| Dribbling | 0.605 | 0.579 |
-| Defending | 0.638 | 0.679 |
-| Chance Creation | 0.64 | 0.684 |
-| Box Threat | 0.658 | 0.759 |
-| Passing | 0.697 | 0.762 |
+| Finishing | 0.586 | 0.587 |
+| Ball Progression | 0.59 | 0.6 |
+| Dribbling | 0.599 | 0.582 |
+| Chance Creation | 0.634 | 0.683 |
+| Defending | 0.653 | 0.679 |
+| Box Threat | 0.67 | 0.726 |
+| Passing | 0.701 | 0.733 |
 
 ### CB - removing one metric
 
 | removed | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Tackle success % | 0.651 | 0.69 |
-| Blocks per 90 | 0.702 | 0.792 |
-| Tackles per 90 | 0.717 | 0.798 |
-| Clearances per 90 | 0.723 | 0.736 |
-| Ball recoveries per 90 | 0.731 | 0.761 |
-| Interceptions per 90 | 0.738 | 0.827 |
-| Pressures per 90 | 0.764 | 0.811 |
-| Aerial duels won per 90 | 0.838 | 0.895 |
+| Tackle success % | 0.66 | 0.68 |
+| Blocks per 90 | 0.719 | 0.796 |
+| Interceptions per 90 | 0.738 | 0.804 |
+| Tackles per 90 | 0.74 | 0.791 |
+| Ball recoveries per 90 | 0.74 | 0.782 |
+| Clearances per 90 | 0.745 | 0.774 |
+| Pressures per 90 | 0.775 | 0.822 |
+| Pass completion under pressure % | 0.799 | 0.811 |
 
 ### CB - tripling the weight on one category
 
 | category_weighted_x3 | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Defending | 0.524 | 0.495 |
-| Aerial | 0.561 | 0.652 |
-| Ball Progression | 0.615 | 0.643 |
-| Passing | 0.643 | 0.701 |
-| Dribbling | 0.724 | 0.782 |
+| Defending | 0.525 | 0.498 |
+| Aerial | 0.582 | 0.661 |
+| Passing | 0.594 | 0.696 |
+| Ball Progression | 0.615 | 0.676 |
+| Dribbling | 0.741 | 0.799 |
 
 ### DM - removing one metric
 
 | removed | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Interceptions per 90 | 0.727 | 0.781 |
-| Blocks per 90 | 0.742 | 0.795 |
-| Ball recoveries per 90 | 0.743 | 0.755 |
-| Tackle success % | 0.75 | 0.794 |
-| Pressure success % | 0.755 | 0.801 |
-| Tackles per 90 | 0.765 | 0.802 |
-| Pressures per 90 | 0.771 | 0.829 |
-| Clearances per 90 | 0.801 | 0.83 |
+| Interceptions per 90 | 0.725 | 0.796 |
+| Tackle success % | 0.739 | 0.769 |
+| Ball recoveries per 90 | 0.75 | 0.778 |
+| Blocks per 90 | 0.753 | 0.79 |
+| Tackles per 90 | 0.764 | 0.812 |
+| Share of passes made under pressure % | 0.785 | 0.861 |
+| Clearances per 90 | 0.816 | 0.855 |
+| Pass completion under pressure % | 0.836 | 0.892 |
 
 ### DM - tripling the weight on one category
 
 | category_weighted_x3 | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Defending | 0.506 | 0.485 |
-| Passing | 0.62 | 0.653 |
-| Ball Progression | 0.646 | 0.64 |
-| Aerial | 0.671 | 0.716 |
-| Dribbling | 0.805 | 0.852 |
+| Defending | 0.513 | 0.549 |
+| Passing | 0.589 | 0.629 |
+| Ball Progression | 0.643 | 0.679 |
+| Aerial | 0.655 | 0.727 |
+| Dribbling | 0.795 | 0.881 |
 
 `top_k_overlap` is the Jaccard overlap of the top ten before and after the change; `rank_correlation` is the Spearman correlation of the survivors' ordering. A metric whose removal drops the overlap below ~0.5 is effectively steering that position's model.
 
@@ -182,6 +182,7 @@ Team style leaks into individual numbers: a defender in a possession side passes
 
 | metric A | metric B | r |
 | --- | --- | --- |
+| Non-penalty xG from open play per 90 | Non-penalty xG per 90 | 0.966 |
 | Key passes per 90 | Shot-creating actions per 90 | 0.93 |
 | Successful dribbles per 90 | Dribble attempts per 90 | 0.914 |
 | Progressive carries per 90 | Carries into final third per 90 | 0.904 |

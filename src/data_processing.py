@@ -36,6 +36,9 @@ IDENTITY_COLUMNS = [
 # Season totals that must never exceed their attempt column.
 CONSISTENCY_PAIRS = [
     ("passes_completed", "passes_attempted"),
+    ("passes_under_pressure", "passes_attempted"),
+    ("passes_completed_under_pressure", "passes_under_pressure"),
+    ("npxg_open_play", "npxg"),
     ("long_passes_completed", "long_passes_attempted"),
     ("tackles_won", "tackles"),
     ("pressures_successful", "pressures"),
@@ -50,7 +53,10 @@ CONSISTENCY_PAIRS = [
 ]
 
 # Advanced metrics that are genuinely optional in real feeds.
-OPTIONAL_METRICS = ["xa", "xg", "npxg", "gk_psxg", "sca", "gca", "pressures", "pressures_successful"]
+OPTIONAL_METRICS = [
+    "xa", "xg", "npxg", "gk_psxg", "sca", "gca", "pressures", "pressures_successful",
+    "passes_under_pressure", "passes_completed_under_pressure", "npxg_open_play", "npxg_set_piece",
+]
 
 
 @dataclass

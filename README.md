@@ -160,6 +160,22 @@ drop out of the models rather than being imputed.
 
 ## How it works
 
+### Metrics a summary table cannot give you
+
+Deriving from raw events rather than a provider's season totals buys metrics that do not exist
+in a summary feed:
+
+- **Pass completion under pressure.** StatsBomb flags an event `under_pressure` when an opponent
+  is actively closing the player down. Completion on that subset separates press-resistant
+  midfielders from ones who look tidy only when unopposed — and the *share* of a player's passes
+  that are pressed is reported beside it, because that is role and team context, not skill.
+- **Open-play versus set-piece xG.** Non-penalty xG is split by the shot's play pattern. A
+  striker who feeds on corners is a different signing from one who creates from open play.
+- **Shot-creating actions** rebuilt from the possession chain, **errors** as ball losses followed
+  by an opposition shot within five seconds, **successful pressures** as pressure followed by
+  regaining the ball — each one a definition in code you can change, not a number to take on
+  trust.
+
 ### Peer groups, chosen deliberately
 
 Every percentile is a claim about where a player stands among players he could actually be
@@ -211,8 +227,9 @@ match, the app shows you.
 
 ### Archetypes named by the data
 
-K-Means per position. `k` is chosen as the **largest k whose silhouette stays within 10% of the best
-score**, cross-checked against a numerically computed inertia elbow. Silhouette on football style
+K-Means per position. `k` is chosen as the **largest k whose silhouette stays within 10% of the
+best score and whose smallest cluster still holds enough players to mean anything** (at least 20,
+or 4% of the position group), cross-checked against a numerically computed inertia elbow. Silhouette on football style
 data almost always peaks at k=2 — styles are a continuum — and taking that argmax gives "two kinds of
 winger", which is true and useless.
 
@@ -263,13 +280,13 @@ which makes it the check that still works on a feed with no ground truth about p
 | Position | Player-seasons tested | Own season in top 10 | Chance | Lift | Median rank |
 | --- | --- | --- | --- | --- | --- |
 | GK | 76 | 24% | 4.8% | **5.0×** | 19 |
-| CB | 100 | 47% | 1.9% | **24.5×** | 13 |
-| FB | 76 | 26% | 2.0% | **13.2×** | 46 |
-| DM | 24 | 71% | 3.0% | **23.9×** | 4 |
-| CM | 24 | 46% | 4.5% | **10.3×** | 17 |
-| AM | 14 | 86% | 8.5% | **10.1×** | 4 |
-| W | 70 | 33% | 2.4% | **13.4×** | 18 |
-| FW | 30 | 33% | 3.4% | **9.9×** | 44 |
+| CB | 100 | 46% | 1.9% | **24.0×** | 13 |
+| FB | 76 | 26% | 2.0% | **13.2×** | 54 |
+| DM | 24 | 67% | 3.0% | **22.5×** | 5 |
+| CM | 24 | 42% | 4.5% | **9.3×** | 16 |
+| AM | 14 | 79% | 8.5% | **9.3×** | 5 |
+| W | 70 | 30% | 2.4% | **12.3×** | 19 |
+| FW | 30 | 33% | 3.4% | **9.9×** | 42 |
 
 The profile the engine builds is stable enough to pick the same footballer out of a 500-player
 pool in a different season, with a different squad around him, at 5–25× chance.
@@ -284,16 +301,19 @@ rather than hidden.
 Because each simulated player is generated from a known role profile, the same models can be
 scored against ground truth:
 
+Numbers move a little between rebuilds; these are from the committed
+[simulated report](models/validation_report_simulated.md):
+
 | Position | k | Silhouette | ARI vs true role | Cluster purity | Top-10 same role | Chance | Lift |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| GK | 5 | 0.127 | 0.127 | 0.49 | 0.50 | 0.25 | **2.0×** |
-| CB | 5 | 0.120 | 0.248 | 0.61 | 0.60 | 0.25 | **2.4×** |
-| FB | 3 | 0.144 | 0.166 | 0.50 | 0.64 | 0.25 | **2.6×** |
-| DM | 4 | 0.124 | 0.304 | 0.66 | 0.60 | 0.26 | **2.3×** |
-| CM | 4 | 0.151 | 0.210 | 0.58 | 0.62 | 0.25 | **2.4×** |
-| AM | 6 | 0.149 | 0.258 | 0.69 | 0.71 | 0.25 | **2.8×** |
-| W | 4 | 0.204 | 0.280 | 0.66 | 0.69 | 0.25 | **2.8×** |
-| FW | 3 | 0.169 | 0.154 | 0.50 | 0.70 | 0.26 | **2.8×** |
+| GK | 8 | 0.117 | 0.13 | 0.57 | 0.50 | 0.25 | **2.0×** |
+| CB | 4 | 0.126 | 0.30 | 0.63 | 0.60 | 0.25 | **2.4×** |
+| FB | 3 | 0.137 | 0.18 | 0.52 | 0.64 | 0.25 | **2.6×** |
+| DM | 6 | 0.119 | 0.22 | 0.63 | 0.60 | 0.26 | **2.3×** |
+| CM | 4 | 0.129 | 0.24 | 0.61 | 0.62 | 0.25 | **2.4×** |
+| AM | 4 | 0.178 | 0.21 | 0.59 | 0.71 | 0.25 | **2.8×** |
+| W | 4 | 0.220 | 0.33 | 0.70 | 0.69 | 0.25 | **2.8×** |
+| FW | 3 | 0.170 | 0.15 | 0.52 | 0.70 | 0.26 | **2.8×** |
 
 **Reading this honestly.** Silhouette scores of 0.10–0.22 say plainly that playing styles form a
 continuum, not well-separated groups; K-Means here is a useful summary of that continuum, not
@@ -352,6 +372,25 @@ python -m pytest tests/ -q                # 52 tests
 ```
 
 ---
+
+## Running it elsewhere
+
+Everything the app needs is committed, so it deploys with no extra setup:
+
+- **Streamlit Community Cloud** — point it at this repository with `app.py` as the entry point
+  and `requirements.txt` for dependencies. First load fits eight position models (about ten
+  seconds), then everything is cached.
+- **Locally** — `pip install -r requirements.txt && streamlit run app.py`.
+- **Rebuilding the data** — `python scripts/fetch_statsbomb.py` re-derives the real dataset from
+  the open-data feed (about ten minutes, resumable); `python scripts/build_dataset.py` regenerates
+  the simulated one.
+
+### Attribution and licence
+
+Real data is provided by **[StatsBomb Open Data](https://github.com/statsbomb/open-data)**, free
+for public use under their user agreement. StatsBomb is credited in the sidebar, on the home
+page, in every generated scouting report and here. The derived dataset in `data/raw/` is a
+transformation of that feed; the code in this repository is the author's own.
 
 ## Known limitations
 

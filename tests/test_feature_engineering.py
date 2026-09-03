@@ -86,3 +86,20 @@ def test_scaling_produces_zero_mean_unit_variance(features):
     z, _scaler = scale_features(pool, model_features("CB", list(pool.columns)))
     assert np.allclose(z.mean(), 0, atol=1e-8)
     assert np.allclose(z.std(ddof=0), 1, atol=1e-8)
+
+
+def test_pressure_and_set_piece_shares_are_percentages_of_their_base(features):
+    pressured = features[features["passes_attempted"] > 0]
+    expected = 100 * pressured["passes_under_pressure"] / pressured["passes_attempted"]
+    assert np.allclose(pressured["pressured_pass_share"], expected.round(2), atol=0.01)
+    assert pressured["pressured_pass_share"].between(0, 100).all()
+
+    shooting = features[features["npxg"] > 0]
+    assert shooting["open_play_npxg_share"].between(0, 100).all()
+
+
+def test_pass_completion_falls_under_pressure(features):
+    """A sanity check on the metric's direction, not on any one player."""
+    pool = features[features["passes_under_pressure"] >= 100]
+    assert len(pool) > 50
+    assert pool["pass_pct_under_pressure"].mean() < pool["pass_pct"].mean()

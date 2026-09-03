@@ -33,8 +33,10 @@ Silhouette scores of **0.10-0.25 are normal for football style data**, and shoul
 honestly: playing styles are a continuum, not well-separated groups. K-Means is a useful summary
 of that continuum, not proof that discrete player types exist.
 
-`k` is chosen as the largest k whose silhouette stays within 10% of the best score, with the
-inertia elbow reported as a cross-check - both curves are plotted on the Player Archetypes page.
+`k` is chosen as the largest k whose silhouette stays within 10% of the best score **and whose
+smallest cluster still holds enough players to mean anything** (at least 20, or 4% of the position
+group), with the inertia elbow reported as a cross-check. Both curves are plotted on the Player
+Archetypes page.
 """
 )
 if "adjusted_rand_vs_true_role" in diagnostics.columns:

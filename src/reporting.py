@@ -24,7 +24,7 @@ HEADLINE_METRICS = [
     "np_goals_per90", "npxg_per90", "assists_per90", "xa_per90", "shots_per90",
     "key_passes_per90", "sca_per90", "progressive_passes_per90",
     "progressive_carries_per90", "dribbles_completed_per90", "pass_pct",
-    "defensive_actions_per90", "aerial_win_pct",
+    "pass_pct_under_pressure", "defensive_actions_per90", "aerial_win_pct",
 ]
 
 GK_HEADLINE_METRICS = [

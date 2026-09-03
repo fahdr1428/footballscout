@@ -55,12 +55,15 @@ note(
     "Silhouette on football style data almost always peaks at k=2, because styles form a "
     "continuum rather than separated groups. Taking that argmax gives 'two kinds of "
     f"{POSITION_GROUP_NAMES[group].lower()}', which is true and useless. The rule used here is the "
-    "<b>largest k whose silhouette stays within 10% of the best score</b>, with the inertia elbow "
-    "shown alongside as a cross-check. Both curves are above so the choice can be argued with."
+    "<b>largest k whose silhouette stays within 10% of the best score</b>, subject to every "
+    "cluster keeping at least 20 players (or 4% of the group) - an archetype supported by nine "
+    "players is a curiosity, not a role. The inertia elbow is shown alongside as a cross-check, "
+    "and both curves are above so the choice can be argued with."
 )
 st.dataframe(
     model.clusters.evaluation.rename(
-        columns={"k": "k", "inertia": "Inertia", "silhouette": "Silhouette"}
+        columns={"k": "k", "inertia": "Inertia", "silhouette": "Silhouette",
+                 "smallest_cluster": "Smallest cluster"}
     ).round({"Inertia": 1, "Silhouette": 3}),
     hide_index=True,
 )

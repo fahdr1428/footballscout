@@ -144,6 +144,11 @@ POSITION_GROUP_BY_SB = {
 POSSESSION_GAIN_TYPES = {"Ball Receipt*", "Ball Recovery", "Interception", "Clearance", "Block"}
 
 SHOT_ON_TARGET = {"Goal", "Saved", "Saved to Post", "Saved Off Target"}
+# Play patterns that mean the chance came from a dead ball. Throw-ins and goal
+# kicks are deliberately excluded: a shot several passes after a throw-in is
+# open play by any normal reading, and counting it as a set piece would put the
+# open-play share far below the ~75-80% the game actually produces.
+SET_PIECE_PATTERNS = {"From Corner", "From Free Kick"}
 GK_SAVE_TYPES = {"Shot Saved", "Save", "Penalty Saved", "Shot Saved to Post", "Shot Saved Off Target"}
 GK_CLAIM_TYPES = {"Collected", "Punch", "Claim", "Smother", "Keeper Sweeper"}
 DUEL_WON = {"Won", "Success", "Success In Play", "Success Out"}
@@ -231,6 +236,7 @@ COUNTER_KEYS = [
     "progressive_passes", "passes_into_final_third", "passes_into_pen_area", "through_balls",
     "crosses", "switches", "long_passes_attempted", "long_passes_completed",
     "progressive_receptions", "touches", "miscontrols", "dispossessed", "tackles",
+    "passes_under_pressure", "passes_completed_under_pressure", "npxg_open_play", "npxg_set_piece",
     "tackles_won", "interceptions", "blocks", "clearances", "ball_recoveries", "pressures",
     "pressures_successful", "aerials_won", "aerials_lost", "fouls_committed", "errors",
     "gk_shots_on_target_against", "gk_saves", "gk_goals_against", "gk_crosses_faced",
@@ -375,6 +381,13 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
             complete = "outcome" not in detail
             length = float(detail.get("length") or 0.0)
             bump(player, "passes_attempted")
+            # StatsBomb flags an event as under_pressure when an opponent is
+            # actively closing the player down - a distinction only event data
+            # can make, and one of the more useful things it buys a scout.
+            if event.get("under_pressure"):
+                bump(player, "passes_under_pressure")
+                if complete:
+                    bump(player, "passes_completed_under_pressure")
             if complete:
                 bump(player, "passes_completed")
                 if is_progressive(location, end):
@@ -428,6 +441,11 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
             else:
                 bump(player, "shots")
                 bump(player, "npxg", xg)
+                # Chances built in open play are a different skill from chances
+                # that arrive from a corner, so the two are kept apart.
+                pattern = (event.get("play_pattern") or {}).get("name", "")
+                set_piece = pattern in SET_PIECE_PATTERNS or shot_type in {"Free Kick", "Corner"}
+                bump(player, "npxg_set_piece" if set_piece else "npxg_open_play", xg)
                 if outcome in SHOT_ON_TARGET:
                     bump(player, "shots_on_target")
                 if outcome == "Goal":

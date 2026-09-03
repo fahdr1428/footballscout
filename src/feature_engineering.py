@@ -110,6 +110,18 @@ def add_derived_metrics(df: pd.DataFrame) -> pd.DataFrame:
         df[PROGRESSIVE_ACTION_PARTS].sum(axis=1) / exposure
     ).round(3)
 
+    # How much of a player's passing happens with an opponent closing him down -
+    # role and team context as much as skill, which is why it sits beside the
+    # under-pressure completion rate rather than inside it.
+    if "passes_under_pressure" in df.columns:
+        df["pressured_pass_share"] = (
+            100 * df["passes_under_pressure"] / df["passes_attempted"].replace(0, np.nan)
+        ).round(2)
+    if "npxg_open_play" in df.columns:
+        df["open_play_npxg_share"] = (
+            100 * df["npxg_open_play"] / df["npxg"].replace(0, np.nan)
+        ).round(2)
+
     gk = groups.eq("GK")
     df["gk_psxg_minus_ga_per90"] = np.where(
         gk, (df.get("gk_psxg", np.nan) - df.get("gk_goals_against", np.nan)) / exposure, np.nan

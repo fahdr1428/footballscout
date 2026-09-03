@@ -61,6 +61,8 @@ excluded, because every other team would field a phantom squad.
 | Successful pressure | A pressure after which the pressing team is on the ball within five seconds. |
 | Error | A miscontrol, dispossession or failed pass followed within five seconds by a shot for the opposition. |
 | Aerials | Wins from the `aerial_won` flag on the winner's event; losses from `Duel: Aerial Lost`. |
+| Passing under pressure | StatsBomb flags an event `under_pressure` when an opponent is actively closing the player down. Completion is computed on that subset, and the share of a player's passes that are pressed is reported beside it - that share is role and team context, not skill. |
+| Open-play vs set-piece xG | Non-penalty xG is split by the shot's `play_pattern`: chances arriving from a corner, free kick, throw-in or keeper distribution are counted as set-piece, the rest as open play. A striker who feeds on corners is a different signing from one who creates from open play. |
 | Team possession | Share of playing time in possession, from the gaps between consecutive events. Gaps over a minute are dropped as stoppages and period changes end an interval, so half-time counts for nobody. |
 | Goalkeeping | Shots on target faced and goals conceded are read from the *opponent's* shots while that keeper was on the pitch; claims from keeper `Collected`/`Punch`/`Claim`/`Smother`; sweeper actions from keeper events outside the box; launches from keeper passes of 40+ yards. |
 
@@ -149,6 +151,8 @@ tackles is pulled back towards the positional average; a player with 90 tackles 
 this, small-sample percentages dominate every ranking.
 
 **Non-penalty xG per shot** uses the same shrinkage with k = {XG_PER_SHOT_PRIOR_SHOTS} shots.
+**Pass completion under pressure** uses the same formula on the pressed subset, with a smaller
+prior weight because there are fewer of those passes.
 
 **Possession adjustment** (optional columns, prefix `padj_`):
 

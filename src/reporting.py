@@ -73,7 +73,7 @@ def key_takeaways(platform: ScoutingPlatform, index) -> list[str]:
             f"{POSITION_GROUP_NAMES[row['position_group']].lower()}s in the filtered pool."
         )
 
-    if row["age"] <= YOUNG_AGE:
+    if platform.has_age and row["age"] <= YOUNG_AGE:
         strong = [c for c, v in categories.items() if v >= 75]
         if strong:
             takeaways.append(
@@ -86,7 +86,7 @@ def key_takeaways(platform: ScoutingPlatform, index) -> list[str]:
                 f"At {row['age']:.1f} there is room for development, but no category currently "
                 "reaches the top quartile of his positional peers."
             )
-    elif row["age"] >= VETERAN_AGE:
+    elif platform.has_age and row["age"] >= VETERAN_AGE:
         takeaways.append(
             f"At {row['age']:.1f} this is a short-horizon signing; resale value is unlikely to be "
             "part of the case."
@@ -98,12 +98,12 @@ def key_takeaways(platform: ScoutingPlatform, index) -> list[str]:
             f"{RELIABLE_MINUTES:,} minutes carry meaningful noise, especially finishing metrics."
         )
 
-    tier = LEAGUE_TIER.get(row["league"], 1)
+    tier = int(row.get("league_tier", 1))
     if tier > 1:
         takeaways.append(
             f"Plays in {row['league']} (level {tier} in this app's league table, coefficient "
-            f"{LEAGUE_STRENGTH.get(row['league'], 0.8):.2f}). Output should be discounted against "
-            "top-five-league peers; that coefficient is an assumption, not a measurement."
+            f"{float(row.get('league_strength', 0.8)):.2f}). Output should be discounted against "
+            "stronger leagues; that coefficient is an assumption, not a measurement."
         )
 
     if row["position_group"] != "GK":
@@ -134,9 +134,10 @@ def generate_report(
     parts: list[str] = []
     parts.append(f"# Scouting report - {row['player']}")
     parts.append(
-        f"*Generated {date.today().isoformat()} from the simulated reference dataset. "
+        f"*Generated {date.today().isoformat()} from {platform.spec.label}. "
         f"Pool: {len(platform.pool):,} player-seasons, minimum {platform.min_minutes:,} minutes. "
-        f"All percentiles are against {POSITION_GROUP_NAMES[group].lower()}s only.*"
+        f"Percentiles are measured against {platform.peer_group_label} "
+        f"({len(platform.peers(index)):,} of them).*"
     )
 
     parts.append("\n## Player")
@@ -144,13 +145,15 @@ def generate_report(
         _table(
             [
                 ["Name", str(row["player"])],
-                ["Age", f"{row['age']:.1f}"],
+                *([["Age", f"{row['age']:.1f}"]] if platform.has_age else []),
+                *([["Nationality", str(row["nationality"])]]
+                  if "nationality" in row.index and pd.notna(row.get("nationality")) else []),
                 ["Position", f"{row['position']} ({POSITION_GROUP_NAMES[group]})"],
                 ["Club", str(row["team"])],
-                ["League", f"{row['league']} (level {LEAGUE_TIER.get(row['league'], 1)})"],
+                ["League", f"{row['league']} (level {int(row.get('league_tier', 1))})"],
                 ["Season", str(row["season"])],
                 ["Minutes", f"{row['minutes']:,.0f} across {row['matches']:,.0f} appearances"],
-                ["Height", f"{row['height_cm']:.0f} cm"],
+                *([["Height", f"{row['height_cm']:.0f} cm"]] if platform.has("height_cm") else []),
             ],
             ["Field", "Value"],
         )
@@ -261,6 +264,7 @@ def generate_report(
     parts += [f"- {t}" for t in key_takeaways(platform, index)]
 
     parts.append("\n---")
+    parts.append(f"*{platform.spec.attribution}*")
     parts.append(
         "*Descriptive statistics (per-90 rates, percentages) are measurements of what happened. "
         "Archetypes, similarity scores and fit scores are model outputs built on those "

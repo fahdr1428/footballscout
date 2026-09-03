@@ -177,9 +177,14 @@ def metrics_for_percentiles(position_group: str, available: list[str]) -> list[s
 
 
 def compute_percentiles(
-    pool: pd.DataFrame, metrics: list[str], group_col: str = "position_group"
+    pool: pd.DataFrame, metrics: list[str], group_col: str | list[str] = "position_group"
 ) -> pd.DataFrame:
-    """Percentile rank (0-100) of each metric **within each position group**.
+    """Percentile rank (0-100) of each metric **within each peer group**.
+
+    The peer group is the position group, and any further column passed in -
+    on a dataset spanning men's and women's competitions the peer group is
+    position *and* competition, because a percentile is a claim about where a
+    player stands among players they could actually be compared with.
 
     Ranks are used rather than a normal-distribution assumption because most
     football rates are right-skewed. Metrics in `LOWER_IS_BETTER` are inverted

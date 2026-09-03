@@ -13,20 +13,21 @@ import pandas as pd
 import streamlit as st
 
 from .config import (
+    DATA_SOURCES,
+    DEFAULT_SOURCE,
     LEAGUE_TIER,
     LEAGUES,
     METRIC_LABELS,
     MINUTES_PRESETS,
     POSITION_GROUP_NAMES,
     POSITION_GROUPS,
-    SEASONS,
     THEME,
 )
 from .pipeline import ScoutingPlatform, build_features, build_platform, format_metric
 
-DATA_NOTICE = (
-    "Simulated dataset - these are not real players. The pipeline reads a real "
-    "FBref-style export just as happily; see the Methodology page."
+SOURCE_HELP = (
+    "Both datasets run through identical cleaning, feature and modelling code. "
+    "Switching refits every position model."
 )
 
 CSS = f"""
@@ -86,15 +87,28 @@ CSS = f"""
 # --------------------------------------------------------------------------
 
 @st.cache_data(show_spinner=False)
-def _cached_features():
-    features, report = build_features()
-    return features, report
+def _cached_features(source: str):
+    features, report, used = build_features(source)
+    return features, report, used
 
 
 @st.cache_resource(show_spinner=False)
-def get_platform(min_minutes: int, seasons: tuple[str, ...]) -> ScoutingPlatform:
-    features, report = _cached_features()
-    return build_platform(features, report, min_minutes=min_minutes, seasons=list(seasons))
+def get_platform(
+    source: str, min_minutes: int, seasons: tuple[str, ...], leagues: tuple[str, ...]
+) -> ScoutingPlatform:
+    features, report, used = _cached_features(source)
+    return build_platform(
+        features, report, min_minutes=min_minutes, seasons=list(seasons),
+        leagues=list(leagues), source=used,
+    )
+
+
+@st.cache_data(show_spinner=False)
+def source_scope(source: str) -> pd.DataFrame:
+    """Seasons, leagues and (where present) competition gender for a source."""
+    features, _report, _used = _cached_features(source)
+    columns = ["league", "season"] + (["gender"] if "gender" in features.columns else [])
+    return features[columns].drop_duplicates().reset_index(drop=True)
 
 
 # --------------------------------------------------------------------------
@@ -142,13 +156,41 @@ def tiles(items: list[tuple[str, str, str]]) -> None:
 
 
 def sidebar_filters(default_minutes: int | None = None) -> ScoutingPlatform:
-    """Pool-defining controls, shared by every page."""
+    """Dataset choice and the pool-defining controls, shared by every page."""
     with st.sidebar:
+        st.markdown("### Dataset")
+        keys = list(DATA_SOURCES)
+        stored_source = st.session_state.get("source", DEFAULT_SOURCE)
+        source = st.radio(
+            "Source", keys,
+            index=keys.index(stored_source) if stored_source in keys else 0,
+            format_func=lambda k: DATA_SOURCES[k].label,
+            help=SOURCE_HELP,
+        )
+        st.session_state["source"] = source
+
+        scope = source_scope(source)
+        seasons_available = sorted(scope["season"].unique())
+
         st.markdown("### Comparison pool")
         st.caption(
             "These settings define who every percentile, cluster and similarity score is "
             "measured against."
         )
+
+        leagues_available = sorted(scope["league"].unique())
+        if "gender" in scope.columns and scope["gender"].nunique() > 1:
+            options = ["All competitions", "Men's football", "Women's football"]
+            choice = st.radio(
+                "Competitions", options,
+                index=options.index(st.session_state.get("scope_%s" % source, options[0])),
+                help="This dataset spans men's and women's competitions. A percentile is a "
+                     "statement about a peer group, so scope the pool before reading one.",
+            )
+            st.session_state["scope_%s" % source] = choice
+            if choice != "All competitions":
+                gender = "male" if choice.startswith("Men") else "female"
+                leagues_available = sorted(scope.loc[scope["gender"] == gender, "league"].unique())
         options = MINUTES_PRESETS + ["Custom"]
         stored = st.session_state.get("min_minutes", default_minutes or 900)
         default_choice = options.index(stored) if stored in options else len(options) - 1
@@ -162,22 +204,98 @@ def sidebar_filters(default_minutes: int | None = None) -> ScoutingPlatform:
             st.slider("Custom minimum", 200, 3000, int(stored) if isinstance(stored, int) else 900, 100)
             if choice == "Custom" else int(choice)
         )
-        seasons = st.multiselect("Seasons", SEASONS, default=st.session_state.get("seasons", SEASONS))
+        picked_leagues = st.session_state.get("leagues_%s" % source, leagues_available)
+        picked_leagues = [lg for lg in picked_leagues if lg in leagues_available] or leagues_available
+        leagues = st.multiselect("Leagues in the pool", leagues_available, default=picked_leagues)
+        if not leagues:
+            leagues = list(leagues_available)
+
+        seasons_available = sorted(scope.loc[scope["league"].isin(leagues), "season"].unique())
+        picked = st.session_state.get("seasons_%s" % source, seasons_available)
+        picked = [s for s in picked if s in seasons_available] or seasons_available
+        seasons = st.multiselect("Seasons", seasons_available, default=picked)
         if not seasons:
-            seasons = list(SEASONS)
+            seasons = list(seasons_available)
         st.session_state["min_minutes"] = minutes
-        st.session_state["seasons"] = seasons
+        st.session_state["seasons_%s" % source] = seasons
+        st.session_state["leagues_%s" % source] = leagues
 
     with st.spinner("Fitting position models..."):
-        platform = get_platform(minutes, tuple(sorted(seasons)))
+        platform = get_platform(
+            source, minutes, tuple(sorted(seasons)), tuple(sorted(leagues))
+        )
 
     with st.sidebar:
+        if platform.source != source:
+            st.warning(
+                f"{DATA_SOURCES[source].label} has not been built yet - run "
+                "`python scripts/fetch_statsbomb.py`. Showing "
+                f"{DATA_SOURCES[platform.source].label} instead.",
+                icon="⚠️",
+            )
+        spec = platform.spec
+        tone = "good" if platform.is_real else "warn"
         st.markdown(
-            f'<div class="sx-note">Pool: <b>{len(platform.pool):,}</b> player-seasons across '
-            f'{platform.pool["league"].nunique()} leagues.<br>{DATA_NOTICE}</div>',
+            f'<div class="sx-note"><span class="sx-badge {tone}">'
+            f'{"Real data" if platform.is_real else "Simulated data"}</span><br>'
+            f'Pool: <b>{len(platform.pool):,}</b> player-seasons · '
+            f'{platform.pool["league"].nunique()} leagues · '
+            f'{platform.pool["team"].nunique()} clubs.<br>{spec.attribution}</div>',
             unsafe_allow_html=True,
         )
+        with st.expander("What this dataset can and cannot say"):
+            for caveat in spec.caveats:
+                st.markdown(f"- {caveat}")
     return platform
+
+
+def source_banner(platform: ScoutingPlatform) -> None:
+    """The standing statement about what the numbers on the page are."""
+    spec = platform.spec
+    if platform.is_real:
+        st.info(f"**{spec.label}.** {spec.summary} {spec.attribution}", icon="✅")
+    else:
+        st.warning(f"**{spec.label}.** {spec.summary}", icon="⚠️")
+
+
+# --------------------------------------------------------------------------
+# Optional-column helpers
+# --------------------------------------------------------------------------
+# A real feed may not publish everything the schema supports (StatsBomb open
+# data has no birth dates). Rather than invent values, pages ask the platform
+# what it has and drop the affected control or column.
+
+AGE_MISSING_NOTE = (
+    "Age is not published in this dataset, so age filters, the age-upside score component "
+    "and the age columns are switched off."
+)
+
+
+def age_slider(platform, label: str = "Age", default=(15.0, 40.0), key: str | None = None):
+    """Age range control, or None when the dataset has no ages."""
+    if not platform.has_age:
+        return None
+    low = float(np.floor(platform.pool["age"].min()))
+    high = float(np.ceil(platform.pool["age"].max()))
+    default = (max(default[0], low), min(default[1], high))
+    return st.slider(label, low, high, default, 0.5, key=key)
+
+
+def apply_age(pool: pd.DataFrame, age_range) -> pd.DataFrame:
+    if age_range is None or "age" not in pool.columns:
+        return pool
+    return pool[pool["age"].between(*age_range)]
+
+
+def age_columns(platform, frame: pd.DataFrame, source: pd.DataFrame) -> pd.DataFrame:
+    """Insert an Age column only when the dataset supplies one."""
+    if platform.has_age and "age" in source.columns:
+        frame.insert(min(2, len(frame.columns)), "Age", source["age"].to_numpy())
+    return frame
+
+
+def default_axis(platform, preferred: str = "age", fallback: str = "minutes") -> str:
+    return preferred if platform.has(preferred) else fallback
 
 
 # --------------------------------------------------------------------------
@@ -241,15 +359,101 @@ def player_header(platform: ScoutingPlatform, index, show_archetype: bool = True
     items = [
         (f"{row['position']} - {POSITION_GROUP_NAMES[row['position_group']]}", "accent"),
         (f"{row['team']}", ""),
-        (f"{row['league']} (level {LEAGUE_TIER.get(row['league'], 1)})", ""),
+        (f"{row['league']} (level {int(row.get('league_tier', 1))})", ""),
         (f"{row['season']}", ""),
-        (f"Age {row['age']:.1f}", ""),
-        (f"{row['height_cm']:.0f} cm", ""),
-        (f"{row['minutes']:,.0f} min", "good" if row["minutes"] >= 1500 else "warn"),
     ]
+    # Only show what the dataset actually supplies.
+    if "nationality" in row.index and pd.notna(row.get("nationality")):
+        items.append((str(row["nationality"]), ""))
+    if platform.has_age and pd.notna(row.get("age")):
+        items.append((f"Age {row['age']:.1f}", ""))
+    if platform.has("height_cm") and pd.notna(row.get("height_cm")):
+        items.append((f"{row['height_cm']:.0f} cm", ""))
+    items.append((f"{row['minutes']:,.0f} min", "good" if row["minutes"] >= 1500 else "warn"))
     if show_archetype:
         items.insert(1, (archetype, "accent"))
     badges(items)
+
+
+# --------------------------------------------------------------------------
+# Watchlist
+# --------------------------------------------------------------------------
+# A scout's shortlist, held in the session so it survives moving between pages.
+# Entries are stored by player identity rather than row position, so changing
+# the minimum-minutes filter or the dataset does not scramble them.
+
+WATCHLIST_KEY = "watchlist"
+
+
+def _entry(platform: ScoutingPlatform, index) -> dict:
+    row = platform.row(index)
+    return {
+        "player_id": str(row["player_id"]),
+        "season": str(row["season"]),
+        "player": str(row["player"]),
+        "team": str(row["team"]),
+        "league": str(row["league"]),
+        "source": platform.source,
+    }
+
+
+def watchlist() -> list[dict]:
+    return st.session_state.setdefault(WATCHLIST_KEY, [])
+
+
+def in_watchlist(platform: ScoutingPlatform, index) -> bool:
+    entry = _entry(platform, index)
+    return any(
+        e["player_id"] == entry["player_id"] and e["season"] == entry["season"]
+        for e in watchlist()
+    )
+
+
+def add_to_watchlist(platform: ScoutingPlatform, index) -> bool:
+    if in_watchlist(platform, index):
+        return False
+    watchlist().append(_entry(platform, index))
+    return True
+
+
+def remove_from_watchlist(player_id: str, season: str) -> None:
+    st.session_state[WATCHLIST_KEY] = [
+        e for e in watchlist() if not (e["player_id"] == player_id and e["season"] == season)
+    ]
+
+
+def watchlist_indices(platform: ScoutingPlatform) -> list:
+    """Resolve stored entries to rows in the current pool, dropping any that fell out."""
+    lookup = {
+        (str(r.player_id), str(r.season)): i
+        for i, r in zip(platform.pool.index, platform.pool.itertuples())
+    }
+    return [
+        lookup[(e["player_id"], e["season"])]
+        for e in watchlist()
+        if (e["player_id"], e["season"]) in lookup
+    ]
+
+
+def watchlist_button(platform: ScoutingPlatform, index, key: str) -> None:
+    """A single add/remove control, used from any page."""
+    entry = _entry(platform, index)
+    if in_watchlist(platform, index):
+        if st.button("Remove from watchlist", key=f"wl_del_{key}"):
+            remove_from_watchlist(entry["player_id"], entry["season"])
+            st.rerun()
+    elif st.button("Add to watchlist", key=f"wl_add_{key}"):
+        add_to_watchlist(platform, index)
+        st.rerun()
+
+
+def watchlist_sidebar() -> None:
+    entries = watchlist()
+    if entries:
+        with st.sidebar:
+            st.markdown(f"### Watchlist · {len(entries)}")
+            st.caption(", ".join(e["player"] for e in entries[:6]) + ("..." if len(entries) > 6 else ""))
+            st.page_link("pages/10_📋_Watchlist.py", label="Open watchlist", icon="📋")
 
 
 # --------------------------------------------------------------------------

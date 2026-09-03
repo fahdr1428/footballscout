@@ -72,19 +72,24 @@ class RecruitmentBrief:
         return {k: 100 * v / total for k, v in weights.items()}
 
 
+def _league_strength(pool: pd.DataFrame) -> pd.Series:
+    """League coefficients from the data where present, else the config table."""
+    if "league_strength" in pool.columns and pool["league_strength"].notna().any():
+        return pool["league_strength"].astype(float)
+    return pool["league"].map(LEAGUE_STRENGTH).fillna(0.80)
+
+
 def apply_brief(pool: pd.DataFrame, brief: RecruitmentBrief) -> pd.Series:
     """Boolean mask of players who satisfy every hard filter in the brief."""
-    mask = (
-        pool["position_group"].eq(brief.position_group)
-        & pool["minutes"].ge(brief.min_minutes)
-        & pool["age"].between(*brief.age_range)
-    )
+    mask = pool["position_group"].eq(brief.position_group) & pool["minutes"].ge(brief.min_minutes)
+    if "age" in pool.columns and pool["age"].notna().any():
+        mask &= pool["age"].between(*brief.age_range)
     if brief.leagues:
         mask &= pool["league"].isin(brief.leagues)
     if brief.seasons:
         mask &= pool["season"].isin(brief.seasons)
     if brief.max_league_strength is not None:
-        mask &= pool["league"].map(LEAGUE_STRENGTH).fillna(1.0).le(brief.max_league_strength)
+        mask &= _league_strength(pool).le(brief.max_league_strength)
     for metric, operator, value in brief.thresholds:
         if metric in pool.columns and operator in OPERATORS:
             mask &= OPERATORS[operator](pool[metric], value).fillna(False)
@@ -165,15 +170,17 @@ def age_upside(age: pd.Series) -> pd.Series:
     return (100 * ((GEM_AGE_CEILING - age) / span)).clip(0, 100).round(1)
 
 
-def exposure_score(league: pd.Series) -> pd.Series:
-    """Higher for players outside the strongest leagues.
+def exposure_score(strength: pd.Series) -> pd.Series:
+    """Higher for players outside the strongest leagues in the pool.
 
-    Uses the editable league-strength coefficients in config.py. It is a proxy
-    for visibility, not for quality.
+    A proxy for visibility, not for quality, and only as good as the
+    league-strength coefficients it is scaled against.
     """
-    strength = league.map(LEAGUE_STRENGTH).fillna(0.8)
-    low, high = min(LEAGUE_STRENGTH.values()), max(LEAGUE_STRENGTH.values())
-    return (100 * (high - strength) / max(high - low, 1e-9)).round(1)
+    strength = strength.astype(float)
+    low, high = float(strength.min()), float(strength.max())
+    if high - low < 1e-9:
+        return pd.Series(50.0, index=strength.index)
+    return (100 * (high - strength) / (high - low)).round(1)
 
 
 def sample_size_score(minutes: pd.Series) -> pd.Series:
@@ -207,16 +214,19 @@ def hidden_gem_scores(
         performance.loc[idx] = fit_scores(categories.loc[idx], group_weights)["fit_score"]
         uniqueness.loc[idx] = statistical_uniqueness(z.loc[idx])
 
-    components = pd.DataFrame(
-        {
-            "Performance": performance,
-            "Age upside": age_upside(pool["age"]),
-            "Low exposure": exposure_score(pool["league"]),
-            "Statistical uniqueness": uniqueness,
-            "Sample size": sample_size_score(pool["minutes"]),
-        }
-    )
+    columns = {
+        "Performance": performance,
+        "Low exposure": exposure_score(_league_strength(pool)),
+        "Statistical uniqueness": uniqueness,
+        "Sample size": sample_size_score(pool["minutes"]),
+    }
+    # Age upside only exists where the source publishes birth dates. When it
+    # does not, the component is dropped and the remaining weights are
+    # renormalised rather than a placeholder age being invented.
+    if "age" in pool.columns and pool["age"].notna().any():
+        columns["Age upside"] = age_upside(pool["age"])
 
+    components = pd.DataFrame(columns)
     total = sum(weights.get(c, 0) for c in components.columns)
     if total <= 0:
         total = 1.0
@@ -238,8 +248,10 @@ def cheaper_alternatives_mask(
     and that limitation is stated in the UI.
     """
     reference = pool.loc[reference_index]
-    mask = pool["age"] <= reference["age"] - max_age_delta
+    mask = pd.Series(True, index=pool.index)
+    if "age" in pool.columns and pd.notna(reference.get("age")):
+        mask &= pool["age"] <= reference["age"] - max_age_delta
     if require_lower_league:
-        reference_strength = LEAGUE_STRENGTH.get(reference["league"], 1.0)
-        mask &= pool["league"].map(LEAGUE_STRENGTH).fillna(1.0) < reference_strength
+        strength = _league_strength(pool)
+        mask &= strength < float(strength.loc[reference_index])
     return mask

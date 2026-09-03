@@ -74,17 +74,24 @@ summary = pd.DataFrame(
         "Share": [
             f"{(model.clusters.labels == c).mean():.0%}" for c in sorted(model.clusters.names)
         ],
-        "Median age": [
-            round(float(members.loc[model.clusters.labels == c, "age"].median()), 1)
-            for c in sorted(model.clusters.names)
-        ],
         "Median minutes": [
             int(members.loc[model.clusters.labels == c, "minutes"].median())
             for c in sorted(model.clusters.names)
         ],
     }
 )
+if platform.has_age:
+    summary.insert(
+        4, "Median age",
+        [round(float(members.loc[model.clusters.labels == c, "age"].median()), 1)
+         for c in sorted(model.clusters.names)],
+    )
 st.dataframe(summary, hide_index=True)
+if model.dropped_features:
+    st.caption(
+        "Not modelled for this position in this dataset (the source does not supply them): "
+        + ", ".join(METRIC_LABELS.get(f, f) for f in model.dropped_features)
+    )
 
 for cluster in sorted(model.clusters.names):
     with st.expander(
@@ -128,7 +135,6 @@ for cluster in sorted(model.clusters.names):
                     "Player": members.loc[ranked.index, "player"],
                     "Club": members.loc[ranked.index, "team"],
                     "League": members.loc[ranked.index, "league"],
-                    "Age": members.loc[ranked.index, "age"],
                     "Minutes": members.loc[ranked.index, "minutes"],
                     "Distance to centroid": ranked.round(2),
                 }
@@ -143,7 +149,8 @@ view = st.radio(
     help="Six archetypes cannot be told apart by colour alone at this density, so the map "
          "highlights one at a time or splits into panels rather than using six hues.",
 )
-meta = members[["player", "team", "league", "age", "minutes"]].join(archetypes.rename("archetype"))
+meta_columns = ["player", "team", "league", "minutes"] + (["age"] if platform.has_age else [])
+meta = members[meta_columns].join(archetypes.rename("archetype"))
 
 if view == "Highlight one archetype":
     columns = st.columns([1.4, 1.4])
@@ -189,7 +196,6 @@ st.dataframe(
     pd.DataFrame(
         {
             "Player": selection["player"],
-            "Age": selection["age"],
             "Club": selection["team"],
             "League": selection["league"],
             "Season": selection["season"],

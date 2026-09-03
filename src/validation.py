@@ -125,6 +125,107 @@ def similarity_role_agreement(
 
 
 # --------------------------------------------------------------------------
+# Real-data checks (no ground-truth labels required)
+# --------------------------------------------------------------------------
+
+def self_season_recall(
+    platform: ScoutingPlatform, k: int = 10, metric: str = "cosine", seed: int = 0
+) -> pd.DataFrame:
+    """Does a player's *own other season* come back as one of his closest matches?
+
+    This is the strongest validation available on real data. A player's profile
+    in a neighbouring season is the one case where we know the answer: it should
+    look like him. If the engine cannot find a player's own second season, the
+    similarity it reports between two different players means very little.
+
+    Chance level is k / (pool size - 1), which is why the lift column matters
+    more than the raw hit rate.
+    """
+    pool = platform.pool
+    repeats = pool[pool.duplicated(subset=["player_id"], keep=False)]
+    if repeats.empty:
+        return pd.DataFrame()
+
+    rows = []
+    for group, model in platform.models.items():
+        members = repeats[
+            (repeats["position_group"] == group) & repeats.index.isin(model.index)
+        ]
+        pairs = [
+            (a, b)
+            for _, block in members.groupby("player_id")
+            for a in block.index
+            for b in block.index
+            if a != b
+        ]
+        if not pairs:
+            continue
+        ranks, hits = [], []
+        candidates = len(model.index) - 1
+        for a, b in pairs:
+            distances = model.engine.distance_to_all(a, metric=metric)
+            order = pd.Series(distances, index=model.z.index).drop(index=a).sort_values()
+            if b not in order.index:
+                continue
+            rank = int(order.index.get_loc(b)) + 1
+            ranks.append(rank)
+            hits.append(rank <= k)
+        if not ranks:
+            continue
+        chance = k / max(candidates, 1)
+        rows.append(
+            {
+                "position_group": group,
+                "player_seasons_tested": len(ranks),
+                "candidates": candidates,
+                f"own_season_in_top{k}": round(float(np.mean(hits)), 3),
+                "chance": round(chance, 3),
+                "lift": round(float(np.mean(hits)) / chance, 1) if chance else np.nan,
+                "median_rank": int(np.median(ranks)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def team_mate_bias(
+    platform: ScoutingPlatform, k: int = 10, metric: str = "cosine", sample: int = 150, seed: int = 0
+) -> pd.DataFrame:
+    """How often a player's nearest neighbours are his own team-mates.
+
+    Team style leaks into individual numbers - a defender in a possession side
+    passes more because of the side, not the defender. If team-mates are wildly
+    over-represented in the top ten, the engine is partly matching on club
+    rather than on player.
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    for group, model in platform.models.items():
+        members = platform.pool.loc[model.index]
+        queries = rng.choice(model.index.to_numpy(), size=min(sample, len(model.index)), replace=False)
+        shares, baselines = [], []
+        for index in queries:
+            team = platform.pool.loc[index, "team"]
+            season = platform.pool.loc[index, "season"]
+            neighbours = model.engine.neighbours(index, n=k, metric=metric)
+            if neighbours.empty:
+                continue
+            shares.append(float((neighbours["team"] == team).mean()))
+            same_club = ((members["team"] == team) & (members["season"] == season)).sum() - 1
+            baselines.append(same_club / max(len(members) - 1, 1))
+        if not shares:
+            continue
+        rows.append(
+            {
+                "position_group": group,
+                f"team_mates_in_top{k}": round(float(np.mean(shares)), 3),
+                "chance": round(float(np.mean(baselines)), 3),
+                "lift": round(float(np.mean(shares)) / max(float(np.mean(baselines)), 1e-9), 1),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------
 # Feature dominance
 # --------------------------------------------------------------------------
 
@@ -298,6 +399,29 @@ def build_validation_report(
             "same generative role; `chance_baseline` is what random picking would produce given "
             "the role mix in that position. A lift above 1 means the model is recovering role, "
             "not noise."
+        )
+
+    recall = self_season_recall(platform)
+    if not recall.empty:
+        parts += ["", "## 2b. Does the engine recognise the same player twice?", ""]
+        parts.append(_md_table(recall))
+        parts.append("")
+        parts.append(
+            "For every player with two seasons in the pool, this asks where his *other* season "
+            "ranks among his nearest neighbours. It is the only case where the right answer is "
+            "known without any labels, which makes it the check that also works on real data. "
+            "`chance` is what random ordering would give."
+        )
+
+    bias = team_mate_bias(platform)
+    if not bias.empty:
+        parts += ["", "## 2c. Is the engine matching on club rather than player?", ""]
+        parts.append(_md_table(bias))
+        parts.append("")
+        parts.append(
+            "Team style leaks into individual numbers: a defender in a possession side passes "
+            "more because of the side. Some over-representation of team-mates is expected and "
+            "correct; a large lift would mean the model is partly clustering clubs."
         )
 
     parts += ["", "## 3. Is the model dominated by a few metrics?", ""]

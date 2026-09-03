@@ -66,25 +66,33 @@ if len(groups) > 1:
 
 # ---- basic information ---------------------------------------------------
 st.markdown("## Basic information")
+def _profile_fields(index, row) -> list[tuple[str, str]]:
+    fields = []
+    if platform.has_age:
+        fields.append(("Age", f"{row['age']:.1f}"))
+    if "nationality" in row.index and pd.notna(row.get("nationality")):
+        fields.append(("Nationality", str(row["nationality"])))
+    fields += [
+        ("Position", f"{row['position']} - {POSITION_GROUP_NAMES[row['position_group']]}"),
+        ("Club", str(row["team"])),
+        ("League", f"{row['league']} (level {int(row.get('league_tier', 1))})"),
+        ("Season", str(row["season"])),
+        ("Minutes", f"{row['minutes']:,.0f}"),
+        ("Appearances", f"{row['matches']:,.0f}"),
+        ("Starts", f"{row['starts']:,.0f}"),
+    ]
+    if platform.has("height_cm"):
+        fields.append(("Height", f"{row['height_cm']:.0f} cm"))
+    fields.append(("Archetype", platform.archetype(index)[0]))
+    return fields
+
+
+columns_of = [_profile_fields(i, r) for i, r in zip(indices, rows)]
 info = pd.DataFrame(
     {
-        "Field": ["Age", "Position", "Club", "League", "Season", "Minutes", "Appearances",
-                  "Starts", "Height", "Archetype"],
-        **{
-            r["player"]: [
-                f"{r['age']:.1f}",
-                f"{r['position']} - {POSITION_GROUP_NAMES[r['position_group']]}",
-                r["team"],
-                f"{r['league']} (level {LEAGUE_TIER.get(r['league'], 1)})",
-                r["season"],
-                f"{r['minutes']:,.0f}",
-                f"{r['matches']:,.0f}",
-                f"{r['starts']:,.0f}",
-                f"{r['height_cm']:.0f} cm",
-                platform.archetype(i)[0],
-            ]
-            for i, r in zip(indices, rows)
-        },
+        "Field": [name for name, _ in columns_of[0]],
+        **{r["player"]: [value for _, value in column]
+           for r, column in zip(rows, columns_of)},
     }
 )
 st.dataframe(info, hide_index=True)

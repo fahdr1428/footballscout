@@ -10,7 +10,7 @@ from src.recruitment import (
     DEFAULT_GEM_WEIGHTS, GEM_AGE_CEILING, GEM_AGE_FLOOR, GEM_MINUTES_FULL, hidden_gem_scores,
 )
 from src.reporting import generate_report
-from src.ui import chart, eyebrow, note, page_setup, sidebar_filters, tiles
+from src.ui import age_slider, chart, default_axis, eyebrow, note, page_setup, sidebar_filters, tiles
 from src.visualisation import component_bar, radar_chart, scatter
 
 page_setup("Hidden Gems", "💎")
@@ -40,11 +40,22 @@ st.markdown(
 )
 
 st.markdown("## Weights")
-weight_columns = st.columns(len(DEFAULT_GEM_WEIGHTS))
+available_components = [
+    c for c in DEFAULT_GEM_WEIGHTS if c != "Age upside" or platform.has_age
+]
+if len(available_components) < len(DEFAULT_GEM_WEIGHTS):
+    st.info(
+        "This dataset publishes no birth dates, so **age upside is dropped** and the remaining "
+        "weights are renormalised. Nothing is substituted for it.",
+        icon="ℹ️",
+    )
+weight_columns = st.columns(len(available_components))
 weights: dict[str, float] = {}
-for column, (component, default) in zip(weight_columns, DEFAULT_GEM_WEIGHTS.items()):
+for column, component in zip(weight_columns, available_components):
     with column:
-        weights[component] = st.slider(component, 0, 60, int(default), 5, key=f"gem_{component}")
+        weights[component] = st.slider(
+            component, 0, 60, int(DEFAULT_GEM_WEIGHTS[component]), 5, key=f"gem_{component}"
+        )
 if sum(weights.values()) == 0:
     st.warning("Give at least one component a weight above zero.")
     st.stop()
@@ -57,7 +68,7 @@ with filters[0]:
         format_func=lambda g: f"{g} - {POSITION_GROUP_NAMES[g]}",
     )
 with filters[1]:
-    max_age = st.slider("Maximum age", 16.0, 34.0, 23.0, 0.5)
+    age_range = age_slider(platform, "Age range", (16.0, 23.0), key="gem_age")
 with filters[2]:
     min_minutes = st.number_input(
         "Minimum minutes", int(platform.min_minutes), 3400, max(900, int(platform.min_minutes)), 50
@@ -73,7 +84,9 @@ scores = hidden_gem_scores(
 )
 
 candidates = pool.join(scores)
-candidates = candidates[(candidates["age"] <= max_age) & (candidates["minutes"] >= min_minutes)]
+candidates = candidates[candidates["minutes"] >= min_minutes]
+if age_range is not None:
+    candidates = candidates[candidates["age"].between(*age_range)]
 if groups:
     candidates = candidates[candidates["position_group"].isin(groups)]
 if max_tier == "Level 2 and below":
@@ -93,7 +106,11 @@ tiles(
     [
         ("Candidates", f"{len(candidates):,}", "after filters"),
         ("Top score", f"{candidates['hidden_gem_score'].max():.1f}", "weighted composite"),
-        ("Median age", f"{candidates['age'].median():.1f}", "years"),
+        (
+            ("Median age", f"{candidates['age'].median():.1f}", "years")
+            if platform.has_age
+            else ("Median minutes", f"{candidates['minutes'].median():,.0f}", "per season")
+        ),
         ("Leagues", f"{candidates['league'].nunique()}", "represented"),
     ]
 )
@@ -104,19 +121,20 @@ view = pd.DataFrame(
     {
         "Score": top["hidden_gem_score"],
         "Player": top["player"],
-        "Age": top["age"],
         "Pos": top["position"],
         "Club": top["team"],
         "League": top["league"],
         "Minutes": top["minutes"],
         "Performance": top["Performance"],
-        "Age upside": top["Age upside"],
         "Low exposure": top["Low exposure"],
         "Uniqueness": top["Statistical uniqueness"],
         "Sample size": top["Sample size"],
         "Archetype": top["archetype"],
     }
 )
+if platform.has_age:
+    view.insert(2, "Age", top["age"].to_numpy())
+    view["Age upside"] = top["Age upside"].to_numpy()
 st.dataframe(
     view, hide_index=True, height=440,
     column_config={
@@ -130,12 +148,13 @@ note(
     "The score is their weighted mean - so a list can be re-pointed simply by moving the sliders."
 )
 
-st.markdown("## Performance against age")
+st.markdown("## Performance against age" if platform.has_age else "## Performance against minutes")
 chart(
     scatter(
-        candidates, x="age", y="Performance", hover_name="player",
+        candidates, x=default_axis(platform), y="Performance", hover_name="player",
         hover_cols=["team", "league", "minutes", "hidden_gem_score"],
-        x_title="Age", y_title="Performance component (weighted positional percentile)",
+        x_title="Age" if platform.has_age else "Minutes played",
+        y_title="Performance component (weighted positional percentile)",
         highlight=candidates.index.isin(top.head(15).index)
         if len(candidates) > 15 else None,
         highlight_label="Top 15 by hidden-gem score", height=440,
@@ -151,7 +170,7 @@ index = platform.index_for_label(chosen)
 if index is not None:
     st.session_state["selected_player_label"] = chosen
     row = platform.row(index)
-    components = {c: float(candidates.loc[index, c]) for c in DEFAULT_GEM_WEIGHTS}
+    components = {c: float(candidates.loc[index, c]) for c in available_components}
     columns = st.columns([1, 1])
     with columns[0]:
         eyebrow("Component breakdown")

@@ -1,8 +1,13 @@
 # Football Player Scouting & Recruitment Intelligence Platform
 
-A position-aware scouting and recruitment analytics platform: find statistically similar players,
-turn a recruitment brief into a ranked shortlist, and read a player's strengths and weaknesses
-against his positional peers — with the arithmetic behind every number on show.
+A position-aware scouting and recruitment analytics platform running on **real match data**:
+find statistically similar players, turn a recruitment brief into a ranked shortlist, read a
+player's strengths and weaknesses against his positional peers, and work out who could replace
+him — with the arithmetic behind every number on show.
+
+**4,989 real player-seasons** derived from **2,384 matches** of StatsBomb Open Data: the complete
+2015-16 Premier League, La Liga, Serie A and Ligue 1, four FA WSL seasons, two NWSL seasons,
+Liga F, the Frauen Bundesliga, Serie A Women and the Indian Super League.
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
@@ -11,12 +16,24 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The dataset builds itself on first run (a few seconds); no downloads or API keys are needed.
+The real dataset is committed, so the app runs immediately — no downloads or API keys needed.
 
 ![Player profile](assets/screenshot-player-profile.png)
 
 <details>
 <summary>More screenshots</summary>
+
+**Percentile profile — measured against the right peer group**
+
+![Percentiles](assets/screenshot-percentiles.png)
+
+**Squad analysis — Arsenal WFC, with archetypes generated from the data**
+
+![Squad analysis](assets/screenshot-squad.png)
+
+**Replacement finder — style versus quality, on a slider**
+
+![Replacement finder](assets/screenshot-replacements.png)
 
 **Similar players, with the reason behind the match**
 
@@ -25,6 +42,10 @@ The dataset builds itself on first run (a few seconds); no downloads or API keys
 **Recruitment finder — weights and shortlist**
 
 ![Recruitment finder](assets/screenshot-recruitment.png)
+
+**Model validation — does the engine recognise the same player twice?**
+
+![Validation](assets/screenshot-validation.png)
 
 **Archetypes — how k was chosen**
 
@@ -38,67 +59,115 @@ The dataset builds itself on first run (a few seconds); no downloads or API keys
 
 ---
 
-## Read this first: the data is simulated
+## The data: real players, from StatsBomb Open Data
 
-Real season data (FBref, Opta, StatsBomb) cannot be redistributed with a public repository, so the
-app ships with a **simulated player universe**. The names are invented and **nothing in this app
-describes a real footballer.**
+The platform ships with a **real** player-season dataset built from the
+[StatsBomb Open Data](https://github.com/statsbomb/open-data) event feed, which is free for
+public use. `src/statsbomb.py` downloads the event files and derives the whole schema from raw
+events — nothing is taken from a provider's pre-computed summary table, so every definition can
+be argued with and changed.
 
-It is not random noise. Every player is drawn from a latent-trait model:
+| Competition | Seasons | Matches |
+| --- | --- | --- |
+| Premier League, La Liga, Serie A, Ligue 1 | 2015-16 (complete) | 1,517 |
+| FA WSL | 2018-19, 2019-20, 2020-21, 2023-24 | 457 |
+| NWSL | 2018, 2023 | 173 |
+| Liga F, Frauen Bundesliga, Serie A Women | 2023-24 | 502 |
+| Indian Super League | 2021-22 | 115 |
 
-1. each player belongs to a **role profile** — "ball-playing centre-back", "poacher",
-   "sweeper-keeper" — which defines a mean vector over interpretable traits (defending, aerial,
-   progression, carrying, creation, finishing, pressing, …);
-2. traits are perturbed per player and per season;
-3. each per-90 rate is `base_rate(position) × exp(loadings · traits)`, so metrics that share a
-   trait are genuinely correlated, as they are in real football;
-4. **season totals are then sampled** — counts from a Poisson process over the player's actual
-   minutes, success rates from a Binomial over their attempts.
+**2,384 matches → 4,989 player-seasons.** Only competition-seasons where the feed covers the
+*whole* league are ingested; seasons carrying a single club (Barcelona's La Liga years,
+Leverkusen 2023-24) are excluded, because every other team would field a phantom squad.
 
-Step 4 is the important one: a player with 300 minutes has a genuinely noisy per-90 profile, which
-is exactly why the minimum-minutes filter matters. Realistic defects — duplicated rows, missing
-optional columns, impossible values — are injected on purpose so the cleaning pipeline has real
-work to do, and the app reports what it caught.
+### Does it produce the right numbers?
 
-**Because the generative roles are known, the models can be validated properly** (see
-[Validation](#validation)) — a supervised check that is simply not available on real data.
+Spot-checks against the historical record, straight out of the pipeline:
 
-### Using real data instead
+| Check | Platform output | Reality |
+| --- | --- | --- |
+| Premier League 2015-16 top scorer | Harry Kane 25 | Kane 25 (Golden Boot) |
+| Next four | Vardy 24, Agüero 24, Lukaku 18, Mahrez 17 | exactly those figures |
+| La Liga 2015-16 top scorer | Luis Suárez 40 | Suárez 40 (Pichichi) |
+| Most tackles + interceptions, PL | N'Golo Kanté | Kanté led the league |
+| Leicester City possession | 44.3% | ~44.8% — the lowest-possession champions in PL history |
+| Total minutes, PL 2015-16 | 752,246 | 752,400 minus red cards |
+
+Mahrez's 2015-16 (PFA Player of the Year) comes out at the 98th percentile for take-ons
+attempted, 96th for completed, 93rd for xA, 91st for both goals and assists per 90.
+
+### What this feed cannot supply
+
+- **No birth dates**, so age is unavailable. Every age filter, the age column and the
+  age-upside component of the hidden-gem score are **switched off** rather than filled with a
+  guess. The platform reports what a source cannot supply instead of imputing it.
+- **No heights.**
+- **No post-shot xG** — a paid StatsBomb feature — so goalkeepers are judged on save percentage
+  and goals conceded rather than goals prevented. That feature is dropped from the GK model,
+  not zero-filled.
+
+Rebuild it any time:
+
+```bash
+python scripts/fetch_statsbomb.py          # ~10 minutes; match results are cached and resumable
+```
+
+### The second dataset, and why it exists
+
+The repository also ships a **simulated** universe — 14 leagues over two seasons, with every
+field the schema supports including age and height. It is not padding: because each player is
+generated from a known role profile, it is the only way to run a *supervised* check on an
+unsupervised model. The Model Validation page uses it to measure whether K-Means and the
+nearest-neighbour engine recover real structure — which is impossible on a feed with no ground
+truth. Its players are invented and describe nobody.
+
+Both datasets flow through **identical** cleaning, feature and modelling code; only ingestion
+differs. Switch between them in the sidebar.
+
+### Bringing your own data
 
 ```python
 from src.data_processing import load_external_csv, clean_players
 from src.feature_engineering import build_features
 
-raw = load_external_csv("my_fbref_export.csv", column_map={"Gls": "goals", "Ast": "assists"})
+raw = load_external_csv("my_export.csv", column_map={"Gls": "goals", "Ast": "assists"})
 clean, report = clean_players(raw)
 features = build_features(clean)
 ```
 
-Required columns: `player`, `position`, `team`, `league`, `season`, `minutes`, `age`. Any counting
-stat listed in `src/config.COUNTING_STATS` that is missing is created as `NaN` and the affected
-metrics simply drop out of the models. Every page in the app then works unchanged.
-
----
+Required columns: `player`, `position`, `team`, `league`, `season`, `minutes`. Any counting stat
+in `src/config.COUNTING_STATS` that is missing is created as `NaN`, and the affected metrics
+drop out of the models rather than being imputed.
 
 ## What it does
 
 | Page | What it answers |
 | --- | --- |
-| 🏠 **Home** | Pool composition and the full data-quality report from the cleaning step. |
-| 👤 **Player Search** | Filter by position, league, age, minutes, archetype and raw metric thresholds. |
-| 📊 **Player Profile** | Percentile radar, per-90 read-out, automatic strengths/weaknesses, archetype, similar players, and a generated scouting report. |
-| 🔎 **Similar Players** | Nearest neighbours in the standardised position-specific space, with a feature-by-feature account of *why* — plus filters for a younger or lower-league equivalent. |
+| 🏠 **Home** | Pool composition, the leagues loaded, and the full data-quality report from the cleaning step. |
+| 👤 **Player Search** | Filter by position, league, nationality, minutes, archetype and raw metric thresholds. |
+| 📊 **Player Profile** | Percentile radar, per-90 read-out, automatic strengths/weaknesses, archetype, season-by-season trajectory, similar players, and a generated scouting report. |
+| 🔎 **Similar Players** | Nearest neighbours in the standardised position-specific space, with a feature-by-feature account of *why* — plus filters for a lower-league or younger equivalent. |
 | 🆚 **Compare Players** | Two or three players side by side: info, per-90s, percentiles, radar, strengths, similarity. |
 | 🎯 **Recruitment Finder** | Hard filters plus 100 points of weight across attribute categories → a ranked shortlist with the fit score broken down. |
+| 💎 **Hidden Gems** | A transparent composite of output, minutes, league exposure and statistical rarity. |
+| 📋 **Watchlist** | Everything flagged while browsing, with notes, a radar comparison and CSV export. |
+| 🏟️ **Squad Analysis** | A club's squad, positional depth against the league, style profile, minutes reliance — and a **replacement finder** that ranks the rest of the pool on a style-versus-quality blend you control. |
 | 🧬 **Player Archetypes** | K-Means per position: how *k* was chosen, what defines each cluster, a PCA map, and the most representative players. |
-| 💎 **Hidden Gems** | A transparent composite of output, age, minutes, league exposure and statistical rarity. |
-| 🌍 **League Explorer** | Leaderboards, young breakouts, a scatter workbench and league style profiles. |
-| 🔬 **Model Validation** | Cluster quality, role-recovery lift, feature dominance and sensitivity tests, run live against the current pool. |
+| 🌍 **League Explorer** | Leaderboards, breakout candidates, a scatter workbench and league style profiles. |
+| 🔬 **Model Validation** | Cluster quality, self-season recall, team-mate bias, feature dominance and sensitivity tests, run live against the current pool. |
 | 📖 **Methodology** | Every formula, assumption and limitation in one place. |
 
 ---
 
 ## How it works
+
+### Peer groups, chosen deliberately
+
+Every percentile is a claim about where a player stands among players he could actually be
+compared with. The peer group is therefore the **position group**, and — on a dataset spanning
+men's and women's competitions — the competition type as well. Comparing a Frauen Bundesliga
+midfielder's output against Premier League men would not mean anything, so the platform does not
+do it. The comparison pool itself (minimum minutes, leagues, seasons) is set in the sidebar and
+every page states what it is.
 
 ### Position-specific models — not one model for every footballer
 
@@ -153,19 +222,26 @@ adjectives, and the position supplies the noun. A cluster with no strength above
 by its largest deficit. Real output from a run:
 
 ```
-CB   Progressive high-volume centre-back · Aerially dominant centre-back ·
-     High-pressing ball-winning centre-back · Long-passing ball-playing centre-back ·
-     Ground-based centre-back
-W    Dribbling progressive winger · Creative crossing winger ·
-     Goalscoring penalty-box winger · Low-creativity winger
-GK   Sweeper ball-playing goalkeeper · Shot-stopping goal-preventing goalkeeper ·
-     Heavily-worked goalkeeper · High-volume long-passing goalkeeper · Long-passing goalkeeper
+CB   Aerially dominant centre-back · High-pressing centre-back ·
+     High-volume progressive centre-back
+W    Goalscoring penalty-box winger · Crossing dribbling winger ·
+     Creative crossing winger · High-pressing ball-winning winger
+GK   Sweeper high-volume goalkeeper · Goal-preventing commanding goalkeeper ·
+     Long-passing goalkeeper
 ```
+
+Applied to the real data, Arsenal WFC's squad comes back as Miedema *penalty-box goalscoring
+forward*, McCabe *creative high-volume full-back*, Williamson *high-volume progressive
+centre-back*, Mead *creative crossing winger* — labels no one typed in.
 
 ### Scores
 
 - **Recruitment fit** = `Σ (weight_c ÷ 100) × category_percentile_c`. A fit of 78 means: weighted
-  across the things you said matter, this player sits at the 78th percentile of his positional peers.
+  across the things you said matter, this player sits at the 78th percentile of his peers.
+- **Replacement score** = `w × similarity% + (1 − w) × role fit percentile`, with `w` on a slider.
+  At `w = 1` it is a pure style match; at `w = 0` it is "best player available for the role",
+  ignoring whether they play anything like the incumbent. The squad page also reports the fit
+  delta against the player being replaced, so an upgrade is visible as a number.
 - **Hidden gem** = the weighted mean of five 0–100 components (performance, age upside, low exposure,
   statistical uniqueness, sample size). **It is not a valuation** — the dataset has no fee, wage or
   contract data, so nothing here can say a player is cheap.
@@ -174,32 +250,62 @@ GK   Sweeper ball-playing goalkeeper · Shot-stopping goal-preventing goalkeeper
 
 ## Validation
 
-`python scripts/validate_models.py` writes [`models/validation_report.md`](models/validation_report.md).
-Representative output at a 900-minute filter:
+`python scripts/validate_models.py --source statsbomb` writes
+[`models/validation_report.md`](models/validation_report.md); `--source simulated` writes the
+[simulated equivalent](models/validation_report_simulated.md).
 
-| Position | Players | k | Silhouette | ARI vs true role | Cluster purity | Top-10 same role | Chance | Lift |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| GK | 554 | 5 | 0.127 | 0.127 | 0.49 | 0.50 | 0.25 | **2.0×** |
-| CB | 1090 | 5 | 0.120 | 0.248 | 0.61 | 0.60 | 0.25 | **2.4×** |
-| FB | 813 | 3 | 0.144 | 0.166 | 0.50 | 0.64 | 0.25 | **2.6×** |
-| DM | 543 | 4 | 0.124 | 0.304 | 0.66 | 0.60 | 0.26 | **2.3×** |
-| CM | 798 | 4 | 0.151 | 0.210 | 0.58 | 0.62 | 0.25 | **2.4×** |
-| AM | 552 | 6 | 0.149 | 0.258 | 0.69 | 0.71 | 0.25 | **2.8×** |
-| W | 574 | 4 | 0.204 | 0.280 | 0.66 | 0.69 | 0.25 | **2.8×** |
-| FW | 580 | 3 | 0.169 | 0.154 | 0.50 | 0.70 | 0.26 | **2.8×** |
+### On real data: does the engine recognise the same player twice?
 
-**Reading this honestly.** Silhouette scores of 0.12–0.20 say plainly that playing styles form a
+For every player with two seasons in the pool, where does his **own other season** rank among
+his nearest neighbours? It is the one case where the right answer is known without any labels —
+which makes it the check that still works on a feed with no ground truth about playing roles.
+
+| Position | Player-seasons tested | Own season in top 10 | Chance | Lift | Median rank |
+| --- | --- | --- | --- | --- | --- |
+| GK | 76 | 24% | 4.8% | **5.0×** | 19 |
+| CB | 100 | 47% | 1.9% | **24.5×** | 13 |
+| FB | 76 | 26% | 2.0% | **13.2×** | 46 |
+| DM | 24 | 71% | 3.0% | **23.9×** | 4 |
+| CM | 24 | 46% | 4.5% | **10.3×** | 17 |
+| AM | 14 | 86% | 8.5% | **10.1×** | 4 |
+| W | 70 | 33% | 2.4% | **13.4×** | 18 |
+| FW | 30 | 33% | 3.4% | **9.9×** | 44 |
+
+The profile the engine builds is stable enough to pick the same footballer out of a 500-player
+pool in a different season, with a different squad around him, at 5–25× chance.
+
+The report also checks whether it is **matching on club rather than player** — team style leaks
+into individual numbers, since a defender in a possession side passes more because of the side.
+Team-mates take 1–4% of top-ten slots against a 0.1–0.6% baseline: a real effect, reported
+rather than hidden.
+
+### On simulated data: the supervised check real data cannot give
+
+Because each simulated player is generated from a known role profile, the same models can be
+scored against ground truth:
+
+| Position | k | Silhouette | ARI vs true role | Cluster purity | Top-10 same role | Chance | Lift |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| GK | 5 | 0.127 | 0.127 | 0.49 | 0.50 | 0.25 | **2.0×** |
+| CB | 5 | 0.120 | 0.248 | 0.61 | 0.60 | 0.25 | **2.4×** |
+| FB | 3 | 0.144 | 0.166 | 0.50 | 0.64 | 0.25 | **2.6×** |
+| DM | 4 | 0.124 | 0.304 | 0.66 | 0.60 | 0.26 | **2.3×** |
+| CM | 4 | 0.151 | 0.210 | 0.58 | 0.62 | 0.25 | **2.4×** |
+| AM | 6 | 0.149 | 0.258 | 0.69 | 0.71 | 0.25 | **2.8×** |
+| W | 4 | 0.204 | 0.280 | 0.66 | 0.69 | 0.25 | **2.8×** |
+| FW | 3 | 0.169 | 0.154 | 0.50 | 0.70 | 0.26 | **2.8×** |
+
+**Reading this honestly.** Silhouette scores of 0.10–0.22 say plainly that playing styles form a
 continuum, not well-separated groups; K-Means here is a useful summary of that continuum, not
-evidence that discrete player types exist. The columns that matter are the last three: a player's ten
-nearest neighbours share his generative role **2.0–2.8× more often than chance**, so the similarity
-engine is recovering role rather than noise.
+evidence that discrete player types exist. What matters is the last columns: a player's ten
+nearest neighbours share his generative role 2.0–2.8× more often than chance.
 
-The report also covers:
+### Both datasets
 
 - **Feature dominance** — the mean share of pairwise distance carried by each metric. No metric
   exceeds ~1.3× an even share, so no position's model rests on one statistic.
 - **Drop-metric sensitivity** — remove one metric and 77–90% of the top ten survives.
-- **Category re-weighting** — triple a category's weight and 60–75% survives, i.e. the weights do
+- **Category re-weighting** — triple a category's weight and 60–75% survives: the weights do
   something without the ranking being at their mercy.
 - **Correlation analysis** — feature pairs above |r| = 0.85 are reported rather than silently
   dropped, because to a scout two correlated metrics can still be two different questions.
@@ -213,8 +319,9 @@ app.py                      Streamlit entry point (navigation only)
 pages/                      One file per page — layout only, no modelling
 src/
   config.py                 Metric registry, position groups, feature sets, categories, theme
-  data_generation.py        Latent-trait simulation of the reference dataset
-  data_processing.py        Ingestion (simulated or real), cleaning, pool filtering
+  statsbomb.py              Event-level ETL: real data from StatsBomb Open Data
+  data_generation.py        Latent-trait simulation of the second dataset
+  data_processing.py        Ingestion (real or simulated), cleaning, pool filtering
   feature_engineering.py    Per-90s, shrunk ratios, possession adjustment, percentiles, scaling
   similarity.py             Cosine / Euclidean nearest neighbours + explanations
   clustering.py             K-Means, k selection, centroid-derived archetype names, PCA
@@ -225,21 +332,23 @@ src/
   pipeline.py               Orchestration + the ScoutingPlatform every page reads
   ui.py                     Shared Streamlit helpers
 scripts/
-  build_dataset.py          Regenerate raw + processed data
+  fetch_statsbomb.py        Build the real dataset from the open-data feed
+  build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
-tests/                      35 tests covering the analytics layer
-data/raw/                   players_raw.csv.gz (committed)
+tests/                      52 tests covering the analytics layer and the ETL
+data/raw/                   statsbomb_players.csv.gz + players_raw.csv.gz (both committed)
 data/processed/             Rebuilt on demand
-models/validation_report.md Latest validation output
+models/                     validation_report.md (real) and _simulated.md
 ```
 
 Machine-learning logic is kept entirely out of the Streamlit layer: pages read a cached
 `ScoutingPlatform` object and never fit anything themselves.
 
 ```bash
-python scripts/build_dataset.py      # rebuild the dataset (--seed for a different universe)
-python scripts/validate_models.py    # refit and rewrite the validation report
-python -m pytest tests/ -q           # 35 tests
+python scripts/fetch_statsbomb.py         # rebuild the real dataset from the open-data feed
+python scripts/build_dataset.py           # rebuild the simulated one (--seed for a new universe)
+python scripts/validate_models.py         # refit and rewrite the validation report
+python -m pytest tests/ -q                # 52 tests
 ```
 
 ---

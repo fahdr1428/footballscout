@@ -9,7 +9,8 @@ from src.config import METRIC_LABELS, POSITION_GROUP_NAMES
 from src.ui import chart, eyebrow, note, page_setup, sidebar_filters
 from src.validation import (
     build_validation_report, clustering_diagnostics, correlation_summary, drop_metric_sensitivity,
-    feature_dominance, pca_variance, reweight_sensitivity, similarity_role_agreement,
+    feature_dominance, pca_variance, reweight_sensitivity, self_season_recall,
+    similarity_role_agreement, team_mate_bias,
 )
 from src.visualisation import correlation_heatmap
 
@@ -56,6 +57,12 @@ st.caption(
 
 # ---- role recovery -------------------------------------------------------
 agreement = similarity_role_agreement(platform, sample=120)
+if agreement.empty:
+    st.caption(
+        "The generative-role check below is only available on the simulated dataset, where the "
+        "true role of every player is known by construction. On real data there is no such "
+        "ground truth - the label-free checks that follow are what stand in its place."
+    )
 if not agreement.empty:
     st.markdown("## 2. Does similarity find players who do the same job?")
     st.dataframe(agreement, hide_index=True)
@@ -67,6 +74,34 @@ A lift above 1 means the engine is recovering role rather than noise. This is th
 to a supervised test available for an unsupervised model - and again, only possible because the
 reference dataset is simulated.
 """
+    )
+
+# ---- self-season recall (works on real data) -----------------------------
+recall = self_season_recall(platform)
+if not recall.empty:
+    st.markdown("## 2b. Does the engine recognise the same player twice?")
+    st.dataframe(recall, hide_index=True)
+    st.markdown(
+        """
+For every player with two seasons in the pool, this asks where his **own other season** ranks
+among his nearest neighbours. It is the one case where the right answer is known without any
+labels - which makes it the check that still works on real data, where no ground truth about
+playing roles exists.
+
+`chance` is what random ordering would produce. A lift well above 1 means the profile the engine
+builds is stable enough to recognise the same footballer in a different season, with a different
+squad around him.
+"""
+    )
+
+bias = team_mate_bias(platform, sample=100)
+if not bias.empty:
+    st.markdown("## 2c. Is it matching on the club rather than the player?")
+    st.dataframe(bias, hide_index=True)
+    st.caption(
+        "Team style leaks into individual numbers - a defender in a possession side passes more "
+        "because of the side. Some over-representation of team-mates is expected and correct; a "
+        "large lift would mean the model is partly clustering clubs rather than players."
     )
 
 # ---- dominance -----------------------------------------------------------

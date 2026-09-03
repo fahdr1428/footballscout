@@ -108,7 +108,7 @@ def radar_chart(
         )
     fig.update_layout(
         polar=dict(
-            domain=dict(x=[0.16, 0.84], y=[0.04, 0.92]),
+            domain=dict(x=[0.22, 0.78], y=[0.06, 0.92]),
             bgcolor=THEME["surface"],
             radialaxis=dict(
                 range=[0, 100], tickvals=[25, 50, 75, 100], tickfont=dict(color=THEME["ink_muted"], size=10),
@@ -257,7 +257,7 @@ def scatter(
     else:
         add(data, THEME["series_1"], "Players", 8, 0.8)
 
-    if trend and len(data) > 3:
+    if trend and x != y and len(data) > 3:
         valid = data[[x, y]].dropna()
         if len(valid) > 3:
             slope, intercept = np.polyfit(valid[x], valid[y], 1)
@@ -386,6 +386,40 @@ def distribution_with_marker(
     fig.update_xaxes(title=metric_label)
     fig.update_yaxes(title="Players")
     fig.update_layout(bargap=0.04)
+    return style(fig, height=height, showlegend=False)
+
+
+def trajectory_chart(trajectory: pd.DataFrame, height: int = 400) -> go.Figure:
+    """One line per attribute category across a player's seasons.
+
+    Percentiles are recomputed against each season's peers, so this shows how a
+    player held (or changed) his standing, not how his raw output moved.
+    """
+    categories = [
+        c for c in trajectory.columns
+        if c not in {"season", "team", "league", "minutes", "position", "archetype"}
+    ]
+    fig = go.Figure()
+    # Categories outnumber the validated categorical slots, so every line is
+    # drawn in one hue and told apart by its direct label at the end.
+    for i, category in enumerate(categories):
+        colour = SERIES_COLORS[0] if i % 2 == 0 else SERIES_COLORS[2]
+        fig.add_trace(
+            go.Scatter(
+                x=trajectory["season"], y=trajectory[category], mode="lines+markers+text",
+                name=category,
+                line=dict(color=colour, width=2),
+                marker=dict(size=8, color=colour, line=dict(color=THEME["surface"], width=2)),
+                text=[""] * (len(trajectory) - 1) + [f" {category}"],
+                textposition="middle right",
+                textfont=dict(color=THEME["ink_secondary"], size=11),
+                hovertemplate="<b>" + category + "</b><br>%{x}: %{y:.0f}th percentile<extra></extra>",
+            )
+        )
+    fig.add_hline(y=50, line=dict(color=THEME["baseline"], width=1))
+    fig.update_yaxes(range=[0, 100], title="Percentile vs positional peers that season")
+    fig.update_xaxes(title=None)
+    fig.update_layout(margin=dict(l=8, r=150, t=20, b=8))
     return style(fig, height=height, showlegend=False)
 
 

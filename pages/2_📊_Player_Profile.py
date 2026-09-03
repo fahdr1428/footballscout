@@ -10,8 +10,9 @@ from src.pipeline import format_metric
 from src.reporting import generate_report, headline_metrics, key_takeaways, ordinal
 from src.ui import (
     chart, eyebrow, note, page_setup, player_header, player_selector, sidebar_filters,
-    similarity_table, tiles,
+    similarity_table, tiles, watchlist_button, watchlist_sidebar,
 )
+from src.visualisation import trajectory_chart
 from src.visualisation import distribution_with_marker, percentile_bars, radar_chart
 
 page_setup("Player Profile", "📊")
@@ -28,7 +29,12 @@ model = platform.model_for(index)
 archetype, archetype_description = platform.archetype(index)
 
 st.divider()
-player_header(platform, index)
+header_columns = st.columns([4, 1])
+with header_columns[0]:
+    player_header(platform, index)
+with header_columns[1]:
+    watchlist_button(platform, index, key=f"profile_{index}")
+watchlist_sidebar()
 
 # ---- headline numbers ----------------------------------------------------
 if group == "GK":
@@ -61,8 +67,9 @@ tiles(
     ]
 )
 note(
-    "The small figure is the player's percentile <b>within his position group in the current "
-    "pool</b> - not against every player in the dataset."
+    f"The small figure is the player's percentile against <b>{platform.peer_group_label}</b> "
+    f"in the current pool - {len(platform.peers(index)):,} players - not against everyone in "
+    "the dataset."
 )
 
 st.divider()
@@ -97,7 +104,7 @@ with right:
     frame = platform.percentile_frame(index, model.features)
     chart(percentile_bars(frame, height=max(360, 24 * len(frame) + 80)))
     st.caption(
-        f"Against {len(model.index):,} {group} player-seasons with at least "
+        f"Against {len(platform.peers(index)):,} {platform.peer_group_label} with at least "
         f"{platform.min_minutes:,} minutes."
     )
 
@@ -106,7 +113,8 @@ st.divider()
 st.markdown("## Strengths and weaknesses")
 note(
     "Taken from the same percentile table: metrics at or above the 70th percentile are listed as "
-    "strengths, at or below the 30th as weaknesses. No metric is cherry-picked."
+    "strengths, at or below the 30th as weaknesses, out of the features this position is modelled "
+    "on. No metric is cherry-picked."
 )
 columns = st.columns(2)
 with columns[0]:
@@ -168,6 +176,31 @@ with st.expander("Where he sits in the positional distribution", expanded=False)
         f"{len(peers):,} {group} player-seasons in the pool. Percentile: "
         f"{ordinal(platform.percentile(index, metric))}."
     )
+
+# ---- trajectory ----------------------------------------------------------
+trajectory = platform.trajectory(index)
+if not trajectory.empty:
+    st.divider()
+    st.markdown("## Season by season")
+    note(
+        "The same player's category percentiles across every season in the pool. Percentiles are "
+        "recomputed against that season's peers, so a flat line means he held his level as the "
+        "population changed around him - not that his raw numbers were identical."
+    )
+    columns = st.columns([1.5, 1])
+    with columns[0]:
+        chart(trajectory_chart(trajectory))
+    with columns[1]:
+        st.dataframe(
+            trajectory[["season", "team", "league", "minutes", "position", "archetype"]].rename(
+                columns={
+                    "season": "Season", "team": "Club", "league": "League",
+                    "minutes": "Minutes", "position": "Pos", "archetype": "Archetype",
+                }
+            ),
+            hide_index=True,
+            column_config={"Minutes": st.column_config.NumberColumn(format="%d")},
+        )
 
 # ---- similar players -----------------------------------------------------
 st.divider()

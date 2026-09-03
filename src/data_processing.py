@@ -19,7 +19,9 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from .config import COUNTING_STATS, POSITION_TO_GROUP, RAW_DIR, RAW_PLAYERS_CSV
+from .config import (
+    COUNTING_STATS, DATA_SOURCES, DEFAULT_SOURCE, POSITION_TO_GROUP, RAW_DIR, RAW_PLAYERS_CSV,
+)
 
 MAX_MINUTES = 38 * 90  # a full domestic league season
 MIN_HEIGHT, MAX_HEIGHT = 150, 215
@@ -65,7 +67,9 @@ class CleaningReport:
     implausible_ages: int = 0
     consistency_fixes: int = 0
     imputed: dict[str, int] = field(default_factory=dict)
+    unavailable: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    source: str = ""
 
     def as_rows(self) -> list[tuple[str, str]]:
         rows = [
@@ -81,6 +85,8 @@ class CleaningReport:
         ]
         for column, count in sorted(self.imputed.items()):
             rows.append((f"Imputed missing `{column}`", f"{count:,}"))
+        for column in sorted(set(self.unavailable)):
+            rows.append((f"Not supplied by this source: `{column}`", "left missing"))
         return rows
 
 
@@ -89,7 +95,7 @@ class CleaningReport:
 # --------------------------------------------------------------------------
 
 def load_raw_players(path=None, regenerate: bool = False, seed: int = 7) -> pd.DataFrame:
-    """Load the raw player-season table, generating it on first use."""
+    """Load the simulated raw player-season table, generating it on first use."""
     path = path or RAW_PLAYERS_CSV
     if regenerate or not path.exists():
         from .data_generation import generate_dataset
@@ -99,6 +105,25 @@ def load_raw_players(path=None, regenerate: bool = False, seed: int = 7) -> pd.D
         data.to_csv(path, index=False)
         return data
     return pd.read_csv(path)
+
+
+def load_source(source: str = DEFAULT_SOURCE) -> tuple[pd.DataFrame, str]:
+    """Load one of the configured datasets, falling back if it is not built yet.
+
+    Returns the frame and the source key actually used, so the app can tell the
+    user when it fell back (the real dataset has to be downloaded once with
+    `python scripts/fetch_statsbomb.py`).
+    """
+    spec = DATA_SOURCES.get(source) or DATA_SOURCES[DEFAULT_SOURCE]
+    if spec.kind == "simulated":
+        return load_raw_players(), spec.key
+    if spec.path.exists():
+        frame = pd.read_csv(spec.path)
+        for stat in COUNTING_STATS:
+            if stat not in frame.columns:
+                frame[stat] = np.nan
+        return frame, spec.key
+    return load_raw_players(), "simulated"
 
 
 def load_external_csv(path, column_map: dict[str, str] | None = None) -> pd.DataFrame:
@@ -214,7 +239,15 @@ def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
     # Physical attributes: positional median. Rate-like season totals: the
     # positional median *per 90*, rescaled to the player's own minutes.
     for column in ["height_cm", "age"]:
-        if column in df.columns and df[column].isna().any():
+        if column not in df.columns:
+            continue
+        if df[column].isna().all():
+            # The source cannot supply this at all (StatsBomb publishes no birth
+            # dates). Leave it missing rather than inventing a value; the app
+            # switches off the features that depend on it.
+            report.unavailable.append(column)
+            continue
+        if df[column].isna().any():
             missing = int(df[column].isna().sum())
             df[column] = df.groupby("position_group")[column].transform(
                 lambda s: s.fillna(s.median())
@@ -232,20 +265,28 @@ def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
         gaps = applicable & df[column].isna()
         if not gaps.any():
             continue
+        if df.loc[applicable, column].isna().all():
+            report.unavailable.append(column)
+            continue
         per90 = df[column] / df["minutes"] * 90
         median_per90 = per90.groupby(df["position_group"]).transform("median").fillna(0.0)
         df.loc[gaps, column] = (median_per90 * df["minutes"] / 90)[gaps]
         report.imputed[column] = int(gaps.sum())
 
-    # Remaining counting stats are genuinely zero-or-absent events.
-    outfield_cols = [c for c in count_cols if not c.startswith("gk_")]
-    gk_cols = [c for c in count_cols if c.startswith("gk_")]
+    # Remaining counting stats are genuinely zero-or-absent events - except any
+    # column the source does not publish at all, which stays missing so the
+    # models drop it rather than reading a real zero into it.
+    unavailable = set(report.unavailable)
+    outfield_cols = [c for c in count_cols if not c.startswith("gk_") and c not in unavailable]
+    gk_cols = [c for c in count_cols if c.startswith("gk_") and c not in unavailable]
     df[outfield_cols] = df[outfield_cols].fillna(0)
     df.loc[gk_mask, gk_cols] = df.loc[gk_mask, gk_cols].fillna(0)
-    df.loc[~gk_mask, gk_cols] = np.nan
+    df.loc[~gk_mask, [c for c in count_cols if c.startswith("gk_")]] = np.nan
 
-    df["age"] = df["age"].round(1)
-    df["height_cm"] = df["height_cm"].round().astype(int)
+    if "age" in df.columns and df["age"].notna().any():
+        df["age"] = df["age"].round(1)
+    if "height_cm" in df.columns and df["height_cm"].notna().any():
+        df["height_cm"] = df["height_cm"].round()
     report.rows_out = len(df)
     return df, report
 
@@ -301,7 +342,7 @@ def filter_pool(
         pool = pool[pool["league"].isin(leagues)]
     if position_groups:
         pool = pool[pool["position_group"].isin(position_groups)]
-    if age_range:
+    if age_range and "age" in pool.columns and pool["age"].notna().any():
         low, high = age_range
         pool = pool[pool["age"].between(low, high)]
     return pool.reset_index(drop=True)

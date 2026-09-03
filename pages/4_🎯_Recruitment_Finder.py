@@ -13,7 +13,10 @@ from src.feature_engineering import metrics_for_percentiles
 from src.pipeline import format_metric
 from src.recruitment import RecruitmentBrief, search, threshold_summary
 from src.reporting import generate_report
-from src.ui import chart, eyebrow, note, page_setup, sidebar_filters, tiles
+from src.ui import (
+    add_to_watchlist, age_slider, chart, default_axis, eyebrow, note, page_setup,
+    sidebar_filters, tiles, watchlist_sidebar,
+)
 from src.visualisation import component_bar, radar_chart, scatter
 
 page_setup("Recruitment Finder", "🎯")
@@ -35,7 +38,7 @@ with row1[0]:
         format_func=lambda g: f"{g} - {POSITION_GROUP_NAMES[g]}",
     )
 with row1[1]:
-    age_range = st.slider("Age range", 15.0, 40.0, (18.0, 23.0), 0.5)
+    age_range = age_slider(platform, "Age range", (18.0, 23.0), key="rec_age") or (0.0, 99.0)
 with row1[2]:
     min_minutes = st.number_input(
         "Minimum minutes", int(platform.min_minutes), 3400, max(900, int(platform.min_minutes)), 50
@@ -144,7 +147,11 @@ tiles(
     [
         ("Shortlisted", f"{eligible:,}", f"of {int((pool['position_group'] == group).sum()):,} {group} seasons"),
         ("Best fit", f"{results['fit_score'].max():.0f}", "weighted percentile score"),
-        ("Median age", f"{results['age'].median():.1f}", "years"),
+        (
+            ("Median age", f"{results['age'].median():.1f}", "years")
+            if platform.has_age
+            else ("Median minutes", f"{results['minutes'].median():,.0f}", "per season")
+        ),
         ("Leagues", f"{results['league'].nunique()}", "represented"),
     ]
 )
@@ -154,7 +161,6 @@ view = pd.DataFrame(
         "Rank": results["rank"],
         "Fit score": results["fit_score"],
         "Player": results["player"],
-        "Age": results["age"],
         "Club": results["team"],
         "League": results["league"],
         "Season": results["season"],
@@ -162,6 +168,8 @@ view = pd.DataFrame(
         "Archetype": results["archetype"],
     }
 )
+if platform.has_age:
+    view.insert(3, "Age", results["age"].to_numpy())
 for category in normalised:
     column = f"cat_{category}"
     if column in platform.categories.columns:
@@ -182,12 +190,24 @@ note(
     "Fit score = sum(weight × category percentile) ÷ 100."
 )
 
-st.markdown("### Fit against age")
+shortlist = st.multiselect(
+    "Add to the watchlist", platform.player_labels.loc[results.index].tolist(), key="rec_watch"
+)
+if shortlist and st.button("Add selected to watchlist"):
+    for label in shortlist:
+        target = platform.index_for_label(label)
+        if target is not None:
+            add_to_watchlist(platform, target)
+    st.rerun()
+watchlist_sidebar()
+
+st.markdown("### Fit against age" if platform.has_age else "### Fit against minutes played")
 chart(
     scatter(
-        results, x="age", y="fit_score", hover_name="player",
+        results, x=default_axis(platform), y="fit_score", hover_name="player",
         hover_cols=["team", "league", "minutes", "archetype"],
-        x_title="Age", y_title="Recruitment fit score", height=420,
+        x_title="Age" if platform.has_age else "Minutes played",
+        y_title="Recruitment fit score", height=420,
     )
 )
 

@@ -23,30 +23,92 @@ note(
 
 st.markdown("## 1. The data")
 st.markdown(
-    """
-The bundled dataset is **simulated**, because real season data (FBref, Opta, StatsBomb) cannot be
-redistributed with a public repository. It is not random noise:
-
-1. Every player belongs to a **role profile** - "ball-playing centre-back", "poacher",
-   "sweeper-keeper" and so on - which defines a mean vector over interpretable latent traits
-   (defending, aerial, progression, carrying, creation, finishing, pressing, ...).
-2. Traits are perturbed per player and per season.
-3. Each per-90 rate is `base_rate(position) × exp(loadings · traits)`, so metrics that share a
-   trait are genuinely correlated - as they are in real football.
-4. Season **totals are sampled**: counts from a Poisson process over the player's actual minutes,
-   success rates from a Binomial over their attempts. A player with 300 minutes therefore has a
-   genuinely noisy per-90 profile, which is exactly why the minimum-minutes filter matters.
-5. Realistic defects are injected on purpose - duplicated rows, missing optional columns,
-   impossible values - so the cleaning pipeline has real work to do. The Home page reports what
-   it caught.
-
-**Using real data instead.** `src.data_processing.load_external_csv(path, column_map)` reads a
-player-season export into the same schema. Required columns are `player`, `position`, `team`,
-`league`, `season`, `minutes`, `age`; any counting stat that is missing is created as `NaN` and
-the affected metrics simply drop out of the models. Point it at an FBref scrape and every page
-in this app works unchanged.
+    f"""
+The platform runs on either of two datasets, selected in the sidebar. Both flow through
+**identical** cleaning, feature-engineering and modelling code - only ingestion differs.
+The pool currently loaded is **{platform.spec.label}**.
 """
 )
+
+real, simulated = st.tabs(["StatsBomb Open Data (real)", "Simulated reference universe"])
+
+with real:
+    st.markdown(
+        """
+Real players, real matches, from the **StatsBomb Open Data** event feed
+(<https://github.com/statsbomb/open-data>), which is free for public use. `src/statsbomb.py`
+downloads the event files and derives the whole player-season schema from raw events - nothing
+is taken from a provider's pre-computed summary table, so every definition below can be argued
+with, and changed.
+
+Only competition-seasons where the feed covers the **whole league** are ingested. Seasons where
+the open data carries a single club - Barcelona's La Liga years, Leverkusen 2023/24 - are
+excluded, because every other team would field a phantom squad.
+
+**How each metric is derived**
+
+| Metric | Definition used here |
+| --- | --- |
+| Minutes | Lineup position spells on the absolute match clock, rescaled so a full match is 90 minutes. StatsBomb's clock runs to ~95 with stoppage, which would depress every per-90 rate by ~5%. Spells are clamped so they cannot overlap, and a spell that starts after the player was substituted off is dropped as a recording artefact. |
+| Position | The position the player spent the most minutes in, aggregated across the season. |
+| Progressive pass / carry | Wyscout thresholds: the action must end at least **30m** closer to goal when it starts and ends in the player's own half, **15m** when it crosses halfway, **10m** inside the opposition half. |
+| Passes into the final third / box | Completed passes ending beyond x=80 / inside the 18-yard box, having started outside it. |
+| Long pass | `pass.length` of 30 yards or more. |
+| xG | StatsBomb's own `shot.statsbomb_xg`, penalties separated out. |
+| xA | Expected assists in the literal sense: the xG of the shot each key pass created, linked through `shot.key_pass_id`. |
+| Shot-creating actions | The last two attacking actions - completed pass, completed take-on, foul won - by the shooting team inside the same possession. Goal-creating actions are the same for shots that were scored. |
+| Touches | Occasions the player gained the ball: completed receipts, recoveries, interceptions, clearances and blocks. Touches in the box add carries that enter it. |
+| Successful pressure | A pressure after which the pressing team is on the ball within five seconds. |
+| Error | A miscontrol, dispossession or failed pass followed within five seconds by a shot for the opposition. |
+| Aerials | Wins from the `aerial_won` flag on the winner's event; losses from `Duel: Aerial Lost`. |
+| Team possession | Share of playing time in possession, from the gaps between consecutive events. Gaps over a minute are dropped as stoppages and period changes end an interval, so half-time counts for nobody. |
+| Goalkeeping | Shots on target faced and goals conceded are read from the *opponent's* shots while that keeper was on the pitch; claims from keeper `Collected`/`Punch`/`Claim`/`Smother`; sweeper actions from keeper events outside the box; launches from keeper passes of 40+ yards. |
+
+**What this feed cannot supply**
+
+- **No birth dates**, so age is unavailable. Every age filter, the age column and the
+  age-upside component of the hidden-gem score are switched off rather than filled with a guess.
+- **No heights.**
+- **No post-shot xG** - that is a paid StatsBomb feature - so goalkeepers are judged on save
+  percentage and goals conceded rather than goals prevented. The platform drops any feature a
+  source cannot populate for a position group instead of imputing it.
+- League-strength coefficients are still assumptions, set in `src/statsbomb.py`.
+
+Rebuild it with `python scripts/fetch_statsbomb.py`; match-level results are cached, so an
+interrupted run resumes.
+"""
+    )
+
+with simulated:
+    st.markdown(
+        """
+Because the StatsBomb feed publishes no ages and no ground truth about playing roles, the
+repository also ships a **simulated** universe - 14 leagues over two seasons, with every field
+the schema supports.
+
+1. Every player belongs to a **role profile** - "ball-playing centre-back", "poacher",
+   "sweeper-keeper" - which defines a mean vector over latent traits (defending, aerial,
+   progression, carrying, creation, finishing, pressing, ...).
+2. Traits are perturbed per player and per season.
+3. Each per-90 rate is `base_rate(position) x exp(loadings . traits)`, so metrics sharing a
+   trait are genuinely correlated, as they are in real football.
+4. Season **totals are sampled**: counts from a Poisson process over the player's actual
+   minutes, success rates from a Binomial over their attempts. A 300-minute player therefore
+   has a genuinely noisy per-90 profile.
+5. Realistic defects - duplicate rows, missing optional columns, impossible values - are
+   injected on purpose, so the cleaning pipeline has real work to do.
+
+**These are not real players**, and nothing about a real footballer follows from them. Their
+purpose is that the generative role of every player is *known*, which is what makes the
+supervised checks on the Model Validation page possible: measuring whether K-Means and the
+nearest-neighbour engine recover real structure is impossible on a feed with no ground truth.
+
+**Bringing your own data.** `src.data_processing.load_external_csv(path, column_map)` reads any
+player-season export into the same schema. Required columns are `player`, `position`, `team`,
+`league`, `season`, `minutes`; anything else missing is created as `NaN` and the affected
+metrics drop out of the models.
+"""
+    )
 
 st.markdown("## 2. Cleaning rules")
 st.markdown(
@@ -61,8 +123,15 @@ st.markdown(
 | Successes > attempts | Clipped to the attempts |
 | Missing advanced metric (xA, xG, PSxG, SCA...) | Imputed at the positional median **per 90**, rescaled to that player's minutes |
 | Goalkeeping columns for outfielders | Left as missing, never zero |
+| A column the source never supplies (age, height, PSxG) | **Not imputed at all** - reported as unavailable, and the features and controls that depend on it are switched off |
 """
 )
+if platform.cleaning.unavailable:
+    st.info(
+        "Unavailable in the loaded dataset: "
+        + ", ".join(f"`{c}`" for c in sorted(set(platform.cleaning.unavailable))),
+        icon="ℹ️",
+    )
 
 st.markdown("## 3. Rates, ratios and adjustments")
 st.markdown(
@@ -237,16 +306,16 @@ contract data in this dataset, so nothing here can say a player is cheap.
 """
 )
 
-st.markdown("## 10. League strength coefficients")
+st.markdown("## 10. Leagues in the loaded pool")
 st.markdown(
-    "These are **assumptions**, editable in `src/config.py`. They are used for filtering and for "
-    "the hidden-gem exposure component. They are never silently baked into a per-90 rate or a "
-    "percentile."
+    "Strength coefficients are **assumptions** - set in `src/statsbomb.py` for the real feed and "
+    "`src/config.py` for the simulated one. They are used for filtering and for the hidden-gem "
+    "exposure component, and are never silently baked into a per-90 rate or a percentile."
 )
 st.dataframe(
-    pd.DataFrame(LEAGUES).rename(
-        columns={"name": "League", "country": "Country", "tier": "Level",
-                 "strength": "Strength coefficient", "teams": "Clubs"}
+    platform.league_table().rename(
+        columns={"league": "League", "level": "Level", "strength": "Strength coefficient",
+                 "players": "Players", "seasons": "Seasons", "clubs": "Clubs"}
     ),
     hide_index=True, height=400,
 )
@@ -254,8 +323,11 @@ st.dataframe(
 st.markdown("## 11. Known limitations")
 st.markdown(
     """
-- **The bundled data is simulated.** Plausible values, invented players. No conclusion about a
-  real footballer can be drawn from this app as shipped.
+- **Know which dataset you are reading.** The real one describes real footballers in the seasons
+  ingested; the simulated one describes nobody. The sidebar and every page banner say which is
+  loaded.
+- **The real feed has no ages or heights**, so the age-based tools are switched off rather than
+  filled in.
 - **Small samples.** The minimum-minutes filter is the main defence. Below ~1,500 minutes,
   finishing and success-rate metrics in particular are noisy; the report generator raises this as
   a caveat automatically.
@@ -283,8 +355,9 @@ app.py                     Streamlit entry point (Home)
 pages/                     One file per page - layout only, no modelling
 src/
   config.py                Metric registry, position groups, feature sets, categories, theme
+  statsbomb.py             Event-level ETL for the real StatsBomb Open Data feed
   data_generation.py       Latent-trait simulation of the reference dataset
-  data_processing.py       Ingestion (simulated or real), cleaning, pool filtering
+  data_processing.py       Ingestion (real or simulated), cleaning, pool filtering
   feature_engineering.py   Per-90s, shrunk ratios, possession adjustment, percentiles, scaling
   similarity.py            Cosine / Euclidean nearest neighbours + explanations
   clustering.py            K-Means, k selection, centroid-derived archetype names, PCA
@@ -294,7 +367,7 @@ src/
   visualisation.py         Plotly builders
   pipeline.py              Orchestration + the ScoutingPlatform object every page reads
   ui.py                    Shared Streamlit helpers
-scripts/                   build_dataset.py, validate_models.py
+scripts/                   fetch_statsbomb.py, build_dataset.py, validate_models.py
 tests/                     Unit tests for the analytics layer
 """,
     language="text",

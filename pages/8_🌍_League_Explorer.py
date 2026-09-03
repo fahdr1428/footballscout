@@ -10,7 +10,7 @@ from src.config import (
     categories_for,
 )
 from src.pipeline import format_metric
-from src.ui import chart, eyebrow, note, page_setup, sidebar_filters, tiles
+from src.ui import age_slider, apply_age, chart, default_axis, eyebrow, note, page_setup, sidebar_filters, tiles
 from src.visualisation import scatter
 
 page_setup("League Explorer", "🌍")
@@ -32,13 +32,15 @@ with controls[1]:
         format_func=lambda g: g if g == "All" else f"{g} - {POSITION_GROUP_NAMES[g]}",
     )
 with controls[2]:
-    age_range = st.slider("Age", 15.0, 40.0, (15.0, 40.0), 0.5)
+    age_range = age_slider(platform, "Age", key="league_age")
+    if age_range is None:
+        st.caption("No ages in this dataset.")
 with controls[3]:
     min_minutes = st.number_input(
         "Minimum minutes", int(platform.min_minutes), 3400, int(platform.min_minutes), 50
     )
 
-selection = pool[pool["age"].between(*age_range) & (pool["minutes"] >= min_minutes)]
+selection = apply_age(pool[pool["minutes"] >= min_minutes], age_range)
 if leagues:
     selection = selection[selection["league"].isin(leagues)]
 if group != "All":
@@ -83,7 +85,6 @@ for i, (title, metric) in enumerate(LEADERBOARDS.items()):
                     "Player": top["player"],
                     "Club": top["team"],
                     "League": top["league"],
-                    "Age": top["age"].round(1),
                     METRIC_LABELS.get(metric, metric): [format_metric(metric, v) for v in top[metric]],
                 }
             ),
@@ -91,8 +92,8 @@ for i, (title, metric) in enumerate(LEADERBOARDS.items()):
         )
 
 # ---- young breakouts -----------------------------------------------------
-st.markdown("## Young breakout candidates")
-young = selection[selection["age"] <= 22]
+st.markdown("## Young breakout candidates" if platform.has_age else "## Best all-round profiles")
+young = selection[selection["age"] <= 22] if platform.has_age else selection
 if young.empty:
     st.caption("No players aged 22 or under in this selection.")
 else:
@@ -103,7 +104,6 @@ else:
         pd.DataFrame(
             {
                 "Player": ranked["player"],
-                "Age": ranked["age"].round(1),
                 "Pos": ranked["position"],
                 "Club": ranked["team"],
                 "League": ranked["league"],
@@ -129,7 +129,7 @@ else:
 st.markdown("## Scatter workbench")
 numeric = [
     c for c in [
-        "age", "minutes", "np_goals_per90", "npxg_per90", "xa_per90", "assists_per90",
+        "age", "minutes", "starts", "np_goals_per90", "npxg_per90", "xa_per90", "assists_per90",
         "key_passes_per90", "sca_per90", "progressive_passes_per90", "progressive_carries_per90",
         "progressive_actions_per90", "dribbles_completed_per90", "defensive_actions_per90",
         "ball_recoveries_per90", "pressures_per90", "aerials_won_per90", "pass_pct",
@@ -139,7 +139,7 @@ numeric = [
 axis_columns = st.columns([1.3, 1.3, 1.3])
 with axis_columns[0]:
     x_metric = st.selectbox(
-        "X axis", numeric, index=numeric.index("age"),
+        "X axis", numeric, index=numeric.index(default_axis(platform)),
         format_func=lambda m: METRIC_LABELS.get(m, m.replace("_", " ").title()),
     )
 with axis_columns[1]:
@@ -157,7 +157,7 @@ highlight = (
 chart(
     scatter(
         selection, x=x_metric, y=y_metric, hover_name="player",
-        hover_cols=["team", "league", "age", "minutes"],
+        hover_cols=["team", "league", "minutes"] + (["age"] if platform.has_age else []),
         x_title=METRIC_LABELS.get(x_metric, x_metric.replace("_", " ").title()),
         y_title=METRIC_LABELS.get(y_metric, y_metric.replace("_", " ").title()),
         highlight=highlight, highlight_label=highlight_league, trend=True, height=520,
@@ -180,20 +180,24 @@ league_metrics = [m for m in league_metrics if m in selection.columns]
 summary = (
     selection.groupby("league")
     .agg(
-        players=("player_id", "nunique"),
-        median_age=("age", "median"),
-        **{m: (m, "mean") for m in league_metrics},
+        **{
+            "players": ("player_id", "nunique"),
+            "clubs": ("team", "nunique"),
+            **({"median_age": ("age", "median")} if platform.has_age else {}),
+            **{m: (m, "mean") for m in league_metrics},
+        }
     )
     .round(2)
     .reset_index()
 )
-summary.insert(1, "level", summary["league"].map(LEAGUE_TIER))
-summary.insert(2, "strength", summary["league"].map(LEAGUE_STRENGTH))
+levels = platform.league_table().set_index("league")
+summary.insert(1, "level", summary["league"].map(levels["level"]))
+summary.insert(2, "strength", summary["league"].map(levels["strength"]))
 summary = summary.sort_values("strength", ascending=False)
 st.dataframe(
     summary.rename(columns={**{m: METRIC_LABELS.get(m, m) for m in league_metrics},
                             "league": "League", "level": "Level", "strength": "Strength coefficient",
-                            "players": "Players", "median_age": "Median age"}),
+                            "players": "Players", "clubs": "Clubs", "median_age": "Median age"}),
     hide_index=True, height=430,
 )
 note(

@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.config import DEFAULT_MIN_MINUTES, VALIDATION_REPORT  # noqa: E402
+from src.config import DEFAULT_MIN_MINUTES, DEFAULT_SOURCE, VALIDATION_REPORT  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
 from src.validation import (  # noqa: E402
     clustering_diagnostics, similarity_role_agreement, write_validation_report,
@@ -24,16 +24,17 @@ from src.validation import (  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--min-minutes", type=int, default=DEFAULT_MIN_MINUTES)
+    parser.add_argument("--source", default=DEFAULT_SOURCE, help="statsbomb or simulated")
     parser.add_argument(
         "--groups", nargs="*", default=["W", "CB", "DM"],
         help="position groups to run the sensitivity tests on",
     )
     args = parser.parse_args()
 
-    features, report = build_features()
-    print(f"cleaned {report.rows_out:,} of {report.rows_in:,} rows")
+    features, report, used = build_features(args.source)
+    print(f"source: {used} | cleaned {report.rows_out:,} of {report.rows_in:,} rows")
 
-    platform = build_platform(features, report, min_minutes=args.min_minutes)
+    platform = build_platform(features, report, min_minutes=args.min_minutes, source=used)
     print(f"pool: {len(platform.pool):,} player-seasons, {len(platform.models)} position models\n")
 
     print(clustering_diagnostics(platform).to_string(index=False))

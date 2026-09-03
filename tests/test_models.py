@@ -97,8 +97,9 @@ def test_age_and_sample_components_hit_their_documented_bounds():
     assert age_upside(pd.Series([27.0])).iloc[0] == 0
     assert sample_size_score(pd.Series([1800])).iloc[0] == 100
     assert sample_size_score(pd.Series([900])).iloc[0] == 50
-    scores = exposure_score(pd.Series(["Premier League", "Ekstraklasa"]))
-    assert scores.iloc[0] == 0 and scores.iloc[1] == 100
+    # Exposure is scaled across the league coefficients present in the pool.
+    scores = exposure_score(pd.Series([1.00, 0.80, 0.60]))
+    assert scores.iloc[0] == 0 and scores.iloc[2] == 100 and scores.iloc[1] == 50
 
 
 def test_ordinal_suffixes():
@@ -118,3 +119,76 @@ def test_report_is_built_from_the_data(platform):
     assert row["team"] in report
     assert platform.archetype(index)[0] in report
     assert f"{row['minutes']:,.0f}" in report
+
+
+# --------------------------------------------------------------------------
+# Squad tools and graceful degradation
+# --------------------------------------------------------------------------
+
+def test_replacements_are_one_row_per_player_and_respect_the_mask(platform):
+    index = platform.pool.index[platform.pool["position_group"] == "CB"][0]
+    team = platform.pool.loc[index, "team"]
+    mask = platform.pool["team"] != team
+    results = platform.replacements(index, n=10, candidate_mask=mask)
+    assert not results.empty
+    assert results["player_id"].is_unique
+    assert (results["team"] != team).all()
+    assert results["replacement_score"].is_monotonic_decreasing
+    assert list(results["rank"]) == list(range(1, len(results) + 1))
+
+
+def test_replacement_weighting_moves_between_style_and_quality(platform):
+    index = platform.pool.index[platform.pool["position_group"] == "W"][0]
+    style = platform.replacements(index, n=10, similarity_weight=1.0)
+    quality = platform.replacements(index, n=10, similarity_weight=0.0)
+    assert style["similarity"].mean() > quality["similarity"].mean()
+    assert quality["role_fit"].mean() > style["role_fit"].mean()
+
+
+def test_team_profile_compares_a_club_with_its_league(platform):
+    from src.config import OUTFIELD_GROUPS
+    team = platform.pool["team"].value_counts().index[0]
+    profile = platform.team_category_profile(team, position_groups=OUTFIELD_GROUPS)
+    assert not profile.empty
+    assert set(profile.columns) == {"category", "club", "league_median"}
+    assert profile[["club", "league_median"]].to_numpy().min() >= 0
+    assert profile[["club", "league_median"]].to_numpy().max() <= 100
+
+
+def test_trajectory_returns_one_row_per_season(platform):
+    repeats = platform.pool[platform.pool.duplicated(subset=["player_id"], keep=False)]
+    assert not repeats.empty
+    index = repeats.index[0]
+    trajectory = platform.trajectory(index)
+    assert len(trajectory) >= 2
+    assert trajectory["season"].is_unique
+
+
+def test_platform_reports_what_its_source_cannot_supply(features, cleaned):
+    """Dropping age must switch the age tools off, not fabricate values."""
+    from src.data_processing import clean_players
+    from src.pipeline import build_platform
+
+    _clean, report = cleaned
+    without_age = features.drop(columns=["age"])
+    platform = build_platform(without_age, report, min_minutes=900)
+    assert platform.has_age is False
+
+    from src.recruitment import hidden_gem_scores
+    scores = hidden_gem_scores(
+        platform.pool, platform.categories, {g: m.z for g, m in platform.models.items()}
+    )
+    assert "Age upside" not in scores.columns
+    assert scores["hidden_gem_score"].dropna().between(0, 100).all()
+
+
+def test_features_missing_for_a_position_are_dropped_not_imputed(features, cleaned):
+    from src.pipeline import build_platform
+
+    _clean, report = cleaned
+    blanked = features.copy()
+    blanked["aerial_win_pct"] = float("nan")
+    platform = build_platform(blanked, report, min_minutes=900)
+    model = platform.models["CB"]
+    assert "aerial_win_pct" not in model.features
+    assert "aerial_win_pct" in model.dropped_features

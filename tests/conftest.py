@@ -17,7 +17,9 @@ from src.pipeline import build_platform  # noqa: E402
 
 @pytest.fixture(scope="session")
 def raw():
-    return generate_dataset(seed=3, seasons=["2024-25"])
+    # Two seasons so the multi-season tools (trajectory, self-season recall)
+    # have something to work with.
+    return generate_dataset(seed=3, seasons=["2023-24", "2024-25"])
 
 
 @pytest.fixture(scope="session")

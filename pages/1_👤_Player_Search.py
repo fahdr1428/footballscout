@@ -8,7 +8,7 @@ import streamlit as st
 from src.config import METRIC_LABELS, POSITION_GROUP_NAMES, POSITION_GROUPS
 from src.feature_engineering import metrics_for_percentiles
 from src.pipeline import format_metric
-from src.ui import chart, eyebrow, note, page_setup, sidebar_filters
+from src.ui import age_slider, apply_age, chart, default_axis, eyebrow, note, page_setup, sidebar_filters
 from src.visualisation import scatter
 
 page_setup("Player Search", "👤")
@@ -37,7 +37,11 @@ with row1[3]:
 
 row2 = st.columns([1.4, 1.4, 1.6])
 with row2[0]:
-    age_range = st.slider("Age", 15.0, 40.0, (15.0, 40.0), 0.5)
+    age_range = age_slider(platform, "Age")
+    if age_range is None:
+        nationalities = st.multiselect("Nationality", sorted(pool.get("nationality", pd.Series(dtype=str)).dropna().unique()))
+    else:
+        nationalities = []
 with row2[1]:
     minute_max = int(pool["minutes"].max())
     minutes_range = st.slider(
@@ -46,7 +50,9 @@ with row2[1]:
 with row2[2]:
     archetypes = st.multiselect("Archetype", sorted(pool["archetype"].dropna().unique()))
 
-filtered = pool[pool["age"].between(*age_range) & pool["minutes"].between(*minutes_range)]
+filtered = apply_age(pool[pool["minutes"].between(*minutes_range)], age_range)
+if nationalities:
+    filtered = filtered[filtered["nationality"].isin(nationalities)]
 if groups:
     filtered = filtered[filtered["position_group"].isin(groups)]
 if leagues:
@@ -103,7 +109,7 @@ with st.expander("Metric thresholds", expanded=False):
 sort_columns = st.columns([2, 1, 1])
 with sort_columns[0]:
     sort_metric = st.selectbox(
-        "Rank by", ["minutes", "age"] + metric_choices,
+        "Rank by", (["minutes"] + (["age"] if platform.has_age else [])) + metric_choices,
         format_func=lambda m: METRIC_LABELS.get(m, m), index=0,
     )
 with sort_columns[1]:
@@ -129,7 +135,6 @@ table = filtered.sort_values(sort_metric, ascending=ascending).head(int(limit))
 view = pd.DataFrame(
     {
         "Player": table["player"],
-        "Age": table["age"],
         "Pos": table["position"],
         "Club": table["team"],
         "League": table["league"],
@@ -148,6 +153,10 @@ for metric in display_metrics:
             table.index, percentile_column
         ].round(0)
 
+if platform.has_age:
+    view.insert(1, "Age", table["age"].to_numpy())
+if "nationality" in table.columns:
+    view.insert(1, "Nation", table["nationality"].to_numpy())
 st.dataframe(
     view, hide_index=True, height=430,
     column_config={
@@ -180,11 +189,15 @@ if index is not None:
 
 st.markdown("## Distribution of the ranking metric")
 scatter_source = filtered.copy()
+x_axis = default_axis(platform)
+if x_axis == sort_metric:
+    x_axis = "starts" if "starts" in scatter_source.columns else "matches"
 chart(
     scatter(
-        scatter_source, x="age", y=sort_metric, hover_name="player",
+        scatter_source, x=x_axis, y=sort_metric, hover_name="player",
         hover_cols=["team", "league", "minutes"],
-        x_title="Age", y_title=METRIC_LABELS.get(sort_metric, sort_metric),
+        x_title=METRIC_LABELS.get(x_axis, x_axis.replace("_", " ").title()),
+        y_title=METRIC_LABELS.get(sort_metric, sort_metric),
         highlight=pd.Series(scatter_source.index.isin(table.index), index=scatter_source.index)
         if len(table) < len(scatter_source) else None,
         highlight_label="In the table above", trend=True, height=430,

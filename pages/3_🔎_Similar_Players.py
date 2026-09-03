@@ -8,7 +8,10 @@ import streamlit as st
 from src.config import LEAGUE_STRENGTH, LEAGUE_TIER
 from src.pipeline import format_metric
 from src.similarity import explanation_sentences
-from src.ui import chart, eyebrow, note, page_setup, player_header, player_selector, sidebar_filters, similarity_table
+from src.ui import (
+    add_to_watchlist, age_slider, chart, eyebrow, note, page_setup, player_header,
+    player_selector, sidebar_filters, similarity_table, watchlist_sidebar,
+)
 from src.visualisation import contribution_chart, radar_chart
 
 page_setup("Similar Players", "🔎")
@@ -39,10 +42,9 @@ with controls[0]:
 with controls[1]:
     count = st.slider("Results", 5, 25, 10)
 with controls[2]:
-    max_age = st.slider(
-        "Maximum age", 16.0, 40.0, 40.0, 0.5,
-        help="Set below the reference player's age to look for a younger equivalent.",
-    )
+    max_age = age_slider(platform, "Age range", (15.0, 40.0), key="sim_age")
+    if max_age is None:
+        st.caption("No ages in this dataset - filter by league level instead.")
 with controls[3]:
     min_minutes = st.slider(
         "Minimum minutes", int(platform.min_minutes), int(pool["minutes"].max()),
@@ -63,7 +65,8 @@ with filters[2]:
     league_filter = st.multiselect("Restrict to leagues", sorted(pool["league"].unique()))
 
 candidates = pd.Series(True, index=pool.index)
-candidates &= pool["age"] <= max_age
+if max_age is not None:
+    candidates &= pool["age"].between(*max_age)
 candidates &= pool["minutes"] >= min_minutes
 if lower_leagues_only:
     reference_strength = LEAGUE_STRENGTH.get(row["league"], 1.0)
@@ -81,6 +84,18 @@ if results.empty:
 
 st.markdown("## Ranked matches")
 similarity_table(results)
+
+shortlist = st.multiselect(
+    "Add matches to the watchlist", platform.player_labels.loc[results.index].tolist(),
+    key="sim_watch",
+)
+if shortlist and st.button("Add to watchlist"):
+    for label in shortlist:
+        target = platform.index_for_label(label)
+        if target is not None:
+            add_to_watchlist(platform, target)
+    st.rerun()
+watchlist_sidebar()
 
 if metric_choice == "euclidean":
     note(
@@ -113,7 +128,10 @@ if other is not None:
     with header[0]:
         st.metric("Similarity", f"{similarity:.1f}%")
     with header[1]:
-        st.metric("Age gap", f"{other_row['age'] - row['age']:+.1f} years")
+        if platform.has_age:
+            st.metric("Age gap", f"{other_row['age'] - row['age']:+.1f} years")
+        else:
+            st.metric("Minutes", f"{other_row['minutes']:,.0f}", f"{other_row['minutes'] - row['minutes']:+,.0f}")
     with header[2]:
         st.metric(
             "League level",

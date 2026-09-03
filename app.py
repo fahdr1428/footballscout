@@ -31,14 +31,16 @@ PAGES = {
     "Recruitment": [
         st.Page("pages/4_🎯_Recruitment_Finder.py", title="Recruitment Finder", icon="🎯", url_path="Recruitment_Finder"),
         st.Page("pages/7_💎_Hidden_Gems.py", title="Hidden Gems", icon="💎", url_path="Hidden_Gems"),
+        st.Page("pages/10_📋_Watchlist.py", title="Watchlist", icon="📋", url_path="Watchlist"),
     ],
     "Populations": [
+        st.Page("pages/9_🏟️_Squad_Analysis.py", title="Squad Analysis", icon="🏟️", url_path="Squad_Analysis"),
         st.Page("pages/6_🧬_Player_Archetypes.py", title="Player Archetypes", icon="🧬", url_path="Player_Archetypes"),
         st.Page("pages/8_🌍_League_Explorer.py", title="League Explorer", icon="🌍", url_path="League_Explorer"),
     ],
     "Under the hood": [
-        st.Page("pages/9_🔬_Model_Validation.py", title="Model Validation", icon="🔬", url_path="Model_Validation"),
-        st.Page("pages/10_📖_Methodology.py", title="Methodology", icon="📖", url_path="Methodology"),
+        st.Page("pages/11_🔬_Model_Validation.py", title="Model Validation", icon="🔬", url_path="Model_Validation"),
+        st.Page("pages/12_📖_Methodology.py", title="Methodology", icon="📖", url_path="Methodology"),
     ],
 }
 

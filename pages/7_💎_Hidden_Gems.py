@@ -27,13 +27,20 @@ st.warning(
 )
 
 st.markdown("## Score components")
+age_row = (
+    f"| **Age upside** | 100 at {GEM_AGE_FLOOR:.0f} or younger, falling linearly to 0 at "
+    f"{GEM_AGE_CEILING:.0f}. |"
+    if platform.has_age
+    else "| ~~Age upside~~ | **Not available in this dataset** - it publishes no birth dates, so "
+         "the component is dropped and the other weights are renormalised. |"
+)
 st.markdown(
     f"""
 | Component | How it is computed |
 | --- | --- |
 | **Performance** | Weighted mean of the player's positional category percentiles, using the default position weights from `config.py`. |
-| **Age upside** | 100 at {GEM_AGE_FLOOR:.0f} or younger, falling linearly to 0 at {GEM_AGE_CEILING:.0f}. |
-| **Low exposure** | Rescaled inverse of the league-strength coefficient - highest for the weakest league in the dataset. An editable assumption, not a measurement. |
+{age_row}
+| **Low exposure** | Rescaled inverse of the league-strength coefficient - highest for the weakest league in the pool. An editable assumption, not a measurement. |
 | **Statistical uniqueness** | Percentile of the mean distance to the 15 nearest peers in the standardised feature space. High = few close analogues. |
 | **Sample size** | 100 × minutes ÷ {GEM_MINUTES_FULL:,}, capped at 100. Stops a 600-minute purple patch topping the list. |
 """

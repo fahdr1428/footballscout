@@ -80,7 +80,10 @@ def test_hidden_gem_components_are_bounded_and_directional(platform):
     scores = hidden_gem_scores(
         platform.pool, platform.categories, {g: m.z for g, m in platform.models.items()}
     )
-    for component in DEFAULT_GEM_WEIGHTS:
+    # Components a dataset cannot compute are dropped, not faked.
+    present = [c for c in DEFAULT_GEM_WEIGHTS if c in scores.columns]
+    assert "Performance" in present and "Sample size" in present
+    for component in present:
         assert scores[component].dropna().between(0, 100).all()
     assert scores["hidden_gem_score"].dropna().between(0, 100).all()
     # The age component is strictly decreasing in age until it floors at 27.

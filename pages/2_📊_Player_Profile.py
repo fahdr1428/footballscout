@@ -37,21 +37,36 @@ with header_columns[1]:
 watchlist_sidebar()
 
 # ---- headline numbers ----------------------------------------------------
-if group == "GK":
-    headline = [
-        ("Save %", "gk_save_pct"), ("Goals prevented /90", "gk_psxg_minus_ga_per90"),
+CANDIDATES = {
+    "GK": [
+        ("Save %", "gk_save_pct"), ("Save rate", "save_rate"),
+        ("Goals prevented /90", "gk_psxg_minus_ga_per90"),
         ("Saves /90", "gk_saves_per90"), ("Conceded /90", "gk_goals_against_per90"),
-        ("Cross claim %", "gk_cross_stop_pct"), ("Sweeper actions /90", "gk_def_actions_outside_box_per90"),
+        ("Conceded /90", "goals_conceded_per90"), ("xG conceded /90", "xgc_per90"),
+        ("Clean sheet rate", "clean_sheet_rate"),
+        ("Cross claim %", "gk_cross_stop_pct"),
+        ("Sweeper actions /90", "gk_def_actions_outside_box_per90"),
         ("Pass completion", "pass_pct"),
-    ]
-else:
-    headline = [
+    ],
+    "outfield": [
         ("Goals /90", "goals_per90"), ("Non-pen goals /90", "np_goals_per90"),
-        ("xG /90", "npxg_per90"), ("Assists /90", "assists_per90"), ("xA /90", "xa_per90"),
+        ("xG /90", "xg_per90"), ("Non-pen xG /90", "npxg_per90"),
+        ("Assists /90", "assists_per90"), ("xA /90", "xa_per90"),
         ("Shots /90", "shots_per90"), ("Key passes /90", "key_passes_per90"),
+        ("Threat /90", "threat_per90"), ("Creativity /90", "creativity_per90"),
         ("Progressive actions /90", "progressive_actions_per90"),
         ("Defensive actions /90", "defensive_actions_per90"),
-    ]
+        ("Tackles /90", "tackles_per90"), ("Recoveries /90", "ball_recoveries_per90"),
+        ("Clearances, blocks, int. /90", "cbi_per90"),
+    ],
+}
+# Only tiles this dataset can actually fill: a dash where a number belongs is
+# worse than no tile at all.
+headline = [
+    (label, metric)
+    for label, metric in CANDIDATES["GK" if group == "GK" else "outfield"]
+    if metric in platform.pool.columns and pd.notna(row.get(metric))
+][:9]
 
 st.write("")
 tiles(

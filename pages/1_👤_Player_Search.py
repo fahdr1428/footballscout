@@ -50,6 +50,15 @@ with row2[1]:
 with row2[2]:
     archetypes = st.multiselect("Archetype", sorted(pool["archetype"].dropna().unique()))
 
+if "detailed_position" in pool.columns and pool["detailed_position"].notna().any():
+    lineup_positions = st.multiselect(
+        "Line-up position (where the source publishes one)",
+        sorted(pool["detailed_position"].dropna().unique()),
+        help="An attribute from line-up data, not the group the models use.",
+    )
+else:
+    lineup_positions = []
+
 filtered = apply_age(pool[pool["minutes"].between(*minutes_range)], age_range)
 if nationalities:
     filtered = filtered[filtered["nationality"].isin(nationalities)]
@@ -61,6 +70,8 @@ if seasons:
     filtered = filtered[filtered["season"].isin(seasons)]
 if archetypes:
     filtered = filtered[filtered["archetype"].isin(archetypes)]
+if lineup_positions:
+    filtered = filtered[filtered["detailed_position"].isin(lineup_positions)]
 if name_query.strip():
     filtered = filtered[filtered["player"].str.contains(name_query.strip(), case=False, na=False)]
 
@@ -153,6 +164,11 @@ for metric in display_metrics:
             table.index, percentile_column
         ].round(0)
 
+for column, label, fmt in [("price_m", "Price £m", "%.1f"), ("ownership_pct", "Owned %", "%.1f")]:
+    if platform.has(column):
+        view[label] = table[column].to_numpy()
+if "detailed_position" in table.columns and table["detailed_position"].notna().any():
+    view.insert(3, "Line-up", table["detailed_position"].to_numpy())
 if platform.has_age:
     view.insert(1, "Age", table["age"].to_numpy())
 if "nationality" in table.columns:

@@ -204,6 +204,7 @@ def sidebar_filters(default_minutes: int | None = None) -> ScoutingPlatform:
             st.slider("Custom minimum", 200, 3000, int(stored) if isinstance(stored, int) else 900, 100)
             if choice == "Custom" else int(choice)
         )
+        spec_defaults = [s for s in DATA_SOURCES[source].default_seasons if s in seasons_available]
         picked_leagues = st.session_state.get("leagues_%s" % source, leagues_available)
         picked_leagues = [lg for lg in picked_leagues if lg in leagues_available] or leagues_available
         leagues = st.multiselect("Leagues in the pool", leagues_available, default=picked_leagues)
@@ -211,9 +212,17 @@ def sidebar_filters(default_minutes: int | None = None) -> ScoutingPlatform:
             leagues = list(leagues_available)
 
         seasons_available = sorted(scope.loc[scope["league"].isin(leagues), "season"].unique())
-        picked = st.session_state.get("seasons_%s" % source, seasons_available)
-        picked = [s for s in picked if s in seasons_available] or seasons_available
-        seasons = st.multiselect("Seasons", seasons_available, default=picked)
+        picked = st.session_state.get(
+            "seasons_%s" % source, spec_defaults or seasons_available
+        )
+        picked = [s for s in picked if s in seasons_available] or (
+            spec_defaults or seasons_available
+        )
+        seasons = st.multiselect(
+            "Seasons", seasons_available, default=picked,
+            help="Metric coverage varies by season on a summary feed. Picking a single season "
+                 "lets the models use everything that season measured.",
+        )
         if not seasons:
             seasons = list(seasons_available)
         st.session_state["min_minutes"] = minutes
@@ -369,10 +378,19 @@ def player_header(platform: ScoutingPlatform, index, show_archetype: bool = True
         items.append((f"Age {row['age']:.1f}", ""))
     if platform.has("height_cm") and pd.notna(row.get("height_cm")):
         items.append((f"{row['height_cm']:.0f} cm", ""))
+    if platform.has("price_m") and pd.notna(row.get("price_m")):
+        items.append((f"£{row['price_m']:.1f}m", ""))
     items.append((f"{row['minutes']:,.0f} min", "good" if row["minutes"] >= 1500 else "warn"))
     if show_archetype:
         items.insert(1, (archetype, "accent"))
     badges(items)
+    if "position_source" in row.index and pd.notna(row.get("position_source")):
+        detail = row.get("detailed_position")
+        st.caption(
+            f"Line-up position: **{detail}** - {row['position_source']}. "
+            "Models group by the source's own positional buckets."
+            if pd.notna(detail) else f"Position: {row['position_source']}."
+        )
 
 
 # --------------------------------------------------------------------------

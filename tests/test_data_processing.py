@@ -64,3 +64,18 @@ def test_cleaning_is_idempotent(cleaned):
     assert len(again) == len(clean)
     assert report.exact_duplicates == 0
     assert report.invalid_minutes == 0
+
+
+def test_a_stat_a_season_never_measured_stays_missing(cleaned):
+    """Zero-filling an unmeasured metric would claim the player never did it."""
+    clean, report = cleaned
+    frame = clean.copy()
+    # Blank one metric for a single season, as a summary feed that added it later.
+    season = sorted(frame["season"].unique())[0]
+    frame.loc[frame["season"] == season, "tackles"] = np.nan
+    cleaned_again, again = clean_players(frame)
+    blanked = cleaned_again[cleaned_again["season"] == season]
+    kept = cleaned_again[cleaned_again["season"] != season]
+    assert blanked["tackles"].isna().all()          # left missing in that season
+    assert kept["tackles"].notna().all()            # still measured in the others
+    assert "tackles" in again.unavailable_columns

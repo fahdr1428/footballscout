@@ -69,15 +69,28 @@ def _shrunk_rate(
     """
     successes = pd.to_numeric(successes, errors="coerce")
     attempts = pd.to_numeric(attempts, errors="coerce")
-    pooled = successes.groupby(groups).transform("sum") / attempts.groupby(groups).transform("sum")
-    pooled = pooled.fillna(successes.sum() / max(attempts.sum(), 1))
-    return (successes + prior_weight * pooled) / (attempts + prior_weight)
+    if attempts.fillna(0).sum() <= 0:
+        # The source does not measure this attempt count at all, so the rate is
+        # unmeasurable rather than zero - leave it missing and let the model
+        # drop the feature.
+        return pd.Series(np.nan, index=successes.index)
+
+    group_attempts = attempts.groupby(groups).transform("sum")
+    group_successes = successes.groupby(groups).transform("sum")
+    pooled = (group_successes / group_attempts.where(group_attempts > 0)).replace(
+        [np.inf, -np.inf], np.nan
+    )
+    pooled = pooled.fillna(successes.sum() / attempts.sum())
+    rate = (successes + prior_weight * pooled) / (attempts + prior_weight)
+    return rate.replace([np.inf, -np.inf], np.nan)
 
 
 def add_ratio_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """Add every success percentage in the registry, with shrinkage applied."""
     df = df.copy()
     df["_aerials_total"] = df.get("aerials_won", 0) + df.get("aerials_lost", 0)
+    if {"gk_saves", "gk_goals_against"}.issubset(df.columns):
+        df["_saves_plus_conceded"] = df["gk_saves"].fillna(0) + df["gk_goals_against"].fillna(0)
     groups = df["position_group"]
     for key, (num, den, prior_weight, _label) in RATIO_METRICS.items():
         if num not in df.columns or den not in df.columns:
@@ -122,11 +135,29 @@ def add_derived_metrics(df: pd.DataFrame) -> pd.DataFrame:
             100 * df["npxg_open_play"] / df["npxg"].replace(0, np.nan)
         ).round(2)
 
+    # Summary-feed derivations. Each is guarded so a source that lacks the
+    # inputs simply does not get the column.
+    matches = df.get("matches")
+    if matches is not None:
+        appearances = pd.to_numeric(matches, errors="coerce").replace(0, np.nan)
+        if "clean_sheets" in df.columns:
+            df["clean_sheet_rate"] = (100 * df["clean_sheets"] / appearances).round(2)
+        if "starts" in df.columns:
+            df["starts_share"] = (100 * df["starts"] / appearances).clip(upper=100).round(2)
+    if {"gk_saves", "gk_goals_against"}.issubset(df.columns):
+        # Shots faced is not published by this feed; saves plus goals conceded
+        # is the closest honest denominator, and the metric is named for it.
+        df["_saves_plus_conceded"] = df["gk_saves"].fillna(0) + df["gk_goals_against"].fillna(0)
+    if {"goals_per90", "assists_per90"}.issubset(df.columns):
+        df["goal_involvements_per90"] = (df["goals_per90"] + df["assists_per90"]).round(3)
+    if {"xg_per90", "xa_per90"}.issubset(df.columns):
+        df["xgi_per90"] = (df["xg_per90"] + df["xa_per90"]).round(3)
+
     gk = groups.eq("GK")
     df["gk_psxg_minus_ga_per90"] = np.where(
         gk, (df.get("gk_psxg", np.nan) - df.get("gk_goals_against", np.nan)) / exposure, np.nan
     ).round(3)
-    return df.drop(columns=["_aerials_total"])
+    return df.drop(columns=[c for c in ["_aerials_total", "_saves_plus_conceded"] if c in df.columns])
 
 
 def add_possession_adjusted(df: pd.DataFrame) -> pd.DataFrame:
@@ -164,10 +195,10 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 # --------------------------------------------------------------------------
 
 def model_features(position_group: str, available: list[str] | None = None) -> list[str]:
-    """Feature list for a position group, restricted to columns that exist."""
-    features = POSITION_FEATURES[position_group]
+    """Feature list for a position group, deduplicated and restricted to columns that exist."""
+    features = list(dict.fromkeys(POSITION_FEATURES[position_group]))
     if available is None:
-        return list(features)
+        return features
     present = set(available)
     return [f for f in features if f in present]
 
@@ -244,7 +275,7 @@ def scale_features(
     pool: pd.DataFrame, features: list[str]
 ) -> tuple[pd.DataFrame, StandardScaler]:
     """Z-score the feature matrix within the pool (median-filled, then scaled)."""
-    matrix = pool[features].astype(float)
+    matrix = pool[features].astype(float).replace([np.inf, -np.inf], np.nan)
     matrix = matrix.fillna(matrix.median())
     matrix = matrix.fillna(0.0)
     scaler = StandardScaler()

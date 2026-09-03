@@ -40,20 +40,24 @@ st.markdown(
 | --- | --- |
 | **Performance** | Weighted mean of the player's positional category percentiles, using the default position weights from `config.py`. |
 {age_row}
-| **Low exposure** | Rescaled inverse of the league-strength coefficient - highest for the weakest league in the pool. An editable assumption, not a measurement. |
+| **Low exposure** | Rescaled inverse of the league-strength coefficient - highest for the weakest league in the pool. An editable assumption, and dropped entirely when the pool is a single league. |
+| **Value for money** | Percentile of performance divided by price, where the source publishes one. On the Premier League source that price is the fantasy game's own valuation - a popularity signal, not a transfer fee. |
 | **Statistical uniqueness** | Percentile of the mean distance to the 15 nearest peers in the standardised feature space. High = few close analogues. |
 | **Sample size** | 100 × minutes ÷ {GEM_MINUTES_FULL:,}, capped at 100. Stops a 600-minute purple patch topping the list. |
 """
 )
 
 st.markdown("## Weights")
-available_components = [
-    c for c in DEFAULT_GEM_WEIGHTS if c != "Age upside" or platform.has_age
-]
-if len(available_components) < len(DEFAULT_GEM_WEIGHTS):
+probe = hidden_gem_scores(
+    pool.head(50), platform.categories.loc[pool.head(50).index],
+    {g: m.z for g, m in platform.models.items()},
+)
+available_components = [c for c in DEFAULT_GEM_WEIGHTS if c in probe.columns]
+dropped = [c for c in DEFAULT_GEM_WEIGHTS if c not in available_components]
+if dropped:
     st.info(
-        "This dataset publishes no birth dates, so **age upside is dropped** and the remaining "
-        "weights are renormalised. Nothing is substituted for it.",
+        "Not computable on this pool, so dropped with the remaining weights renormalised - "
+        "nothing is substituted for them: **" + "**, **".join(dropped) + "**.",
         icon="ℹ️",
     )
 weight_columns = st.columns(len(available_components))
@@ -132,16 +136,16 @@ view = pd.DataFrame(
         "Club": top["team"],
         "League": top["league"],
         "Minutes": top["minutes"],
-        "Performance": top["Performance"],
-        "Low exposure": top["Low exposure"],
-        "Uniqueness": top["Statistical uniqueness"],
-        "Sample size": top["Sample size"],
         "Archetype": top["archetype"],
     }
 )
+# Only the components this dataset could actually compute.
+for component in available_components:
+    view[component] = top[component].to_numpy()
 if platform.has_age:
     view.insert(2, "Age", top["age"].to_numpy())
-    view["Age upside"] = top["Age upside"].to_numpy()
+if platform.has("price_m"):
+    view.insert(3, "Price £m", top["price_m"].to_numpy())
 st.dataframe(
     view, hide_index=True, height=440,
     column_config={

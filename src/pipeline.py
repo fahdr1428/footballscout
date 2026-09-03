@@ -37,6 +37,11 @@ from .config import (
 from .data_processing import CleaningReport, clean_players, load_source
 from .similarity import SimilarityEngine
 
+# A position group needs at least this many player-seasons to be modelled. One
+# league-season has only about twenty goalkeepers, which is enough to rank but
+# not enough to carve into many archetypes.
+MIN_GROUP_SIZE = 18
+
 STRENGTH_PERCENTILE = 70
 WEAKNESS_PERCENTILE = 30
 
@@ -399,9 +404,10 @@ def build_platform(
     categories = fe.category_scores(percentiles, pool["position_group"])
 
     models: dict[str, PositionModel] = {}
-    for group in POSITION_GROUPS:
+    present = [g for g in POSITION_GROUPS if g in set(pool["position_group"].unique())]
+    for group in present:
         subset = pool[pool["position_group"] == group]
-        if len(subset) < 30:
+        if len(subset) < MIN_GROUP_SIZE:
             continue
         # Drop features this source cannot populate for this position, rather
         # than feeding a column of imputed medians into the distance metric.

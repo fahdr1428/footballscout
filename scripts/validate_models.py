@@ -24,7 +24,11 @@ from src.validation import (  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--min-minutes", type=int, default=DEFAULT_MIN_MINUTES)
-    parser.add_argument("--source", default=DEFAULT_SOURCE, help="statsbomb or simulated")
+    parser.add_argument("--source", default=DEFAULT_SOURCE,
+                        help="premier_league, statsbomb or simulated")
+    parser.add_argument("--seasons", nargs="*", default=None,
+                        help="restrict the pool to these seasons")
+    parser.add_argument("--out", type=Path, default=None, help="where to write the report")
     parser.add_argument(
         "--groups", nargs="*", default=["W", "CB", "DM"],
         help="position groups to run the sensitivity tests on",
@@ -34,7 +38,9 @@ def main() -> int:
     features, report, used = build_features(args.source)
     print(f"source: {used} | cleaned {report.rows_out:,} of {report.rows_in:,} rows")
 
-    platform = build_platform(features, report, min_minutes=args.min_minutes, source=used)
+    platform = build_platform(
+        features, report, min_minutes=args.min_minutes, seasons=args.seasons, source=used
+    )
     print(f"pool: {len(platform.pool):,} player-seasons, {len(platform.models)} position models\n")
 
     print(clustering_diagnostics(platform).to_string(index=False))
@@ -44,8 +50,8 @@ def main() -> int:
         print(agreement.to_string(index=False))
         print()
 
-    text = write_validation_report(platform)
-    print(f"written: {VALIDATION_REPORT}  ({len(text.splitlines())} lines)")
+    text = write_validation_report(platform, args.out)
+    print(f"written: {args.out or VALIDATION_REPORT}  ({len(text.splitlines())} lines)")
     return 0
 
 

@@ -190,7 +190,7 @@ def self_season_recall(
 def team_mate_bias(
     platform: ScoutingPlatform, k: int = 10, metric: str = "cosine", sample: int = 150, seed: int = 0
 ) -> pd.DataFrame:
-    """How often a player's nearest neighbours are his own team-mates.
+    """How often a player's nearest neighbours are his own team-mates that season.
 
     Team style leaks into individual numbers - a defender in a possession side
     passes more because of the side, not the defender. If team-mates are wildly
@@ -209,9 +209,14 @@ def team_mate_bias(
             neighbours = model.engine.neighbours(index, n=k, metric=metric)
             if neighbours.empty:
                 continue
-            shares.append(float((neighbours["team"] == team).mean()))
-            same_club = ((members["team"] == team) & (members["season"] == season)).sum() - 1
-            baselines.append(same_club / max(len(members) - 1, 1))
+            # Actual team-mates: same club *and* same season. Counting a club's
+            # players from other seasons as team-mates, while the chance
+            # baseline counts only one season, would inflate the lift purely
+            # because the pool spans several seasons.
+            same_squad = (neighbours["team"] == team) & (neighbours["season"] == season)
+            shares.append(float(same_squad.mean()))
+            squad_size = ((members["team"] == team) & (members["season"] == season)).sum() - 1
+            baselines.append(squad_size / max(len(members) - 1, 1))
         if not shares:
             continue
         rows.append(
@@ -351,7 +356,9 @@ def build_validation_report(
     platform: ScoutingPlatform, sensitivity_groups: list[str] | None = None
 ) -> str:
     """Assemble the full markdown validation report."""
-    sensitivity_groups = sensitivity_groups or ["W", "CB", "DM"]
+    if not sensitivity_groups:
+        preferred = ["W", "CB", "DM", "MID", "DEF", "FWD"]
+        sensitivity_groups = [g for g in preferred if g in platform.models][:3]
     parts = ["# Model validation report", ""]
     parts.append(
         f"Pool: **{len(platform.pool):,} player-seasons**, minimum "

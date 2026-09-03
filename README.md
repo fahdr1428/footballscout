@@ -5,9 +5,13 @@ find statistically similar players, turn a recruitment brief into a ranked short
 player's strengths and weaknesses against his positional peers, and work out who could replace
 him — with the arithmetic behind every number on show.
 
-**4,989 real player-seasons** derived from **2,384 matches** of StatsBomb Open Data: the complete
-2015-16 Premier League, La Liga, Serie A and Ligue 1, four FA WSL seasons, two NWSL seasons,
-Liga F, the Frauen Bundesliga, Serie A Women and the Indian Super League.
+Two real datasets, switchable in the sidebar, plus a simulated one used to validate the models:
+
+| Dataset | Coverage | What it is good for |
+| --- | --- | --- |
+| **Premier League** (default) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
+| **StatsBomb Open Data** | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. Newest complete men's league season available openly is 2015/16. |
+| **Simulated** | 14 leagues × 2 seasons | The only way to score an unsupervised model against known ground truth. |
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
@@ -43,7 +47,11 @@ The real dataset is committed, so the app runs immediately — no downloads or A
 
 ![Recruitment finder](assets/screenshot-recruitment.png)
 
-**Model validation — does the engine recognise the same player twice?**
+**Hidden gems — young, cheap, high-output, 2025/26**
+
+![Hidden gems](assets/screenshot-hidden-gems.png)
+
+**Model validation — including where the models are weakest**
 
 ![Validation](assets/screenshot-validation.png)
 
@@ -59,13 +67,55 @@ The real dataset is committed, so the app runs immediately — no downloads or A
 
 ---
 
-## The data: real players, from StatsBomb Open Data
+## The data
 
-The platform ships with a **real** player-season dataset built from the
-[StatsBomb Open Data](https://github.com/statsbomb/open-data) event feed, which is free for
-public use. `src/statsbomb.py` downloads the event files and derives the whole schema from raw
-events — nothing is taken from a provider's pre-computed summary table, so every definition can
-be argued with and changed.
+### Premier League, 2016/17 → 2025/26 (the default)
+
+Built by `src/premier_league.py` from two public feeds mirrored in
+[vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League):
+
+- the **official Fantasy Premier League** season and gameweek exports — minutes, starts, goals,
+  assists, cards, saves, clean sheets, the Opta-derived Influence / Creativity / Threat indices,
+  the bonus-point score, price and ownership;
+- **Understat** per-player match logs — shots, key passes, non-penalty goals and xG, xGChain,
+  xGBuildup, and the position a player actually lined up in each match.
+
+**A summary feed adds metrics over time, and this app never pretends otherwise.** A metric a
+season did not measure is left missing, not zero-filled, and any feature missing from the
+selected pool is dropped from that position's model rather than imputed:
+
+| Seasons | What arrives |
+| --- | --- |
+| 2016/17 – 2018/19 | Minutes, starts, goals, assists, cards, saves, clean sheets, ICT indices, bonus points, price, ownership |
+| 2019/20 – 2021/22 | + Understat shots, key passes, npG, npxG, xA, xGChain, xGBuildup, and line-up positions |
+| 2022/23 – 2024/25 | + Opta expected goals, assists and goals conceded, from FPL itself |
+| **2025/26** | + tackles, recoveries and clearances-blocks-interceptions, added when the game began scoring Defensive Contribution. Understat's mirror stops after 2024/25 |
+
+Pick one season in the sidebar and the models use everything that season measured; pick several
+and only the metrics common to all of them survive.
+
+**Positions.** FPL publishes four buckets, so players are grouped **GK / DEF / MID / FWD**.
+Understat's line-up position rides along as a filterable attribute (carried forward, and labelled
+as such, for seasons the mirror does not reach). It is never used to group: deriving a finer
+position from the same statistics the models then read would be circular, and the circularity
+would surface as structure the data does not have.
+
+**Club of record** is the club a player played the most minutes for that season, read from the
+gameweek file — the season snapshot names his *current* club, which after a summer window is
+somebody else's. That is why 2025/26 shows Semenyo at Bournemouth and Guéhi at Crystal Palace,
+not at Manchester City.
+
+**Price** is the fantasy game's own valuation. It is a popularity and perceived-value signal —
+used for the value-for-money component of the hidden-gem score — and **not a transfer fee or a
+wage**.
+
+```bash
+python scripts/fetch_premier_league.py     # rebuild; clones the mirror once (~360 MB)
+```
+
+### StatsBomb Open Data — depth, at the cost of recency
+
+Built by `src/statsbomb.py`, which downloads raw event files and derives the whole schema itself.
 
 | Competition | Seasons | Matches |
 | --- | --- | --- |
@@ -75,53 +125,24 @@ be argued with and changed.
 | Liga F, Frauen Bundesliga, Serie A Women | 2023-24 | 502 |
 | Indian Super League | 2021-22 | 115 |
 
-**2,384 matches → 4,989 player-seasons.** Only competition-seasons where the feed covers the
-*whole* league are ingested; seasons carrying a single club (Barcelona's La Liga years,
-Leverkusen 2023-24) are excluded, because every other team would field a phantom squad.
+Only competition-seasons with whole-league coverage are ingested. It produces the right numbers —
+Kane 25 and Suárez 40 for the 2015/16 golden boots, Kanté top for tackles plus interceptions,
+Leicester on 44.3% possession — and it buys metrics no summary feed has: pass completion under
+pressure (Mousa Dembélé top at 88%), open-play versus set-piece xG, shot-creating actions rebuilt
+from the possession chain.
 
-### Does it produce the right numbers?
-
-Spot-checks against the historical record, straight out of the pipeline:
-
-| Check | Platform output | Reality |
-| --- | --- | --- |
-| Premier League 2015-16 top scorer | Harry Kane 25 | Kane 25 (Golden Boot) |
-| Next four | Vardy 24, Agüero 24, Lukaku 18, Mahrez 17 | exactly those figures |
-| La Liga 2015-16 top scorer | Luis Suárez 40 | Suárez 40 (Pichichi) |
-| Most tackles + interceptions, PL | N'Golo Kanté | Kanté led the league |
-| Leicester City possession | 44.3% | ~44.8% — the lowest-possession champions in PL history |
-| Total minutes, PL 2015-16 | 752,246 | 752,400 minus red cards |
-
-Mahrez's 2015-16 (PFA Player of the Year) comes out at the 98th percentile for take-ons
-attempted, 96th for completed, 93rd for xA, 91st for both goals and assists per 90.
-
-### What this feed cannot supply
-
-- **No birth dates**, so age is unavailable. Every age filter, the age column and the
-  age-upside component of the hidden-gem score are **switched off** rather than filled with a
-  guess. The platform reports what a source cannot supply instead of imputing it.
-- **No heights.**
-- **No post-shot xG** — a paid StatsBomb feature — so goalkeepers are judged on save percentage
-  and goals conceded rather than goals prevented. That feature is dropped from the GK model,
-  not zero-filled.
-
-Rebuild it any time:
+It has no ages, heights or post-shot xG, so those tools switch off rather than being filled in.
 
 ```bash
-python scripts/fetch_statsbomb.py          # ~10 minutes; match results are cached and resumable
+python scripts/fetch_statsbomb.py          # ~10 minutes, resumable
 ```
 
-### The second dataset, and why it exists
+### Simulated — the supervised check real data cannot give
 
-The repository also ships a **simulated** universe — 14 leagues over two seasons, with every
-field the schema supports including age and height. It is not padding: because each player is
-generated from a known role profile, it is the only way to run a *supervised* check on an
-unsupervised model. The Model Validation page uses it to measure whether K-Means and the
-nearest-neighbour engine recover real structure — which is impossible on a feed with no ground
-truth. Its players are invented and describe nobody.
-
-Both datasets flow through **identical** cleaning, feature and modelling code; only ingestion
-differs. Switch between them in the sidebar.
+14 leagues over two seasons, every player generated from a known role profile. That is the point:
+it is the only way to measure whether K-Means and the nearest-neighbour engine recover *real*
+structure, which is impossible on a feed with no ground truth. Its players are invented and
+describe nobody.
 
 ### Bringing your own data
 
@@ -134,9 +155,8 @@ clean, report = clean_players(raw)
 features = build_features(clean)
 ```
 
-Required columns: `player`, `position`, `team`, `league`, `season`, `minutes`. Any counting stat
-in `src/config.COUNTING_STATS` that is missing is created as `NaN`, and the affected metrics
-drop out of the models rather than being imputed.
+Required columns: `player`, `position`, `team`, `league`, `season`, `minutes`. Anything missing is
+created as `NaN` and drops out of the models rather than being imputed.
 
 ## What it does
 
@@ -267,9 +287,10 @@ centre-back*, Mead *creative crossing winger* — labels no one typed in.
 
 ## Validation
 
-`python scripts/validate_models.py --source statsbomb` writes
-[`models/validation_report.md`](models/validation_report.md); `--source simulated` writes the
-[simulated equivalent](models/validation_report_simulated.md).
+`scripts/validate_models.py` writes a report per dataset:
+[Premier League 2025/26](models/validation_report.md),
+[StatsBomb](models/validation_report_statsbomb.md),
+[simulated](models/validation_report_simulated.md).
 
 ### On real data: does the engine recognise the same player twice?
 
@@ -279,22 +300,23 @@ which makes it the check that still works on a feed with no ground truth about p
 
 | Position | Player-seasons tested | Own season in top 10 | Chance | Lift | Median rank |
 | --- | --- | --- | --- | --- | --- |
-| GK | 76 | 24% | 4.8% | **5.0×** | 19 |
-| CB | 100 | 46% | 1.9% | **24.0×** | 13 |
-| FB | 76 | 26% | 2.0% | **13.2×** | 54 |
-| DM | 24 | 67% | 3.0% | **22.5×** | 5 |
-| CM | 24 | 42% | 4.5% | **9.3×** | 16 |
-| AM | 14 | 79% | 8.5% | **9.3×** | 5 |
-| W | 70 | 30% | 2.4% | **12.3×** | 19 |
-| FW | 30 | 33% | 3.4% | **9.9×** | 42 |
+On the StatsBomb event data:
+
+| GK | CB | FB | DM | CM | AM | W | FW |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 5.0× | 24.0× | 13.2× | 22.5× | 9.3× | 9.3× | 12.3× | 9.9× |
 
 The profile the engine builds is stable enough to pick the same footballer out of a 500-player
-pool in a different season, with a different squad around him, at 5–25× chance.
+pool in a different season, with a different squad around him, at 5–25× chance. On the thinner
+Premier League feature set the same check gives 2–21×, which is the honest cost of a summary
+feed.
 
-The report also checks whether it is **matching on club rather than player** — team style leaks
-into individual numbers, since a defender in a possession side passes more because of the side.
-Team-mates take 1–4% of top-ten slots against a 0.1–0.6% baseline: a real effect, reported
-rather than hidden.
+The report also checks whether it is **matching on the club rather than the player** — team style
+leaks into individual numbers, since a defender in a low-possession side makes more tackles.
+Within a single Premier League season team-mates take top-ten slots at 0.6–1.7× chance
+(essentially no club clustering); on StatsBomb, where the pool spans ten competitions and
+defensive volume goes unadjusted for possession in the feature set, centre-backs reach 10.6×.
+That is a real effect, measured and reported rather than hidden.
 
 ### On simulated data: the supervised check real data cannot give
 
@@ -325,6 +347,10 @@ nearest neighbours share his generative role 2.0–2.8× more often than chance.
 - **Feature dominance** — the mean share of pairwise distance carried by each metric. No metric
   exceeds ~1.3× an even share, so no position's model rests on one statistic.
 - **Drop-metric sensitivity** — remove one metric and 77–90% of the top ten survives.
+- **Redundant team-context metrics removed.** Clean-sheet rate, goals conceded and expected goals
+  conceded are three near-identical readings of one thing — the club — so only the most
+  informative survives into an outfield model. They stay on the radar and in the recruitment
+  weights, where a scout reads them as context.
 - **Category re-weighting** — triple a category's weight and 60–75% survives: the weights do
   something without the ranking being at their mercy.
 - **Correlation analysis** — feature pairs above |r| = 0.85 are reported rather than silently
@@ -339,6 +365,7 @@ app.py                      Streamlit entry point (navigation only)
 pages/                      One file per page — layout only, no modelling
 src/
   config.py                 Metric registry, position groups, feature sets, categories, theme
+  premier_league.py         Summary-feed ETL: ten Premier League seasons to 2025/26
   statsbomb.py              Event-level ETL: real data from StatsBomb Open Data
   data_generation.py        Latent-trait simulation of the second dataset
   data_processing.py        Ingestion (real or simulated), cleaning, pool filtering
@@ -352,23 +379,25 @@ src/
   pipeline.py               Orchestration + the ScoutingPlatform every page reads
   ui.py                     Shared Streamlit helpers
 scripts/
-  fetch_statsbomb.py        Build the real dataset from the open-data feed
+  fetch_premier_league.py   Build the Premier League dataset from the FPL + Understat mirror
+  fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
-tests/                      52 tests covering the analytics layer and the ETL
-data/raw/                   statsbomb_players.csv.gz + players_raw.csv.gz (both committed)
+tests/                      63 tests covering the analytics layer and both ETLs
+data/raw/                   premier_league.csv.gz, statsbomb_players.csv.gz, players_raw.csv.gz
 data/processed/             Rebuilt on demand
-models/                     validation_report.md (real) and _simulated.md
+models/                     One validation report per dataset
 ```
 
 Machine-learning logic is kept entirely out of the Streamlit layer: pages read a cached
 `ScoutingPlatform` object and never fit anything themselves.
 
 ```bash
-python scripts/fetch_statsbomb.py         # rebuild the real dataset from the open-data feed
-python scripts/build_dataset.py           # rebuild the simulated one (--seed for a new universe)
-python scripts/validate_models.py         # refit and rewrite the validation report
-python -m pytest tests/ -q                # 52 tests
+python scripts/fetch_premier_league.py                       # rebuild the Premier League data
+python scripts/fetch_statsbomb.py                            # rebuild the StatsBomb data
+python scripts/build_dataset.py                              # rebuild the simulated universe
+python scripts/validate_models.py --source premier_league --seasons 2025-26
+python -m pytest tests/ -q                                   # 63 tests
 ```
 
 ---
@@ -381,16 +410,19 @@ Everything the app needs is committed, so it deploys with no extra setup:
   and `requirements.txt` for dependencies. First load fits eight position models (about ten
   seconds), then everything is cached.
 - **Locally** — `pip install -r requirements.txt && streamlit run app.py`.
-- **Rebuilding the data** — `python scripts/fetch_statsbomb.py` re-derives the real dataset from
-  the open-data feed (about ten minutes, resumable); `python scripts/build_dataset.py` regenerates
+- **Rebuilding the data** — `scripts/fetch_premier_league.py` and `scripts/fetch_statsbomb.py`
+  re-derive the two real datasets from their public feeds; `scripts/build_dataset.py` regenerates
   the simulated one.
 
 ### Attribution and licence
 
-Real data is provided by **[StatsBomb Open Data](https://github.com/statsbomb/open-data)**, free
-for public use under their user agreement. StatsBomb is credited in the sidebar, on the home
-page, in every generated scouting report and here. The derived dataset in `data/raw/` is a
-transformation of that feed; the code in this repository is the author's own.
+Event data is provided by **[StatsBomb Open Data](https://github.com/statsbomb/open-data)**, free
+for public use under their user agreement. Premier League season data comes from the official
+Fantasy Premier League endpoints and Understat, mirrored by
+**[vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)** (MIT).
+Both are credited in the sidebar, on the home page, in every generated scouting report and here.
+The derived datasets in `data/raw/` are transformations of those feeds; the code is the author's
+own.
 
 ## Known limitations
 

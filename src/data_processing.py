@@ -91,9 +91,17 @@ class CleaningReport:
         ]
         for column, count in sorted(self.imputed.items()):
             rows.append((f"Imputed missing `{column}`", f"{count:,}"))
-        for column in sorted(set(self.unavailable)):
-            rows.append((f"Not supplied by this source: `{column}`", "left missing"))
+        unavailable = sorted(set(self.unavailable))
+        if unavailable:
+            rows.append(
+                ("Columns this source does not supply (left missing, never zero-filled)",
+                 f"{len(unavailable):,}")
+            )
         return rows
+
+    @property
+    def unavailable_columns(self) -> list[str]:
+        return sorted(set(self.unavailable))
 
 
 # --------------------------------------------------------------------------
@@ -281,12 +289,27 @@ def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
 
     # Remaining counting stats are genuinely zero-or-absent events - except any
     # column the source does not publish at all, which stays missing so the
-    # models drop it rather than reading a real zero into it.
-    unavailable = set(report.unavailable)
-    outfield_cols = [c for c in count_cols if not c.startswith("gk_") and c not in unavailable]
-    gk_cols = [c for c in count_cols if c.startswith("gk_") and c not in unavailable]
-    df[outfield_cols] = df[outfield_cols].fillna(0)
-    df.loc[gk_mask, gk_cols] = df.loc[gk_mask, gk_cols].fillna(0)
+    # models drop it rather than reading a real zero into it. "Did not attempt a
+    # single long pass all season" and "this feed does not count long passes"
+    # are completely different claims, and only one of them is true.
+    # A missing count means "this did not happen" only when the season measured
+    # it at all. Summary feeds add metrics over time - the Premier League feed
+    # began counting tackles in 2025/26 - so the test is applied season by
+    # season: a column absent for a whole season stays missing there, and is
+    # zero-filled in the seasons that do measure it.
+    seasons = df["season"] if "season" in df.columns else pd.Series("all", index=df.index)
+    for column in count_cols:
+        applicable = gk_mask if column.startswith("gk_") else pd.Series(True, index=df.index)
+        for season, block in df.groupby(seasons, observed=True).groups.items():
+            rows = df.index.intersection(block)
+            scope = rows[applicable.loc[rows]]
+            if len(scope) == 0:
+                continue
+            if df.loc[scope, column].isna().all():
+                report.unavailable.append(column)
+            else:
+                df.loc[scope, column] = df.loc[scope, column].fillna(0)
+    # Goalkeeping columns never apply to outfielders.
     df.loc[~gk_mask, [c for c in count_cols if c.startswith("gk_")]] = np.nan
 
     if "age" in df.columns and df["age"].notna().any():

@@ -75,6 +75,10 @@ view = pd.DataFrame(
         "Profile": squad_profile,
     }
 )
+if platform.has("price_m"):
+    view["Price £m"] = squad["price_m"].to_numpy()
+if "detailed_position" in squad.columns and squad["detailed_position"].notna().any():
+    view.insert(2, "Line-up", squad["detailed_position"].to_numpy())
 if platform.has_age:
     view.insert(1, "Age", squad["age"].to_numpy())
 if "nationality" in squad.columns:

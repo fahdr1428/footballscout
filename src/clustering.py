@@ -22,7 +22,10 @@ from .config import LOWER_IS_BETTER, METRIC_LABELS, POSITION_GROUP_NAMES, catego
 
 # Extra naming concepts on top of the radar categories.
 EXTRA_CONCEPTS = {
-    "Pressing": ["pressures_per90", "pressure_success_pct", "ball_recoveries_per90"],
+    # Pressing needs actual pressure events. Ball recoveries alone are not
+    # pressing - they belong to the defending concepts - so a source without
+    # pressure data simply does not get this concept.
+    "Pressing": ["pressures_per90", "pressure_success_pct"],
     "Passing Volume": ["passes_attempted_per90", "touches_per90"],
     "Long Passing": ["long_passes_attempted_per90", "long_pass_pct", "switches_per90"],
     "Crossing": ["crosses_per90"],
@@ -47,6 +50,13 @@ CONCEPT_ADJECTIVES = {
     "Sweeping": "sweeper",
     "Distribution": "ball-playing",
     "Long Distribution": "direct",
+    # bucket-taxonomy concepts
+    "Goal Threat": "goalscoring",
+    "Build-up Involvement": "involved",
+    "Defensive Work": "hard-working",
+    "Defensive Solidity": "defensively solid",
+    "Overall Rating": "high-impact",
+    "Availability": "ever-present",
 }
 
 # Used when a cluster has no strength worth naming: scouts still describe those
@@ -70,10 +80,19 @@ DEFICIT_ADJECTIVES = {
     "Sweeping": "box-bound",
     "Distribution": "low-involvement",
     "Long Distribution": "short-distributing",
+    "Goal Threat": "low-threat",
+    "Build-up Involvement": "peripheral",
+    "Defensive Work": "low-workrate",
+    "Defensive Solidity": "leaky",
+    "Overall Rating": "low-impact",
+    "Availability": "rotation",
 }
 
 POSITION_NOUNS = {
     "GK": "goalkeeper",
+    "DEF": "defender",
+    "MID": "midfielder",
+    "FWD": "forward",
     "CB": "centre-back",
     "FB": "full-back",
     "DM": "holding midfielder",
@@ -85,6 +104,11 @@ POSITION_NOUNS = {
 
 MIN_CLUSTER_FLOOR = 20        # never accept an archetype with fewer players than this
 MIN_CLUSTER_SHARE = 0.04      # ...or fewer than this share of the position group
+MIN_CLUSTER_ABSOLUTE = 6      # ...unless the group itself is small (one league's keepers)
+
+# Concepts that describe circumstance rather than playing style. They stay on
+# the radar and in the recruitment weights, but never name an archetype.
+NAMING_EXCLUDED = {"Availability"}
 
 STRONG_CONCEPT_Z = 0.30       # concept must be this far above average to name
 SECOND_CONCEPT_Z = 0.25       # second adjective threshold
@@ -109,12 +133,26 @@ class ClusterModel:
     concept_scores: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
+MIN_PLAYERS_PER_CLUSTER = 12   # the average an archetype must clear
+
+
+def candidate_k_range(n: int, k_min: int = 3, k_max: int = 9) -> tuple[int, int]:
+    """How many archetypes a group of this size can actually support.
+
+    A position group with two dozen players - one league's goalkeepers - cannot
+    carry six archetypes, however good the silhouette looks. Capping k by group
+    size keeps every archetype backed by a dozen players on average.
+    """
+    ceiling = max(2, min(k_max, n // MIN_PLAYERS_PER_CLUSTER))
+    return min(k_min, ceiling), ceiling
+
+
 def evaluate_k(
     z: pd.DataFrame, k_min: int = 3, k_max: int = 9, random_state: int = 42
 ) -> pd.DataFrame:
     """Inertia and silhouette score for each candidate number of clusters."""
     rows = []
-    k_max = int(min(k_max, max(k_min, len(z) // 25)))
+    k_min, k_max = candidate_k_range(len(z), k_min, k_max)
     for k in range(k_min, k_max + 1):
         model = KMeans(n_clusters=k, n_init=10, random_state=random_state)
         labels = model.fit_predict(z)
@@ -176,6 +214,10 @@ def choose_k(
         supported = valid[valid["smallest_cluster"] >= min_cluster_size]
         if not supported.empty:
             valid = supported
+        else:
+            # Nothing clears the floor, so take the fewest clusters on offer:
+            # that is the option with the most players behind each archetype.
+            return int(valid["k"].min())
     best = valid["silhouette"].max()
     if best <= 0:
         return int(valid.loc[valid["silhouette"].idxmax(), "k"])
@@ -217,8 +259,9 @@ def name_clusters(
     names: dict[int, str] = {}
     used: set[str] = set()
 
+    nameable = [c for c in concept_scores.columns if c not in NAMING_EXCLUDED]
     for cluster in concept_scores.index:
-        ranked = concept_scores.loc[cluster].sort_values(ascending=False)
+        ranked = concept_scores.loc[cluster, nameable].sort_values(ascending=False)
         parts: list[str] = []
         for concept, value in ranked.items():
             threshold = STRONG_CONCEPT_Z if not parts else SECOND_CONCEPT_Z
@@ -283,7 +326,11 @@ def fit_clusters(
     evaluation = evaluate_k(z, k_min=k_min, k_max=k_max, random_state=random_state)
     # An archetype needs enough players behind it for its centroid - and so its
     # generated name - to mean anything.
-    floor = max(MIN_CLUSTER_FLOOR, int(MIN_CLUSTER_SHARE * len(z)))
+    floor = max(
+        MIN_CLUSTER_ABSOLUTE,
+        min(MIN_CLUSTER_FLOOR, len(z) // 4),
+        int(MIN_CLUSTER_SHARE * len(z)),
+    )
     chosen = int(k or choose_k(evaluation, min_cluster_size=floor))
     chosen = max(2, min(chosen, len(z) - 1))
 

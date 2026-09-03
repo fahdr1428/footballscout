@@ -42,6 +42,7 @@ DEFAULT_GEM_WEIGHTS = {
     "Performance": 40,
     "Age upside": 20,
     "Low exposure": 15,
+    "Value for money": 15,
     "Statistical uniqueness": 15,
     "Sample size": 10,
 }
@@ -183,6 +184,20 @@ def exposure_score(strength: pd.Series) -> pd.Series:
     return (100 * (high - strength) / (high - low)).round(1)
 
 
+def value_for_money(performance: pd.Series, price: pd.Series) -> pd.Series:
+    """Percentile of performance per unit of price.
+
+    Where a source publishes a price this asks the obvious scouting question:
+    how much on-pitch output is this player returning for what he costs? The
+    price here is the fantasy game's own valuation - a popularity and
+    perceived-value signal, not a transfer fee or a wage - so this is
+    value-for-money inside that game's market, and nothing more.
+    """
+    price = pd.to_numeric(price, errors="coerce")
+    ratio = performance / price.where(price > 0)
+    return ratio.rank(pct=True).mul(100).round(1)
+
+
 def sample_size_score(minutes: pd.Series) -> pd.Series:
     """Rewards a trustworthy sample; flat once a player passes 1,800 minutes."""
     return (100 * (minutes / GEM_MINUTES_FULL)).clip(0, 100).round(1)
@@ -216,15 +231,22 @@ def hidden_gem_scores(
 
     columns = {
         "Performance": performance,
-        "Low exposure": exposure_score(_league_strength(pool)),
         "Statistical uniqueness": uniqueness,
         "Sample size": sample_size_score(pool["minutes"]),
     }
-    # Age upside only exists where the source publishes birth dates. When it
-    # does not, the component is dropped and the remaining weights are
-    # renormalised rather than a placeholder age being invented.
+    # Every other component only exists where the source supports it. When one
+    # does not, it is dropped and the remaining weights are renormalised rather
+    # than a placeholder being invented.
     if "age" in pool.columns and pool["age"].notna().any():
         columns["Age upside"] = age_upside(pool["age"])
+
+    strength = _league_strength(pool)
+    if strength.nunique() > 1:
+        # Meaningless in a single-league pool: everyone has the same exposure.
+        columns["Low exposure"] = exposure_score(strength)
+
+    if "price_m" in pool.columns and pool["price_m"].notna().any():
+        columns["Value for money"] = value_for_money(performance, pool["price_m"])
 
     components = pd.DataFrame(columns)
     total = sum(weights.get(c, 0) for c in components.columns)

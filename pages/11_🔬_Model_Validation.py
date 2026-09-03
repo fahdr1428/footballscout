@@ -80,6 +80,13 @@ reference dataset is simulated.
 
 # ---- self-season recall (works on real data) -----------------------------
 recall = self_season_recall(platform)
+if recall.empty:
+    st.markdown("## 2b. Does the engine recognise the same player twice?")
+    st.info(
+        "This check needs a pool spanning **at least two seasons** - it asks where a player's own "
+        "other season ranks among his nearest neighbours. Add a season in the sidebar to run it.",
+        icon="ℹ️",
+    )
 if not recall.empty:
     st.markdown("## 2b. Does the engine recognise the same player twice?")
     st.dataframe(recall, hide_index=True)

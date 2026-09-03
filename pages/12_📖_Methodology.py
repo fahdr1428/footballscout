@@ -24,13 +24,69 @@ note(
 st.markdown("## 1. The data")
 st.markdown(
     f"""
-The platform runs on either of two datasets, selected in the sidebar. Both flow through
-**identical** cleaning, feature-engineering and modelling code - only ingestion differs.
-The pool currently loaded is **{platform.spec.label}**.
+The platform runs on any of three datasets, selected in the sidebar. All of them flow through
+**identical** cleaning, feature-engineering and modelling code - only ingestion differs. The pool
+currently loaded is **{platform.spec.label}**.
+
+The two real sources answer different questions. The Premier League feed is **current and broad**
+- ten seasons to 2025/26, with age, price and ownership - but it is a summary feed, so there are
+no progressive passes or duels in it. The StatsBomb feed is **deep but older**: every metric is
+derived from raw event data, at the cost of the newest men's league season available being
+2015/16. Neither is better; they are different instruments.
 """
 )
 
-real, simulated = st.tabs(["StatsBomb Open Data (real)", "Simulated reference universe"])
+premier, real, simulated = st.tabs([
+    "Premier League 2016/17-2025/26 (real)",
+    "StatsBomb Open Data (real)",
+    "Simulated reference universe",
+])
+
+with premier:
+    st.markdown(
+        """
+Ten seasons of real Premier League players, through the **completed 2025/26 season**, built by
+`src/premier_league.py` from two public feeds mirrored in
+[vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League):
+
+- the **official Fantasy Premier League** season and gameweek exports - minutes, starts, goals,
+  assists, cards, saves, clean sheets, the Opta-derived Influence / Creativity / Threat indices,
+  the bonus-point score, price and ownership;
+- **Understat** per-player match logs - shots, key passes, non-penalty goals and xG, xGChain,
+  xGBuildup, and the position a player actually lined up in each match.
+
+**What each season carries.** A summary feed adds metrics over time, and this app never pretends
+otherwise: a metric a season did not measure is left missing, not filled with zero, and any
+feature missing from the selected pool is dropped from that position's model rather than imputed.
+
+| Seasons | What arrives |
+| --- | --- |
+| 2016/17 - 2018/19 | Minutes, starts, goals, assists, cards, saves, clean sheets, ICT indices, bonus points, price, ownership |
+| 2019/20 - 2021/22 | + Understat shots, key passes, npG, npxG, xA, xGChain, xGBuildup, and line-up positions |
+| 2022/23 - 2024/25 | + Opta expected goals, expected assists and expected goals conceded from FPL itself |
+| 2025/26 | + tackles, recoveries and clearances-blocks-interceptions, added when the game began scoring Defensive Contribution. Understat's mirror stops after 2024/25, so shots, key passes and xGChain are absent |
+
+Pick a single season in the sidebar and the models use everything that season measured. Pick
+several and only the metrics common to all of them survive the coverage check.
+
+**Positions.** FPL publishes four buckets, so players are grouped **GK / DEF / MID / FWD**.
+Understat's line-up position is carried as an attribute and can be filtered on, and where a
+season predates the mirror the player's most recent known line-up position is carried forward and
+labelled as such. It is never used to group: deriving a finer position from the same statistics
+the models then read would be circular, and the circularity would show up as structure the data
+does not have.
+
+**Club of record** is the club a player played the most minutes for that season, taken from the
+gameweek file - the season snapshot names his *current* club, which after a summer window is
+somebody else's. Mid-season transfers are counted, not hidden.
+
+**Price** is the fantasy game's own valuation, set by its operator and moved by transfers in and
+out. It is a popularity and perceived-value signal - useful, and used for the value-for-money
+component of the hidden-gem score - but it is **not a transfer fee or a wage**, and nothing here
+is a market valuation.
+"""
+    )
+
 
 with real:
     st.markdown(
@@ -126,6 +182,7 @@ st.markdown(
 | Missing advanced metric (xA, xG, PSxG, SCA...) | Imputed at the positional median **per 90**, rescaled to that player's minutes |
 | Goalkeeping columns for outfielders | Left as missing, never zero |
 | A column the source never supplies (age, height, PSxG) | **Not imputed at all** - reported as unavailable, and the features and controls that depend on it are switched off |
+| A counting stat a **season** never measured | Left missing for that season and zero-filled only in the seasons that do measure it. "Made no tackles" and "tackles were not counted" are different claims |
 """
 )
 if platform.cleaning.unavailable:
@@ -359,6 +416,7 @@ app.py                     Streamlit entry point (Home)
 pages/                     One file per page - layout only, no modelling
 src/
   config.py                Metric registry, position groups, feature sets, categories, theme
+  premier_league.py        Summary-feed ETL: ten Premier League seasons to 2025/26
   statsbomb.py             Event-level ETL for the real StatsBomb Open Data feed
   data_generation.py       Latent-trait simulation of the reference dataset
   data_processing.py       Ingestion (real or simulated), cleaning, pool filtering
@@ -371,7 +429,8 @@ src/
   visualisation.py         Plotly builders
   pipeline.py              Orchestration + the ScoutingPlatform object every page reads
   ui.py                    Shared Streamlit helpers
-scripts/                   fetch_statsbomb.py, build_dataset.py, validate_models.py
+scripts/                   fetch_premier_league.py, fetch_statsbomb.py, build_dataset.py,
+                           validate_models.py
 tests/                     Unit tests for the analytics layer
 """,
     language="text",

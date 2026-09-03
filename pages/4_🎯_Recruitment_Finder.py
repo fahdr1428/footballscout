@@ -33,8 +33,10 @@ note(
 st.markdown("## 1. Define the profile")
 row1 = st.columns([1.1, 1.2, 1.1, 1.1])
 with row1[0]:
+    groups_present = [g for g in POSITION_GROUPS if g in set(pool["position_group"].unique())]
+    default_group = "W" if "W" in groups_present else groups_present[min(2, len(groups_present) - 1)]
     group = st.selectbox(
-        "Position", POSITION_GROUPS, index=POSITION_GROUPS.index("W"),
+        "Position", groups_present, index=groups_present.index(default_group),
         format_func=lambda g: f"{g} - {POSITION_GROUP_NAMES[g]}",
     )
 with row1[1]:
@@ -72,7 +74,12 @@ with st.expander("Desired characteristics (hard thresholds on raw rates)", expan
         "CM": ["progressive_passes_per90", "xa_per90", "ball_recoveries_per90"],
         "AM": ["xa_per90", "key_passes_per90", "npxg_per90"],
         "GK": ["gk_save_pct", "gk_psxg_minus_ga_per90", "pass_pct"],
-    }.get(group, ["np_goals_per90", "xa_per90", "pass_pct"])
+        # the four-bucket taxonomy used by summary feeds
+        "DEF": ["cbi_per90", "ball_recoveries_per90", "xa_per90"],
+        "MID": ["xa_per90", "xg_per90", "threat_per90"],
+        "FWD": ["xg_per90", "goals_per90", "threat_per90"],
+    }.get(group, [])
+    suggested = [m for m in suggested if m in metric_choices] or metric_choices[:3]
     for i in range(int(count)):
         columns = st.columns([2.4, 0.8, 1, 1.2])
         default_metric = suggested[i] if i < len(suggested) else metric_choices[0]

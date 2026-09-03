@@ -29,16 +29,27 @@ MODELS_DIR = ROOT_DIR / "models"
 RAW_PLAYERS_CSV = RAW_DIR / "players_raw.csv.gz"
 PROCESSED_PLAYERS_CSV = PROCESSED_DIR / "players_processed.csv.gz"
 STATSBOMB_PLAYERS_CSV = RAW_DIR / "statsbomb_players.csv.gz"
+PREMIER_LEAGUE_CSV = RAW_DIR / "premier_league.csv.gz"
 VALIDATION_REPORT = MODELS_DIR / "validation_report.md"
 
 # --------------------------------------------------------------------------
 # Positions
 # --------------------------------------------------------------------------
 
-POSITION_GROUPS = ["GK", "CB", "FB", "DM", "CM", "AM", "W", "FW"]
+# Two taxonomies. Event data resolves a player's position from lineup data, so
+# it supports the detailed groups. A summary feed such as the Fantasy Premier
+# League API knows only four buckets, and inventing a finer position from the
+# same statistics the models then read would be circular - so those buckets are
+# first-class groups rather than a guess dressed up as detail.
+DETAILED_GROUPS = ["GK", "CB", "FB", "DM", "CM", "AM", "W", "FW"]
+BUCKET_GROUPS = ["GK", "DEF", "MID", "FWD"]
+POSITION_GROUPS = DETAILED_GROUPS + ["DEF", "MID", "FWD"]
 
 POSITION_GROUP_NAMES = {
     "GK": "Goalkeeper",
+    "DEF": "Defender",
+    "MID": "Midfielder",
+    "FWD": "Forward",
     "CB": "Centre-back",
     "FB": "Full-back / Wing-back",
     "DM": "Defensive midfielder",
@@ -66,6 +77,17 @@ POSITION_TO_GROUP = {
 }
 
 OUTFIELD_GROUPS = [g for g in POSITION_GROUPS if g != "GK"]
+
+# Free-text positions the Understat lineup feed reports, mapped to a readable
+# label. They are carried as an attribute, never used to group.
+UNDERSTAT_POSITIONS = {
+    "GK": "Goalkeeper", "DC": "Centre-back", "DR": "Right-back", "DL": "Left-back",
+    "DMC": "Defensive midfield", "DMR": "Defensive midfield (right)",
+    "DML": "Defensive midfield (left)", "MC": "Central midfield",
+    "MR": "Right midfield", "ML": "Left midfield", "AMC": "Attacking midfield",
+    "AMR": "Right attacking midfield", "AML": "Left attacking midfield",
+    "FW": "Forward", "FWR": "Forward (right)", "FWL": "Forward (left)", "Sub": "Substitute",
+}
 
 # --------------------------------------------------------------------------
 # Metric registry
@@ -126,6 +148,20 @@ COUNTING_STATS = {
     "aerials_lost": "Aerial duels lost",
     "fouls_committed": "Fouls committed",
     "errors": "Errors leading to shot",
+    "yellow_cards": "Yellow cards",
+    "red_cards": "Red cards",
+    # --- available from summary feeds (FPL / Understat) rather than events ---
+    "cbi": "Clearances, blocks and interceptions",
+    "defensive_contribution": "Defensive contribution actions",
+    "clean_sheets": "Clean sheets",
+    "xgc": "Expected goals conceded (team, while on pitch)",
+    "xg_chain": "xGChain (possessions ending in a shot)",
+    "xg_buildup": "xGBuildup (xGChain excluding shots and key passes)",
+    "influence": "Influence (Opta index)",
+    "creativity": "Creativity (Opta index)",
+    "threat": "Threat (Opta index)",
+    "bps": "Bonus points system score",
+    "ict": "ICT index (influence + creativity + threat)",
     # --- goalkeeping ---
     "gk_shots_on_target_against": "Shots on target faced",
     "gk_saves": "Saves",
@@ -154,6 +190,7 @@ RATIO_METRICS = {
     "shot_accuracy_pct": ("shots_on_target", "shots", 15, "Shot accuracy %"),
     "aerial_win_pct": ("aerials_won", "_aerials_total", 20, "Aerial duel success %"),
     "gk_save_pct": ("gk_saves", "gk_shots_on_target_against", 30, "Save %"),
+    "save_rate": ("gk_saves", "_saves_plus_conceded", 25, "Save rate (saves / shots faced) %"),
     "gk_cross_stop_pct": ("gk_crosses_stopped", "gk_crosses_faced", 30, "Cross claim %"),
     "gk_launch_pct": ("gk_launches_completed", "gk_launches_attempted", 30, "Launch completion %"),
 }
@@ -161,6 +198,10 @@ RATIO_METRICS = {
 # Derived metrics that are neither a plain per-90 nor a ratio.
 DERIVED_METRICS = {
     "npxg_per_shot": "Non-penalty xG per shot",
+    "clean_sheet_rate": "Clean sheets per appearance %",
+    "starts_share": "Share of appearances that were starts %",
+    "goal_involvements_per90": "Goals and assists per 90",
+    "xgi_per90": "Expected goal involvements per 90",
     "pressured_pass_share": "Share of passes made under pressure %",
     "open_play_npxg_share": "Share of non-penalty xG from open play %",
     "np_goals_minus_npxg_per90": "Non-penalty goals - xG per 90",
@@ -170,8 +211,20 @@ DERIVED_METRICS = {
     "progressive_actions_per90": "Progressive actions per 90",
 }
 
+# Metrics that describe the *team* more than the player. A summary feed
+# attributes them to whoever was on the pitch, so three of them in one feature
+# set is really one signal - the club - counted three times, and the similarity
+# engine starts clustering clubs instead of players. They stay on the radar and
+# in the recruitment weights, where a scout can read them as context, but for
+# outfield model features only the most informative one is kept.
+TEAM_CONTEXT_METRICS = {"clean_sheet_rate", "goals_conceded_per90", "xgc_per90"}
+
 # Metrics where a lower value is better (used by percentile calculations).
 LOWER_IS_BETTER = {
+    "goals_conceded_per90",
+    "xgc_per90",
+    "yellow_cards_per90",
+    "red_cards_per90",
     "miscontrols_per90",
     "dispossessed_per90",
     "fouls_committed_per90",
@@ -205,12 +258,19 @@ METRIC_LABELS.update(
         "age": "Age",
         "height_cm": "Height (cm)",
         "team_possession": "Team possession %",
+        "price_m": "Price (fantasy valuation, GBPm)",
+        "ownership_pct": "Ownership %",
+        "total_points": "Fantasy points",
+        "clubs_in_season": "Clubs played for",
+        "detailed_position": "Line-up position",
+        "position_source": "Position source",
     }
 )
 
 # Percentage-style metrics are displayed with a % suffix and one decimal.
 PERCENT_METRICS = set(RATIO_METRICS) | {
     "team_possession", "pressured_pass_share", "open_play_npxg_share",
+    "clean_sheet_rate", "starts_share", "ownership_pct",
 }
 
 # --------------------------------------------------------------------------
@@ -288,8 +348,34 @@ GK_CATEGORIES = {
 }
 
 
-def categories_for(position_group: str) -> dict[str, list[str]]:
+# Categories for the four-bucket taxonomy. They are built only from metrics a
+# summary feed actually reports, so nothing on a radar is an empty axis.
+BUCKET_CATEGORIES = {
+    "Goal Threat": ["npxg_per90", "xg_per90", "goals_per90", "threat_per90", "shots_per90"],
+    "Chance Creation": ["xa_per90", "assists_per90", "creativity_per90", "key_passes_per90"],
+    "Build-up Involvement": ["xg_chain_per90", "xg_buildup_per90", "influence_per90"],
+    "Defensive Work": [
+        "tackles_per90", "ball_recoveries_per90", "cbi_per90", "defensive_contribution_per90",
+    ],
+    "Defensive Solidity": ["clean_sheet_rate", "goals_conceded_per90", "xgc_per90"],
+    "Overall Rating": ["bps_per90", "ict_per90"],
+    "Availability": ["starts_share", "minutes"],
+}
+
+BUCKET_GK_CATEGORIES = {
+    "Shot Stopping": ["save_rate", "gk_saves_per90"],
+    "Goal Prevention": ["goals_conceded_per90", "xgc_per90", "clean_sheet_rate"],
+    "Overall Rating": ["bps_per90", "influence_per90"],
+    "Availability": ["starts_share", "minutes"],
+}
+
+
+def categories_for(position_group: str, taxonomy: str = "detailed") -> dict[str, list[str]]:
     """Attribute categories (radar axes / recruitment weights) for a group."""
+    if taxonomy == "bucket":
+        return BUCKET_GK_CATEGORIES if position_group == "GK" else BUCKET_CATEGORIES
+    if position_group in {"DEF", "MID", "FWD"}:
+        return BUCKET_CATEGORIES
     return GK_CATEGORIES if position_group == "GK" else OUTFIELD_CATEGORIES
 
 
@@ -308,6 +394,13 @@ _CORE_PROGRESSION = [
 
 POSITION_FEATURES = {
     "GK": [
+        "save_rate",
+        "goals_conceded_per90",
+        "xgc_per90",
+        "clean_sheet_rate",
+        "bps_per90",
+        "influence_per90",
+        "starts_share",
         "gk_save_pct",
         "gk_psxg_minus_ga_per90",
         "gk_saves_per90",
@@ -320,6 +413,31 @@ POSITION_FEATURES = {
         "passes_attempted_per90",
         "progressive_passes_per90",
         "long_passes_attempted_per90",
+    ],
+    # The three bucket groups are only populated by a summary feed; on an
+    # event dataset every one of these columns is absent and the group is empty.
+    "DEF": [
+        "cbi_per90", "tackles_per90", "ball_recoveries_per90", "defensive_contribution_per90",
+        "xgc_per90",
+        "xg_per90", "xa_per90", "goals_per90", "assists_per90",
+        "threat_per90", "creativity_per90", "influence_per90", "bps_per90",
+        "key_passes_per90", "shots_per90", "xg_chain_per90", "xg_buildup_per90",
+        "yellow_cards_per90", "starts_share",
+    ],
+    "MID": [
+        "xg_per90", "npxg_per90", "xa_per90", "goals_per90", "assists_per90",
+        "shots_per90", "key_passes_per90", "threat_per90", "creativity_per90",
+        "influence_per90", "bps_per90", "xg_chain_per90", "xg_buildup_per90",
+        "tackles_per90", "ball_recoveries_per90", "cbi_per90",
+        "defensive_contribution_per90", "xgc_per90",
+        "yellow_cards_per90", "starts_share",
+    ],
+    "FWD": [
+        "xg_per90", "npxg_per90", "goals_per90", "np_goals_per90", "shots_per90",
+        "npxg_per_shot", "xa_per90", "assists_per90", "key_passes_per90",
+        "threat_per90", "creativity_per90", "influence_per90", "bps_per90",
+        "xg_chain_per90", "xg_buildup_per90", "tackles_per90",
+        "ball_recoveries_per90", "defensive_contribution_per90", "starts_share",
     ],
     "CB": [
         "pass_pct_under_pressure",
@@ -540,6 +658,18 @@ DEFAULT_WEIGHTS = {
         "Ball Progression": 10,
         "Passing": 5,
     },
+    "DEF": {
+        "Defensive Work": 30, "Defensive Solidity": 25, "Build-up Involvement": 20,
+        "Chance Creation": 15, "Goal Threat": 10,
+    },
+    "MID": {
+        "Chance Creation": 30, "Goal Threat": 25, "Build-up Involvement": 20,
+        "Defensive Work": 20, "Overall Rating": 5,
+    },
+    "FWD": {
+        "Goal Threat": 45, "Chance Creation": 25, "Build-up Involvement": 15,
+        "Overall Rating": 10, "Defensive Work": 5,
+    },
     "GK": {
         "Shot Stopping": 40,
         "Goal Prevention": 15,
@@ -598,9 +728,44 @@ class DataSource:
     attribution: str
     caveats: tuple[str, ...] = ()
     missing: tuple[str, ...] = ()  # columns this source cannot supply
+    default_seasons: tuple[str, ...] = ()   # what the pool opens on
+    taxonomy: str = "detailed"              # "detailed" or "bucket" position groups
 
 
 DATA_SOURCES: dict[str, DataSource] = {
+    "premier_league": DataSource(
+        key="premier_league",
+        label="Premier League 2016/17-2025/26 (FPL + Understat)",
+        path=PREMIER_LEAGUE_CSV,
+        kind="real",
+        summary=(
+            "Ten seasons of real Premier League players, through the completed 2025/26 "
+            "season. Current, and the only source here carrying age, price and ownership."
+        ),
+        attribution=(
+            "Fantasy Premier League and Understat data, mirrored by the open-source "
+            "Fantasy-Premier-League repository (https://github.com/vaastav/Fantasy-Premier-League)."
+        ),
+        caveats=(
+            "This is a **summary feed, not event data**. There are no progressive passes, no "
+            "pass completion, no dribbles and no aerial duels - the Methodology page lists "
+            "exactly what each season does carry.",
+            "FPL publishes only four positional buckets, so players are grouped **GK / DEF / "
+            "MID / FWD**. Understat's line-up position rides along as an attribute you can "
+            "filter on, but it is never used to group: inferring a finer position from the same "
+            "statistics the models then read would be circular.",
+            "Tackles, recoveries and clearances-blocks-interceptions exist only from 2025/26, "
+            "when the game began scoring them. Shots, key passes and xGChain come from Understat "
+            "and stop after 2024/25. Select one season in the sidebar to model on everything "
+            "that season carries.",
+            "**Price is the fantasy game's own valuation**, set by its operator and moved by "
+            "transfers in and out. It is a popularity and perceived-value signal, not a transfer "
+            "fee or a wage.",
+        ),
+        missing=("height_cm", "team_possession"),
+        default_seasons=("2025-26",),
+        taxonomy="bucket",
+    ),
     "statsbomb": DataSource(
         key="statsbomb",
         label="StatsBomb Open Data (real players)",
@@ -644,7 +809,7 @@ DATA_SOURCES: dict[str, DataSource] = {
     ),
 }
 
-DEFAULT_SOURCE = "statsbomb"
+DEFAULT_SOURCE = "premier_league"
 
 # Minimum-minutes presets offered in the sidebar.
 MINUTES_PRESETS = [500, 900, 1500]

@@ -7,7 +7,7 @@ All models are fitted per position group. Nothing below is tuned to make the num
 
 | position_group | players | features | k | elbow_k | silhouette | inertia | smallest_cluster | adjusted_rand_vs_true_role | cluster_purity |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| GK | 554 | 12 | 8 | 6 | 0.117 | 3785.8 | 44 | 0.126 | 0.565 |
+| GK | 554 | 14 | 3 | 5 | 0.129 | 5896.6 | 131 | 0.161 | 0.495 |
 | CB | 1104 | 20 | 4 | 5 | 0.126 | 14884.4 | 221 | 0.296 | 0.625 |
 | FB | 803 | 21 | 3 | 5 | 0.137 | 12479.0 | 184 | 0.18 | 0.518 |
 | DM | 547 | 22 | 6 | 5 | 0.119 | 7581.9 | 60 | 0.22 | 0.631 |
@@ -24,7 +24,7 @@ Silhouette scores in the 0.10-0.25 range are typical for football style data and
 
 | position_group | pc1_variance | pc2_variance | total_shown |
 | --- | --- | --- | --- |
-| GK | 0.238 | 0.174 | 0.411 |
+| GK | 0.273 | 0.149 | 0.422 |
 | CB | 0.277 | 0.144 | 0.421 |
 | FB | 0.268 | 0.156 | 0.423 |
 | DM | 0.269 | 0.144 | 0.413 |
@@ -39,7 +39,7 @@ The cluster map compresses 12-22 features into two axes, so a large share of the
 
 | position_group | roles | top10_same_role | chance_baseline | lift |
 | --- | --- | --- | --- | --- |
-| GK | 4 | 0.529 | 0.251 | 2.11 |
+| GK | 4 | 0.526 | 0.251 | 2.1 |
 | CB | 4 | 0.596 | 0.251 | 2.38 |
 | FB | 4 | 0.659 | 0.251 | 2.62 |
 | DM | 4 | 0.63 | 0.254 | 2.48 |
@@ -54,7 +54,7 @@ The cluster map compresses 12-22 features into two axes, so a large share of the
 
 | position_group | player_seasons_tested | candidates | own_season_in_top10 | chance | lift | median_rank |
 | --- | --- | --- | --- | --- | --- | --- |
-| GK | 454 | 553 | 0.073 | 0.018 | 4.0 | 111 |
+| GK | 454 | 553 | 0.07 | 0.018 | 3.9 | 121 |
 | CB | 876 | 1103 | 0.029 | 0.009 | 3.1 | 277 |
 | FB | 642 | 802 | 0.047 | 0.012 | 3.7 | 157 |
 | DM | 424 | 546 | 0.061 | 0.018 | 3.3 | 134 |
@@ -69,14 +69,14 @@ For every player with two seasons in the pool, this asks where his *other* seaso
 
 | position_group | team_mates_in_top10 | chance | lift |
 | --- | --- | --- | --- |
-| GK | 0.006 | 0.001 | 4.9 |
-| CB | 0.003 | 0.002 | 1.7 |
-| FB | 0.003 | 0.001 | 2.3 |
-| DM | 0.003 | 0.001 | 2.9 |
-| CM | 0.008 | 0.002 | 5.2 |
-| AM | 0.006 | 0.001 | 4.7 |
-| W | 0.003 | 0.001 | 2.6 |
-| FW | 0.003 | 0.001 | 2.4 |
+| GK | 0.005 | 0.001 | 3.8 |
+| CB | 0.0 | 0.002 | 0.0 |
+| FB | 0.001 | 0.001 | 0.5 |
+| DM | 0.002 | 0.001 | 1.7 |
+| CM | 0.004 | 0.002 | 2.6 |
+| AM | 0.004 | 0.001 | 3.1 |
+| W | 0.002 | 0.001 | 1.5 |
+| FW | 0.001 | 0.001 | 1.2 |
 
 Team style leaks into individual numbers: a defender in a possession side passes more because of the side. Some over-representation of team-mates is expected and correct; a large lift would mean the model is partly clustering clubs.
 

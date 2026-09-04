@@ -1,0 +1,4 @@
+# Development dependencies. Not installed on the hosted app.
+-r requirements.txt
+
+pytest>=8.0,<10

@@ -1,15 +1,16 @@
+# Runtime dependencies for the Streamlit app.
+# Bounds are set at the majors the code is tested against, capped below the next
+# major so a breaking upstream release cannot take a deployed instance down.
+# Development-only tools live in requirements-dev.txt.
+
 # Core analytics
-pandas>=2.2
-numpy>=1.26
-scikit-learn>=1.4
-scipy>=1.12
+pandas>=2.2,<4
+numpy>=1.26,<3
+scikit-learn>=1.4,<2
+scipy>=1.12,<2
 
 # Visualisation
-plotly>=5.20
-matplotlib>=3.8
+plotly>=5.20,<8
 
 # App
-streamlit>=1.36
-
-# Tests (optional)
-pytest>=8.0
+streamlit>=1.36,<2

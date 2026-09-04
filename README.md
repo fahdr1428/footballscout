@@ -16,6 +16,9 @@ Two real datasets, switchable in the sidebar, plus a simulated one used to valid
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
+**Live app:** _not yet deployed_ — [Deploying it](#deploying-it) takes about three minutes on
+Streamlit Community Cloud, and is free. Paste the `*.streamlit.app` URL here once it is up.
+
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
@@ -423,6 +426,9 @@ scripts/
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
 tests/                      77 tests covering the analytics layer and all three ETLs
+requirements.txt            Runtime dependencies (what a host installs)
+requirements-dev.txt        The above, plus pytest
+Dockerfile                  Self-contained image for hosts other than Streamlit Cloud
 data/raw/                   premier_league.csv.gz, statsbomb_players.csv.gz, players_raw.csv.gz
 data/processed/             Rebuilt on demand
 models/                     One validation report per dataset
@@ -442,17 +448,65 @@ python -m pytest tests/ -q                                   # 77 tests
 
 ---
 
-## Running it elsewhere
+## Deploying it
 
-Everything the app needs is committed, so it deploys with no extra setup:
+Everything the app needs is committed — the datasets included — so it deploys with no build
+step, no database, no API keys and no secrets to configure.
 
-- **Streamlit Community Cloud** — point it at this repository with `app.py` as the entry point
-  and `requirements.txt` for dependencies. First load fits eight position models (about ten
-  seconds), then everything is cached.
-- **Locally** — `pip install -r requirements.txt && streamlit run app.py`.
-- **Rebuilding the data** — `scripts/fetch_premier_league.py` and `scripts/fetch_statsbomb.py`
-  re-derive the two real datasets from their public feeds; `scripts/build_dataset.py` regenerates
-  the simulated one.
+### Streamlit Community Cloud — free, and the shortest path
+
+1. Sign in at **[share.streamlit.io](https://share.streamlit.io)** with the GitHub account that
+   owns this repository.
+2. Choose **Create app → Deploy a public app from GitHub**, and fill in:
+
+   | Field | Value |
+   | --- | --- |
+   | Repository | `fahdr1428/footballscout` |
+   | Branch | `claude/football-scouting-platform-hl53qc` |
+   | Main file path | `app.py` |
+   | Python version — under *Advanced settings* | `3.11` |
+
+3. Press **Deploy**.
+
+The first build installs `requirements.txt`, which takes a couple of minutes. The app then fits
+eight position models on the first page load — about ten seconds — and caches them for every
+visitor after that. The result is a public `*.streamlit.app` URL; anyone can open it without an
+account, and you can rename it under *Settings → General*.
+
+Resource use sits well inside the free tier: peak memory is roughly 310 MB against a 2.7 GB
+limit, and the whole repository is under 10 MB. Community Cloud puts an app to sleep after about
+a week without traffic — the next visitor wakes it, at the cost of one cold start.
+
+### Anywhere else
+
+`Dockerfile` builds a self-contained image, suitable for Hugging Face Spaces, Render, Railway,
+Fly.io, Cloud Run or a plain VPS:
+
+```bash
+docker build -t footballscout .
+docker run -p 8501:8501 footballscout
+```
+
+There is no build-time download and no volume to mount, because the data ships in the image. The
+container reads `$PORT` when the host assigns one and falls back to 8501, so it runs unmodified
+on the platforms above. On Hugging Face Spaces either set `PORT=7860`, or pick the Streamlit SDK
+and skip the Dockerfile entirely.
+
+### Locally
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Install `requirements-dev.txt` instead to get the test dependencies as well.
+
+### Rebuilding the data
+
+`scripts/fetch_premier_league.py` and `scripts/fetch_statsbomb.py` re-derive the two bundled real
+datasets from their public feeds, `scripts/fetch_transfermarkt.py` builds the top-six-league one
+from a `transfermarkt-api` instance, and `scripts/build_dataset.py` regenerates the simulated
+universe. None of this is needed to deploy — it is only for refreshing a season.
 
 ### Attribution and licence
 
@@ -469,8 +523,10 @@ own.
 
 ## Known limitations
 
-- **The bundled data is simulated.** Plausible values, invented players. No conclusion about a real
-  footballer can be drawn from this app as shipped.
+- **One of the four datasets is simulated.** Three are real — Premier League 2016/17 → 2025/26,
+  StatsBomb Open Data, and Transfermarkt — and the fourth is invented players with plausible values,
+  kept because it is the only pool with known ground truth to validate the models against. Every page
+  names the dataset it is reading; no conclusion about a real footballer follows from the simulated one.
 - **Small samples.** The minimum-minutes filter is the main defence. Below ~1,500 minutes, finishing
   and success-rate metrics are noisy; the report generator raises this automatically.
 - **Position changes.** A player who switched role mid-season is compared against the peer group of

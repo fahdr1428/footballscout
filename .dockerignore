@@ -1,0 +1,13 @@
+.git
+.gitignore
+.pytest_cache
+__pycache__/
+*.pyc
+.venv/
+venv/
+tests/
+requirements-dev.txt
+assets/
+data/raw/statsbomb_cache/
+data/processed/*
+!data/processed/.gitkeep

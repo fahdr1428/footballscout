@@ -36,11 +36,60 @@ derived from raw event data, at the cost of the newest men's league season avail
 """
 )
 
-premier, real, simulated = st.tabs([
+premier, market, real, simulated = st.tabs([
     "Premier League 2016/17-2025/26 (real)",
+    "Top six leagues (Transfermarkt)",
     "StatsBomb Open Data (real)",
     "Simulated reference universe",
 ])
+
+with market:
+    st.markdown(
+        """
+Every player in the **big five plus Liga Portugal** for one season, read through the open-source
+[transfermarkt-api](https://github.com/felipeall/transfermarkt-api) service, which wraps
+Transfermarkt in a small FastAPI app. `src/transfermarkt.py` walks competitions -> clubs ->
+players and, optionally, each player's season statistics.
+
+**What it adds that nothing else here has**
+
+| | |
+| --- | --- |
+| **Market value in euros** | The only genuine valuation in this project. Everything else - FPL price, league exposure - is a proxy, and labelled as one. |
+| **True positions** | "Centre-Back", "Left-Back", "Defensive Midfield" map straight onto this platform's detailed position groups. A fantasy feed knows only four buckets; this knows a full-back from a centre-back. |
+| **The top leagues in one pool** | Six competitions in a single comparison pool, so a scout can rank across leagues rather than inside one. |
+| **Biography** | Age, height, preferred foot, nationality, contract expiry, and the club a player signed from. |
+
+**What it does not have.** Transfermarkt is a market and biographical database, not a performance
+one. Its season statistics are appearances, goals, assists, cards and minutes: there is no xG, no
+passing, no defending. Used **alone**, the similarity and archetype models have very few features
+to work with and are correspondingly blunt - the app does not pretend otherwise.
+
+**Its best use is enrichment.** Build the squad spine and every other dataset picks it up:
+
+```bash
+python scripts/fetch_transfermarkt.py --season 2025 --market-only
+```
+
+The Premier League source then gains real market values and real positions - its four buckets
+become centre-backs, full-backs, holding midfielders and wingers. The join is on normalised name
+plus season; **anything unmatched keeps exactly the position it had**, and the data-quality report
+on the Home page states how many players matched. A position group left too small to rank against
+is reported there too, rather than its players disappearing.
+
+**Running it.** The service scrapes Transfermarkt, so it needs network access to that site:
+
+```bash
+docker run -d -p 8000:8000 --name transfermarkt-api \
+    $(docker build -q https://github.com/felipeall/transfermarkt-api.git)
+python scripts/fetch_transfermarkt.py --season 2025
+```
+
+The maintainer's hosted instance works too, rate limited to about two requests every three
+seconds - pass `--rate 0.6`. Be considerate: it is one person's scraper.
+"""
+    )
+
 
 with premier:
     st.markdown(
@@ -417,6 +466,8 @@ pages/                     One file per page - layout only, no modelling
 src/
   config.py                Metric registry, position groups, feature sets, categories, theme
   premier_league.py        Summary-feed ETL: ten Premier League seasons to 2025/26
+  transfermarkt.py         Client + ETL for a transfermarkt-api instance, and the
+                           market-value / true-position enrichment layer
   statsbomb.py             Event-level ETL for the real StatsBomb Open Data feed
   data_generation.py       Latent-trait simulation of the reference dataset
   data_processing.py       Ingestion (real or simulated), cleaning, pool filtering
@@ -429,8 +480,8 @@ src/
   visualisation.py         Plotly builders
   pipeline.py              Orchestration + the ScoutingPlatform object every page reads
   ui.py                    Shared Streamlit helpers
-scripts/                   fetch_premier_league.py, fetch_statsbomb.py, build_dataset.py,
-                           validate_models.py
+scripts/                   fetch_premier_league.py, fetch_transfermarkt.py,
+                           fetch_statsbomb.py, build_dataset.py, validate_models.py
 tests/                     Unit tests for the analytics layer
 """,
     language="text",

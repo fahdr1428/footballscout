@@ -195,3 +195,21 @@ def test_features_missing_for_a_position_are_dropped_not_imputed(features, clean
     model = platform.models["CB"]
     assert "aerial_win_pct" not in model.features
     assert "aerial_win_pct" in model.dropped_features
+
+
+def test_a_group_too_small_to_model_is_reported_not_dropped_silently(features, cleaned):
+    """Players without a model must still be visible, and counted."""
+    from src.pipeline import MIN_GROUP_SIZE, build_platform
+
+    _clean, report = cleaned
+    frame = features.copy()
+    # Relabel a handful of players into a group that will be too small.
+    victims = frame.index[frame["position_group"] == "CM"][: MIN_GROUP_SIZE - 1]
+    frame.loc[victims, "position_group"] = "FWD"
+    platform = build_platform(frame, report, min_minutes=0)
+
+    assert "FWD" not in platform.models
+    assert platform.unmodelled_groups.get("FWD", 0) > 0
+    assert platform.unmodelled_players == sum(platform.unmodelled_groups.values())
+    # They are still in the pool, so search and tables can find them.
+    assert (platform.pool["position_group"] == "FWD").any()

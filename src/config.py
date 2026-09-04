@@ -30,6 +30,8 @@ RAW_PLAYERS_CSV = RAW_DIR / "players_raw.csv.gz"
 PROCESSED_PLAYERS_CSV = PROCESSED_DIR / "players_processed.csv.gz"
 STATSBOMB_PLAYERS_CSV = RAW_DIR / "statsbomb_players.csv.gz"
 PREMIER_LEAGUE_CSV = RAW_DIR / "premier_league.csv.gz"
+TRANSFERMARKT_CSV = RAW_DIR / "transfermarkt.csv.gz"
+TRANSFERMARKT_MARKET_CSV = RAW_DIR / "transfermarkt_market.csv.gz"
 VALIDATION_REPORT = MODELS_DIR / "validation_report.md"
 
 # --------------------------------------------------------------------------
@@ -765,6 +767,34 @@ DATA_SOURCES: dict[str, DataSource] = {
         missing=("height_cm", "team_possession"),
         default_seasons=("2025-26",),
         taxonomy="bucket",
+    ),
+    "transfermarkt": DataSource(
+        key="transfermarkt",
+        label="Top six leagues (Transfermarkt)",
+        path=TRANSFERMARKT_CSV,
+        kind="real",
+        summary=(
+            "Every player in the big five plus Liga Portugal, one season, with real market "
+            "values, true positions, ages, heights and nationalities."
+        ),
+        attribution=(
+            "Transfermarkt data, read through the open-source transfermarkt-api service "
+            "(https://github.com/felipeall/transfermarkt-api)."
+        ),
+        caveats=(
+            "Transfermarkt is a **market and biographical database, not a performance one**. "
+            "Its season statistics are appearances, goals, assists, cards and minutes - there is "
+            "no xG, no passing, no defending. The similarity and archetype models therefore have "
+            "very few features to work with here, and are correspondingly blunt.",
+            "Its real strength is the other columns: **market value in euros** - the only genuine "
+            "valuation in this project - plus true positions (centre-back and full-back, not "
+            "'defender'), age, height, preferred foot, nationality and contract expiry.",
+            "Best used to **enrich** a performance dataset rather than alone: build it with "
+            "`--market-only` and the Premier League source gains real values and real positions.",
+            "Requires network access to Transfermarkt through a running transfermarkt-api "
+            "instance; see `scripts/fetch_transfermarkt.py`.",
+        ),
+        missing=("team_possession",),
     ),
     "statsbomb": DataSource(
         key="statsbomb",

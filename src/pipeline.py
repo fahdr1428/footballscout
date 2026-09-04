@@ -82,6 +82,12 @@ class ScoutingPlatform:
     source: str = DEFAULT_SOURCE
     leagues: list[str] = field(default_factory=list)
     peer_columns: list[str] = field(default_factory=lambda: ["position_group"])
+    unmodelled_groups: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def unmodelled_players(self) -> int:
+        """Players in the pool whose position group was too small to model."""
+        return int(sum(self.unmodelled_groups.values()))
 
     @property
     def peer_group_label(self) -> str:
@@ -404,10 +410,16 @@ def build_platform(
     categories = fe.category_scores(percentiles, pool["position_group"])
 
     models: dict[str, PositionModel] = {}
+    unmodelled: dict[str, int] = {}
     present = [g for g in POSITION_GROUPS if g in set(pool["position_group"].unique())]
     for group in present:
         subset = pool[pool["position_group"] == group]
         if len(subset) < MIN_GROUP_SIZE:
+            # Too few players to rank against, let alone cluster. They stay in
+            # the pool and in every table; they just have no model behind them,
+            # and the app reports how many that is rather than dropping them
+            # quietly.
+            unmodelled[group] = len(subset)
             continue
         # Drop features this source cannot populate for this position, rather
         # than feeding a column of imputed medians into the distance metric.
@@ -446,6 +458,7 @@ def build_platform(
         source=source,
         leagues=leagues or sorted(pool["league"].unique()),
         peer_columns=peer_columns,
+        unmodelled_groups=unmodelled,
     )
     platform.pool["archetype"] = platform.archetype_series()
     return platform

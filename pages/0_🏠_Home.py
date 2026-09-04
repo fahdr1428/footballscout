@@ -149,6 +149,22 @@ report = pd.DataFrame(platform.cleaning.as_rows(), columns=["Check", "Rows"])
 st.dataframe(report, hide_index=True, height=380)
 for line in platform.cleaning.notes:
     st.caption(line)
+if platform.cleaning.unavailable_columns:
+    with st.expander(
+        f"{len(platform.cleaning.unavailable_columns)} columns this source does not supply"
+    ):
+        st.caption(
+            "Left missing rather than zero-filled, and dropped from any model that needs them."
+        )
+        st.code(", ".join(platform.cleaning.unavailable_columns), language="text")
+if platform.unmodelled_players:
+    st.warning(
+        f"**{platform.unmodelled_players} players are in the pool but have no model behind them** - "
+        + ", ".join(f"{n} in {g}" for g, n in platform.unmodelled_groups.items())
+        + ". A position group needs enough players to rank against before percentiles or "
+        "archetypes mean anything. They still appear in search and tables.",
+        icon="⚠️",
+    )
 
 st.markdown("## Where the models draw the line")
 columns = st.columns(3)

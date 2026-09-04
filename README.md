@@ -9,9 +9,10 @@ Two real datasets, switchable in the sidebar, plus a simulated one used to valid
 
 | Dataset | Coverage | What it is good for |
 | --- | --- | --- |
-| **Premier League** (default) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
-| **StatsBomb Open Data** | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. Newest complete men's league season available openly is 2015/16. |
-| **Simulated** | 14 leagues × 2 seasons | The only way to score an unsupervised model against known ground truth. |
+| **Premier League** (default, committed) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
+| **StatsBomb Open Data** (committed) | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. The newest complete men's league season published openly is 2015/16. |
+| **Top six leagues** (Transfermarkt) | Big five + Liga Portugal, any season · **build it yourself** | **Real market values in euros**, true positions (centre-back, not "defender"), age, height, foot, nationality. Thin on performance: appearances, goals, assists, cards, minutes. |
+| **Simulated** (committed) | 14 leagues × 2 seasons | The only way to score an unsupervised model against known ground truth. |
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
@@ -112,6 +113,42 @@ wage**.
 ```bash
 python scripts/fetch_premier_league.py     # rebuild; clones the mirror once (~360 MB)
 ```
+
+### Top six leagues, via Transfermarkt — market values and true positions
+
+`src/transfermarkt.py` is a client and ETL for the open-source
+[transfermarkt-api](https://github.com/felipeall/transfermarkt-api) service, which wraps
+Transfermarkt in a small FastAPI app. It walks competitions → clubs → players and, optionally,
+each player's season statistics, for the big five plus Liga Portugal (widen it with
+`--competitions`).
+
+It brings three things nothing else here has: **market value in euros** — the only genuine
+valuation in this project — **true positions** that distinguish a full-back from a centre-back,
+and the top leagues in a single comparison pool.
+
+It is a market and biographical database, not a performance one: appearances, goals, assists,
+cards and minutes, with no xG or passing. Used alone the similarity models are blunt, and the app
+says so. **Its best use is enrichment** — build just the squad spine and every other dataset picks
+it up, so the Premier League source's four fantasy buckets become centre-backs, full-backs,
+holding midfielders and wingers, with a real price attached. Unmatched players keep exactly the
+position they had, the match rate is reported on the Home page, and any position group left too
+small to rank against is reported rather than quietly dropped.
+
+```bash
+# the service scrapes Transfermarkt, so run it where that site is reachable
+docker run -d -p 8000:8000 --name transfermarkt-api \
+    $(docker build -q https://github.com/felipeall/transfermarkt-api.git)
+
+python scripts/fetch_transfermarkt.py --season 2025                 # squads + stats
+python scripts/fetch_transfermarkt.py --season 2025 --market-only   # spine, for enrichment
+```
+
+> **Not built here.** This sandbox's egress policy blocks transfermarkt.com, the maintainer's
+> hosted instance and the mirrored CSV bucket alike, so this dataset is not committed and the
+> client has never been run against the live API from this machine. It is tested offline against
+> the API's own declared response schemas (13 tests in `tests/test_transfermarkt.py`), and the
+> enrichment path is exercised end to end. Run the two commands above on a machine with normal
+> internet access and it will populate.
 
 ### StatsBomb Open Data — depth, at the cost of recency
 
@@ -366,6 +403,7 @@ pages/                      One file per page — layout only, no modelling
 src/
   config.py                 Metric registry, position groups, feature sets, categories, theme
   premier_league.py         Summary-feed ETL: ten Premier League seasons to 2025/26
+  transfermarkt.py          transfermarkt-api client, top-six-league ETL, enrichment layer
   statsbomb.py              Event-level ETL: real data from StatsBomb Open Data
   data_generation.py        Latent-trait simulation of the second dataset
   data_processing.py        Ingestion (real or simulated), cleaning, pool filtering
@@ -380,10 +418,11 @@ src/
   ui.py                     Shared Streamlit helpers
 scripts/
   fetch_premier_league.py   Build the Premier League dataset from the FPL + Understat mirror
+  fetch_transfermarkt.py    Build the top-six-league dataset from a transfermarkt-api instance
   fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
-tests/                      63 tests covering the analytics layer and both ETLs
+tests/                      77 tests covering the analytics layer and all three ETLs
 data/raw/                   premier_league.csv.gz, statsbomb_players.csv.gz, players_raw.csv.gz
 data/processed/             Rebuilt on demand
 models/                     One validation report per dataset
@@ -397,7 +436,8 @@ python scripts/fetch_premier_league.py                       # rebuild the Premi
 python scripts/fetch_statsbomb.py                            # rebuild the StatsBomb data
 python scripts/build_dataset.py                              # rebuild the simulated universe
 python scripts/validate_models.py --source premier_league --seasons 2025-26
-python -m pytest tests/ -q                                   # 63 tests
+python scripts/fetch_transfermarkt.py --season 2025           # needs transfermarkt-api running
+python -m pytest tests/ -q                                   # 77 tests
 ```
 
 ---
@@ -420,6 +460,9 @@ Event data is provided by **[StatsBomb Open Data](https://github.com/statsbomb/o
 for public use under their user agreement. Premier League season data comes from the official
 Fantasy Premier League endpoints and Understat, mirrored by
 **[vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League)** (MIT).
+Market and biographical data is Transfermarkt's, read through
+**[felipeall/transfermarkt-api](https://github.com/felipeall/transfermarkt-api)** (MIT) — a
+scraper run by one person, so keep the request rate polite.
 Both are credited in the sidebar, on the home page, in every generated scouting report and here.
 The derived datasets in `data/raw/` are transformations of those feeds; the code is the author's
 own.

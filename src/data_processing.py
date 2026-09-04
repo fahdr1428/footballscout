@@ -21,6 +21,7 @@ import pandas as pd
 
 from .config import (
     COUNTING_STATS, DATA_SOURCES, DEFAULT_SOURCE, POSITION_TO_GROUP, RAW_DIR, RAW_PLAYERS_CSV,
+    TRANSFERMARKT_MARKET_CSV,
 )
 
 MAX_MINUTES = 38 * 90  # a full domestic league season
@@ -136,8 +137,35 @@ def load_source(source: str = DEFAULT_SOURCE) -> tuple[pd.DataFrame, str]:
         for stat in COUNTING_STATS:
             if stat not in frame.columns:
                 frame[stat] = np.nan
+        frame = _apply_market_enrichment(frame, spec.key)
         return frame, spec.key
     return load_raw_players(), "simulated"
+
+
+ENRICHMENT_NOTE = "market_enrichment"
+
+
+def _apply_market_enrichment(frame: pd.DataFrame, source: str) -> pd.DataFrame:
+    """Join Transfermarkt market values and true positions, when they are built.
+
+    A performance feed with four positional buckets and no valuation becomes far
+    more useful with a real position and a real price attached. The enrichment
+    is opt-in by existence: build the spine with
+    `scripts/fetch_transfermarkt.py --market-only` and every source that can be
+    matched by name picks it up. Nothing is guessed - unmatched players keep
+    exactly what they had.
+    """
+    if source == "transfermarkt" or not TRANSFERMARKT_MARKET_CSV.exists():
+        return frame
+    try:
+        from .transfermarkt import enrich
+
+        market = pd.read_csv(TRANSFERMARKT_MARKET_CSV)
+        enriched, report = enrich(frame, market)
+        enriched.attrs[ENRICHMENT_NOTE] = report
+        return enriched
+    except Exception:  # enrichment is a bonus; never let it break ingestion
+        return frame
 
 
 def load_external_csv(path, column_map: dict[str, str] | None = None) -> pd.DataFrame:
@@ -195,6 +223,13 @@ def _map_position_group(position: str) -> str:
 def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
     """Deduplicate, validate and impute. Returns the clean frame and a report."""
     report = CleaningReport(rows_in=len(df))
+    enrichment = df.attrs.get(ENRICHMENT_NOTE)
+    if enrichment:
+        report.notes.append(
+            f"Transfermarkt market data matched {enrichment['matched']:,} of "
+            f"{enrichment['of']:,} player-seasons, adding market value and a true position. "
+            "Unmatched players keep the source's own position."
+        )
     df = df.copy()
 
     # 1. Exact duplicates -------------------------------------------------

@@ -25,6 +25,12 @@ note(
 
 # ---- clustering ----------------------------------------------------------
 st.markdown("## 1. Clustering quality")
+if platform.unmodelled_players:
+    st.caption(
+        f"{platform.unmodelled_players} players sit in position groups too small to model "
+        + "(" + ", ".join(f"{g}: {n}" for g, n in platform.unmodelled_groups.items()) + ") "
+        "and are absent from every table below."
+    )
 diagnostics = clustering_diagnostics(platform)
 st.dataframe(diagnostics, hide_index=True)
 st.markdown(

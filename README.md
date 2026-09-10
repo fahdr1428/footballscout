@@ -5,14 +5,19 @@ find statistically similar players, turn a recruitment brief into a ranked short
 player's strengths and weaknesses against his positional peers, and work out who could replace
 him — with the arithmetic behind every number on show.
 
-Two real datasets, switchable in the sidebar, plus a simulated one used to validate the models:
+Three real datasets, switchable in the sidebar, plus a simulated one used to validate the models:
 
 | Dataset | Coverage | What it is good for |
 | --- | --- | --- |
-| **Premier League** (default, committed) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
+| **Big five leagues** (default, committed) | **Five seasons, 2017/18 → 2021/22** · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **13,230 player-seasons, 5,309 players** | The widest and deepest. Full match-data metrics — pressures by third, carries into the box, post-shot xG — plus a **true position** and a **real market value in euros**. Ends in 2021/22. |
+| **Premier League** (committed) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
 | **StatsBomb Open Data** (committed) | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. The newest complete men's league season published openly is 2015/16. |
 | **Top six leagues** (Transfermarkt) | Big five + Liga Portugal, any season · **build it yourself** | **Real market values in euros**, true positions (centre-back, not "defender"), age, height, foot, nationality. Thin on performance: appearances, goals, assists, cards, minutes. |
 | **Simulated** (committed) | 14 leagues × 2 seasons | The only way to score an unsupervised model against known ground truth. |
+
+Positions in the big-five dataset come from **Transfermarkt**, joined through a curated 15,440-row
+URL mapping — an independent source, so grouping players by position is not inferred from the same
+statistics the models then read.
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
@@ -73,7 +78,53 @@ The real dataset is committed, so the app runs immediately — no downloads or A
 
 ## The data
 
-### Premier League, 2016/17 → 2025/26 (the default)
+### The big five leagues, 2017/18 → 2021/22 (the default)
+
+The Premier League, La Liga, Serie A, Bundesliga and Ligue 1 — **13,230 player-seasons, 5,309
+players**, roughly 460–600 per league per season. `src/fbref.py` builds it from three public files,
+all mirrored in [JaseZiv/worldfootballR_data](https://github.com/JaseZiv/worldfootballR_data):
+
+| File | What it gives |
+| --- | --- |
+| FBref season stats, eleven blocks per player | Standard, shooting, passing, pass types, shot- and goal-creating actions, defence, possession, playing time, miscellaneous, two goalkeeping blocks. |
+| A curated FBref → Transfermarkt mapping | 15,440 hand-checked URL pairs. |
+| Transfermarkt season squads | Market value for that season, a specific position, height, preferred foot, nationality, date of birth. |
+
+**Why the join is the point.** FBref records a position as `DF`, `MF`, `FW` or `GK`. Transfermarkt
+records "Centre-Back", "Left-Back", "Defensive Midfield", "Right Winger". Taking the position from
+Transfermarkt means the eight position groups are fixed by an **independent source**, not inferred
+from the same statistics the models then read. 99.9% of player-seasons match, 99.8% carry a
+specific position, 97.5% a market value for that exact season.
+
+It measures the things that separate players who look identical in a summary table: pressures by
+third of the pitch, tackles by third, touches by zone (own box → opposition box), carries and
+progressive carry distance, carries into the final third and into the area, passes by distance
+band, through balls and switches, shot-creating actions broken down by *how* they were created,
+and for goalkeepers post-shot xG, cross-stopping and sweeper actions outside the box.
+
+Market values are real and move season by season — Messi runs €180m → €150m → €112m → €80m → €50m
+across these five seasons, which is what actually happened.
+
+**Three things it does not do.**
+
+- **It is not current.** FBref changed data provider from StatsBomb to Opta in October 2022 and the
+  upstream mirror was archived in September 2025. The 2022/23 snapshot stops after about 13 rounds
+  — a median of 498 minutes against ~1,250 in a whole season — so pooling it with complete seasons
+  would put every 2022/23 player at the bottom of every volume metric for a reason that has nothing
+  to do with the player. It is excluded by default. For the current season, use the Premier League
+  source.
+- **No contract data.** Transfermarkt records contract expiry as at the time the page was read, so
+  every one of Harry Kane's five seasons reads `2024-06-30`. Searching by contract status is one of
+  the main things a recruitment tool is used for, which is exactly why a wrong one would be worse
+  than none. The columns are dropped rather than shown.
+- **Pressures stop after 2021/22** (Opta does not count them) and `xA` becomes `xAG`. Columns a
+  season cannot supply are reported unavailable for that season and never imputed.
+
+```bash
+python scripts/fetch_fbref.py      # ~16 MB, cached, about 20 seconds
+```
+
+### Premier League, 2016/17 → 2025/26 — the current one
 
 Built by `src/premier_league.py` from two public feeds mirrored in
 [vaastav/Fantasy-Premier-League](https://github.com/vaastav/Fantasy-Premier-League):
@@ -207,8 +258,8 @@ created as `NaN` and drops out of the models rather than being imputed.
 | 📊 **Player Profile** | Percentile radar, per-90 read-out, automatic strengths/weaknesses, archetype, season-by-season trajectory, similar players, and a generated scouting report. |
 | 🔎 **Similar Players** | Nearest neighbours in the standardised position-specific space, with a feature-by-feature account of *why* — plus filters for a lower-league or younger equivalent. |
 | 🆚 **Compare Players** | Two or three players side by side: info, per-90s, percentiles, radar, strengths, similarity. |
-| 🎯 **Recruitment Finder** | Hard filters plus 100 points of weight across attribute categories → a ranked shortlist with the fit score broken down. |
-| 💎 **Hidden Gems** | A transparent composite of output, minutes, league exposure and statistical rarity. |
+| 🎯 **Recruitment Finder** | Hard filters — age, minutes, league, **budget, preferred foot** — plus 100 points of weight across attribute categories, seeded from **36 role templates**, → a ranked shortlist with the fit score broken down. |
+| 💎 **Hidden Gems** | A transparent composite of output, minutes, league exposure, statistical rarity and, where a real market value exists, **how far below the market's own price-for-performance line a player sits**. |
 | 📋 **Watchlist** | Everything flagged while browsing, with notes, a radar comparison and CSV export. |
 | 🏟️ **Squad Analysis** | A club's squad, positional depth against the league, style profile, minutes reliance — and a **replacement finder** that ranks the rest of the pool on a style-versus-quality blend you control. |
 | 🧬 **Player Archetypes** | K-Means per position: how *k* was chosen, what defines each cluster, a PCA map, and the most representative players. |
@@ -311,6 +362,35 @@ Applied to the real data, Arsenal WFC's squad comes back as Miedema *penalty-box
 forward*, McCabe *creative high-volume full-back*, Williamson *high-volume progressive
 centre-back*, Mead *creative crossing winger* — labels no one typed in.
 
+### Roles, not just positions
+
+A position is not a job. Two centre-backs in the same squad can be recruited against opposite
+briefs — one to carry the ball out, one to head it away — and a search that ranks both on a single
+"centre-back score" is answering a question nobody asked.
+
+So the Recruitment Finder opens with a **role**: *ball-playing centre-back*, *aerial stopper*,
+*inverted full-back*, *deep-lying playmaker*, *arriving midfielder*, *touchline dribbler*,
+*penalty-box poacher*, *sweeper keeper* — 36 of them across the position groups, in
+`src/config.ROLE_TEMPLATES`. Each is nothing more than a named set of category weights that seeds
+the sliders, and every slider stays editable afterwards. They are **assumptions, not
+measurements**: a reasonable reading of what each role asks for, offered to a scout who will
+disagree with some of them.
+
+### What the market pays for this level of performance
+
+Ranking output per euro mostly finds players who are cheap because they are not very good. The
+recruitment question is the other one: *for a player performing this well, is this price normal?*
+
+Within each position group, `log10(market value)` is fitted against the performance score by
+ordinary least squares — one straight line, two coefficients — and each player's residual is read
+off it. A player well below the line costs less than the market usually charges for his output.
+The fitted line, the expected value and the residual are all shown, so the arithmetic can be
+checked rather than taken on trust.
+
+It describes one season's prices; it is not a valuation model. The market may be right and the
+player limited in ways these metrics cannot see. A group with fewer than 30 priced players, or one
+where nobody differs on output, gets no line at all rather than a fitted-looking guess.
+
 ### Scores
 
 - **Recruitment fit** = `Σ (weight_c ÷ 100) × category_percentile_c`. A fit of 78 means: weighted
@@ -405,6 +485,7 @@ app.py                      Streamlit entry point (navigation only)
 pages/                      One file per page — layout only, no modelling
 src/
   config.py                 Metric registry, position groups, feature sets, categories, theme
+  fbref.py                  Big-five ETL: FBref match data joined to Transfermarkt positions and values
   premier_league.py         Summary-feed ETL: ten Premier League seasons to 2025/26
   transfermarkt.py          transfermarkt-api client, top-six-league ETL, enrichment layer
   statsbomb.py              Event-level ETL: real data from StatsBomb Open Data
@@ -420,16 +501,17 @@ src/
   pipeline.py               Orchestration + the ScoutingPlatform every page reads
   ui.py                     Shared Streamlit helpers
 scripts/
+  fetch_fbref.py            Build the big-five dataset from the worldfootballR_data mirror
   fetch_premier_league.py   Build the Premier League dataset from the FPL + Understat mirror
   fetch_transfermarkt.py    Build the top-six-league dataset from a transfermarkt-api instance
   fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
-tests/                      77 tests covering the analytics layer and all three ETLs
+tests/                      109 tests covering the analytics layer and all four ETLs
 requirements.txt            Runtime dependencies (what a host installs)
 requirements-dev.txt        The above, plus pytest
 Dockerfile                  Self-contained image for hosts other than Streamlit Cloud
-data/raw/                   premier_league.csv.gz, statsbomb_players.csv.gz, players_raw.csv.gz
+data/raw/                   fbref_big5.csv.gz, premier_league.csv.gz, statsbomb_players.csv.gz, players_raw.csv.gz
 data/processed/             Rebuilt on demand
 models/                     One validation report per dataset
 ```
@@ -438,12 +520,13 @@ Machine-learning logic is kept entirely out of the Streamlit layer: pages read a
 `ScoutingPlatform` object and never fit anything themselves.
 
 ```bash
+python scripts/fetch_fbref.py                                # rebuild the big-five data
 python scripts/fetch_premier_league.py                       # rebuild the Premier League data
 python scripts/fetch_statsbomb.py                            # rebuild the StatsBomb data
 python scripts/build_dataset.py                              # rebuild the simulated universe
 python scripts/validate_models.py --source premier_league --seasons 2025-26
 python scripts/fetch_transfermarkt.py --season 2025           # needs transfermarkt-api running
-python -m pytest tests/ -q                                   # 77 tests
+python -m pytest tests/ -q                                   # 109 tests
 ```
 
 ---
@@ -503,13 +586,16 @@ Install `requirements-dev.txt` instead to get the test dependencies as well.
 
 ### Rebuilding the data
 
-`scripts/fetch_premier_league.py` and `scripts/fetch_statsbomb.py` re-derive the two bundled real
-datasets from their public feeds, `scripts/fetch_transfermarkt.py` builds the top-six-league one
-from a `transfermarkt-api` instance, and `scripts/build_dataset.py` regenerates the simulated
-universe. None of this is needed to deploy — it is only for refreshing a season.
+`scripts/fetch_fbref.py`, `scripts/fetch_premier_league.py` and `scripts/fetch_statsbomb.py`
+re-derive the three bundled real datasets from their public feeds,
+`scripts/fetch_transfermarkt.py` builds the top-six-league one from a `transfermarkt-api`
+instance, and `scripts/build_dataset.py` regenerates the simulated universe. None of this is needed to deploy — it is only for refreshing a season.
 
 ### Attribution and licence
 
+Big-five season data comes from FBref and Transfermarkt, mirrored by
+**[JaseZiv/worldfootballR_data](https://github.com/JaseZiv/worldfootballR_data)**, the data
+repository behind the `worldfootballR` R package.
 Event data is provided by **[StatsBomb Open Data](https://github.com/statsbomb/open-data)**, free
 for public use under their user agreement. Premier League season data comes from the official
 Fantasy Premier League endpoints and Understat, mirrored by
@@ -523,8 +609,9 @@ own.
 
 ## Known limitations
 
-- **One of the four datasets is simulated.** Three are real — Premier League 2016/17 → 2025/26,
-  StatsBomb Open Data, and Transfermarkt — and the fourth is invented players with plausible values,
+- **One of the datasets is simulated.** The rest are real — the big five leagues 2017/18 → 2021/22,
+  Premier League 2016/17 → 2025/26, StatsBomb Open Data and Transfermarkt — and the last is
+  invented players with plausible values,
   kept because it is the only pool with known ground truth to validate the models against. Every page
   names the dataset it is reading; no conclusion about a real footballer follows from the simulated one.
 - **Small samples.** The minimum-minutes filter is the main defence. Below ~1,500 minutes, finishing

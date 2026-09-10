@@ -88,6 +88,39 @@ DEFICIT_ADJECTIVES = {
     "Availability": "rotation",
 }
 
+# A few concepts mean different things in different parts of the pitch, and the
+# generated name should use the word a scout would. Beating a man is "dribbling"
+# for a winger; for a centre-back the same metrics describe carrying the ball out
+# of defence, and calling Van Dijk a dribbler is simply the wrong description.
+POSITION_CONCEPT_ADJECTIVES: dict[tuple[str, str], str] = {
+    ("CB", "Dribbling"): "ball-carrying",
+    ("FB", "Dribbling"): "ball-carrying",
+    ("DM", "Dribbling"): "ball-carrying",
+    ("CM", "Dribbling"): "ball-carrying",
+    ("DEF", "Dribbling"): "ball-carrying",
+    ("CB", "Box Threat"): "goal-threatening",
+    ("DM", "Box Threat"): "goal-threatening",
+    ("GK", "Passing Volume"): "involved",
+}
+
+POSITION_CONCEPT_DEFICITS: dict[tuple[str, str], str] = {
+    ("CB", "Dribbling"): "low-carrying",
+    ("FB", "Dribbling"): "low-carrying",
+    ("DM", "Dribbling"): "low-carrying",
+    ("CM", "Dribbling"): "low-carrying",
+    ("DEF", "Dribbling"): "low-carrying",
+}
+
+
+def concept_adjective(concept: str, position_group: str, deficit: bool = False) -> str | None:
+    """The adjective for a concept, in the language used for that position."""
+    if deficit:
+        return (POSITION_CONCEPT_DEFICITS.get((position_group, concept))
+                or DEFICIT_ADJECTIVES.get(concept))
+    return (POSITION_CONCEPT_ADJECTIVES.get((position_group, concept))
+            or CONCEPT_ADJECTIVES.get(concept))
+
+
 POSITION_NOUNS = {
     "GK": "goalkeeper",
     "DEF": "defender",
@@ -267,14 +300,15 @@ def name_clusters(
             threshold = STRONG_CONCEPT_Z if not parts else SECOND_CONCEPT_Z
             if value < threshold or len(parts) == 2:
                 break
-            adjective = CONCEPT_ADJECTIVES.get(concept)
+            adjective = concept_adjective(concept, position_group)
             if adjective and adjective not in parts:
                 parts.append(adjective)
 
         if not parts:
             weakest, weakest_z = ranked.index[-1], ranked.iloc[-1]
             if weakest_z <= -STRONG_CONCEPT_Z:
-                name = f"{DEFICIT_ADJECTIVES.get(weakest, 'low-output')} {noun}".capitalize()
+                word = concept_adjective(weakest, position_group, deficit=True) or "low-output"
+                name = f"{word} {noun}".capitalize()
             else:
                 name = f"All-round {noun}"
         else:
@@ -283,7 +317,7 @@ def name_clusters(
         # Guarantee uniqueness within the position group.
         if name in used:
             for concept, _value in ranked.items():
-                adjective = CONCEPT_ADJECTIVES.get(concept)
+                adjective = concept_adjective(concept, position_group)
                 if not adjective or adjective in name.lower():
                     continue
                 candidate = f"{adjective} {name[0].lower() + name[1:]}".capitalize()

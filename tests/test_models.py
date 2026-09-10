@@ -213,3 +213,147 @@ def test_a_group_too_small_to_model_is_reported_not_dropped_silently(features, c
     assert platform.unmodelled_players == sum(platform.unmodelled_groups.values())
     # They are still in the pool, so search and tables can find them.
     assert (platform.pool["position_group"] == "FWD").any()
+
+
+# ---------------------------------------------------------------------------
+# Pricing: what the market pays for a level of performance
+# ---------------------------------------------------------------------------
+
+def test_market_value_residual_finds_the_player_below_the_price_line():
+    """A cheap player performing like an expensive one must rank as underpriced."""
+    from src.recruitment import market_value_residual
+
+    # A clean price ladder of 40 players, plus one priced far below his output.
+    ladder = [float(v) for v in range(10, 90)][:40]
+    performance = pd.Series(ladder + [80.0])
+    value = pd.Series([10 ** (5 + p / 40) for p in ladder] + [2_000_000.0])
+    groups = pd.Series(["CB"] * len(performance))
+
+    out = market_value_residual(performance, value, groups)
+    odd = len(performance) - 1
+    assert out["value_residual"].iloc[odd] < 0            # below the fitted line
+    assert out["value_residual_pct"].iloc[odd] > 90       # ranked as underpriced
+    assert out["expected_market_value_eur"].iloc[odd] > 2_000_000.0
+
+
+def test_market_value_residual_is_fitted_within_a_position_group():
+    """Goalkeepers are priced differently from forwards; one line for both lies."""
+    from src.recruitment import market_value_residual
+
+    scale = [float(v) for v in range(10, 50)]
+    performance = pd.Series(scale + scale)
+    value = pd.Series([10 ** (5 + p / 40) for p in scale]        # cheap group
+                      + [10 ** (7 + p / 40) for p in scale])     # expensive group
+    groups = pd.Series(["GK"] * 40 + ["FW"] * 40)
+
+    out = market_value_residual(performance, value, groups)
+    # Each group is priced on its own line, so nobody reads as mispriced merely
+    # for being a goalkeeper.
+    assert out["value_residual"].abs().max() < 1e-6
+
+
+def test_market_value_residual_skips_groups_too_small_to_fit_a_line():
+    from src.recruitment import market_value_residual
+
+    performance = pd.Series([10.0, 90.0])
+    value = pd.Series([1_000_000.0, 50_000_000.0])
+    out = market_value_residual(performance, value, pd.Series(["CB", "CB"]))
+    assert out["value_residual"].isna().all()
+
+
+def test_market_value_residual_refuses_a_fit_when_nobody_differs_on_output():
+    """A vertical scatter has no line through it; ranking one would be invented."""
+    from src.recruitment import market_value_residual
+
+    performance = pd.Series([50.0] * 40)
+    value = pd.Series([float(1_000_000 * (i + 1)) for i in range(40)])
+    out = market_value_residual(performance, value, pd.Series(["CB"] * 40))
+    assert out["value_residual"].isna().all()
+
+
+def test_a_real_market_value_is_preferred_over_a_fantasy_price(platform):
+    """Both columns present: the euro valuation is the one that should be used."""
+    from src.recruitment import hidden_gem_scores
+
+    pool = platform.pool.copy()
+    pool["price_m"] = 5.0
+    pool["market_value_eur"] = 10_000_000.0
+    scores = hidden_gem_scores(
+        pool, platform.categories,
+        {g: m.z for g, m in platform.models.items()},
+    )
+    assert "Underpriced for output" in scores.columns
+
+
+# ---------------------------------------------------------------------------
+# Role templates
+# ---------------------------------------------------------------------------
+
+def test_every_role_template_is_a_usable_weighting():
+    """Weights must sum to 100 and name categories that position actually has."""
+    from src.config import (
+        BUCKET_CATEGORIES, GK_CATEGORIES, OUTFIELD_CATEGORIES, ROLE_TEMPLATES,
+    )
+
+    for group, roles in ROLE_TEMPLATES.items():
+        if group == "GK":
+            allowed = set(GK_CATEGORIES)
+        elif group in {"DEF", "MID", "FWD"}:
+            allowed = set(BUCKET_CATEGORIES)
+        else:
+            allowed = set(OUTFIELD_CATEGORIES)
+        for role, weights in roles.items():
+            assert sum(weights.values()) == 100, f"{group}/{role}"
+            assert set(weights) <= allowed, f"{group}/{role}: {set(weights) - allowed}"
+
+
+def test_role_weights_fall_back_to_the_position_default():
+    from src.config import DEFAULT_ROLE, DEFAULT_WEIGHTS, role_weights
+
+    assert role_weights("CB", DEFAULT_ROLE) == DEFAULT_WEIGHTS["CB"]
+    assert role_weights("CB", None) == DEFAULT_WEIGHTS["CB"]
+    assert role_weights("CB", "Not a real role") == DEFAULT_WEIGHTS["CB"]
+
+
+def test_roles_differ_enough_to_reorder_a_shortlist(platform):
+    """Two roles that weighted the same way would not be worth offering."""
+    from src.config import ROLE_TEMPLATES, role_weights
+    from src.recruitment import RecruitmentBrief, search
+
+    group = next(g for g in ROLE_TEMPLATES
+                 if (platform.pool["position_group"] == g).sum() >= 20)
+    roles = list(ROLE_TEMPLATES[group])[:2]
+    orders = []
+    for role in roles:
+        brief = RecruitmentBrief(position_group=group, min_minutes=0,
+                                 weights=role_weights(group, role), role=role)
+        orders.append(search(platform.pool, platform.categories, brief, top_n=10)
+                      ["player"].tolist())
+    assert orders[0] != orders[1]
+
+
+def test_a_budget_keeps_players_whose_value_is_unknown():
+    """No recorded price is not evidence of an unaffordable one."""
+    from src.recruitment import RecruitmentBrief, apply_brief
+
+    pool = pd.DataFrame({
+        "position_group": ["CB"] * 3,
+        "minutes": [2000.0] * 3,
+        "league": ["Premier League"] * 3,
+        "market_value_eur": [5e6, 80e6, np.nan],
+    })
+    brief = RecruitmentBrief(position_group="CB", min_minutes=0, max_market_value=10e6)
+    assert list(apply_brief(pool, brief)) == [True, False, True]
+
+
+def test_foot_filter_is_case_insensitive():
+    from src.recruitment import RecruitmentBrief, apply_brief
+
+    pool = pd.DataFrame({
+        "position_group": ["FB"] * 3,
+        "minutes": [2000.0] * 3,
+        "league": ["Ligue 1"] * 3,
+        "foot": ["Left", "right", "both"],
+    })
+    brief = RecruitmentBrief(position_group="FB", min_minutes=0, feet=["left"])
+    assert list(apply_brief(pool, brief)) == [True, False, False]

@@ -51,11 +51,15 @@ def add_per90(df: pd.DataFrame) -> pd.DataFrame:
     """Add a `<stat>_per90` column for every counting stat."""
     df = df.copy()
     exposure = df["minutes"] / 90.0
-    for stat in COUNTING_STATS:
-        if stat in NO_PER90 or stat not in df.columns:
-            continue
-        df[per90(stat)] = df[stat] / exposure
-    return df
+    rates = {
+        per90(stat): df[stat] / exposure
+        for stat in COUNTING_STATS
+        if stat not in NO_PER90 and stat in df.columns
+    }
+    if not rates:
+        return df
+    # Built as one block: a hundred separate inserts fragments the frame.
+    return pd.concat([df, pd.DataFrame(rates, index=df.index)], axis=1)
 
 
 def _shrunk_rate(
@@ -152,6 +156,39 @@ def add_derived_metrics(df: pd.DataFrame) -> pd.DataFrame:
         df["goal_involvements_per90"] = (df["goals_per90"] + df["assists_per90"]).round(3)
     if {"xg_per90", "xa_per90"}.issubset(df.columns):
         df["xgi_per90"] = (df["xg_per90"] + df["xa_per90"]).round(3)
+
+    # Positional signature. A player's zone shares say where he plays, which is
+    # what separates two centre-backs with identical tackle counts - one winning
+    # the ball on the halfway line, one on his own six-yard box. These are
+    # shares of the player's own activity, so they do not scale with minutes.
+    zones = ["touches_def_third", "touches_mid_third", "touches_att_third"]
+    if set(zones).issubset(df.columns):
+        total_zone_touches = df[zones].sum(axis=1, min_count=len(zones)).replace(0, np.nan)
+        df["att_third_touch_share"] = (100 * df["touches_att_third"] / total_zone_touches).round(2)
+        df["def_third_touch_share"] = (100 * df["touches_def_third"] / total_zone_touches).round(2)
+    if {"touches_att_pen", "touches"}.issubset(df.columns):
+        df["box_touch_share"] = (
+            100 * df["touches_att_pen"] / df["touches"].replace(0, np.nan)
+        ).round(2)
+    thirds = ["tackles_def_third", "tackles_mid_third", "tackles_att_third"]
+    if set(thirds).issubset(df.columns):
+        total_tackles = df[thirds].sum(axis=1, min_count=len(thirds)).replace(0, np.nan)
+        df["att_third_tackle_share"] = (100 * df["tackles_att_third"] / total_tackles).round(2)
+
+    # How far the ball actually travels per action - a long-passing centre-back
+    # and a sideways one can attempt the same number of passes.
+    if {"progressive_pass_distance", "passes_attempted"}.issubset(df.columns):
+        df["pass_progress_per_pass"] = (
+            df["progressive_pass_distance"] / df["passes_attempted"].replace(0, np.nan)
+        ).round(2)
+    if {"progressive_carry_distance", "carries"}.issubset(df.columns):
+        df["carry_progress_per_carry"] = (
+            df["progressive_carry_distance"] / df["carries"].replace(0, np.nan)
+        ).round(2)
+    if {"sca_from_set_piece", "sca"}.issubset(df.columns):
+        df["set_piece_sca_share"] = (
+            100 * df["sca_from_set_piece"] / df["sca"].replace(0, np.nan)
+        ).round(2)
 
     gk = groups.eq("GK")
     df["gk_psxg_minus_ga_per90"] = np.where(

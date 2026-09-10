@@ -30,6 +30,7 @@ RAW_PLAYERS_CSV = RAW_DIR / "players_raw.csv.gz"
 PROCESSED_PLAYERS_CSV = PROCESSED_DIR / "players_processed.csv.gz"
 STATSBOMB_PLAYERS_CSV = RAW_DIR / "statsbomb_players.csv.gz"
 PREMIER_LEAGUE_CSV = RAW_DIR / "premier_league.csv.gz"
+FBREF_BIG5_CSV = RAW_DIR / "fbref_big5.csv.gz"
 TRANSFERMARKT_CSV = RAW_DIR / "transfermarkt.csv.gz"
 TRANSFERMARKT_MARKET_CSV = RAW_DIR / "transfermarkt_market.csv.gz"
 VALIDATION_REPORT = MODELS_DIR / "validation_report.md"
@@ -174,6 +175,42 @@ COUNTING_STATS = {
     "gk_def_actions_outside_box": "Defensive actions outside the box",
     "gk_launches_attempted": "Long goal-kicks / launches",
     "gk_launches_completed": "Long launches completed",
+    "gk_pens_faced": "Penalties faced",
+    "gk_pens_saved": "Penalties saved",
+    # --- available from a full match-data feed (FBref) ---
+    # Where a player passes, tackles and touches the ball, rather than only how
+    # often. Zone counts are what separate a full-back who defends his own box
+    # from one who spends the game in the opposition half.
+    "short_passes_attempted": "Short passes attempted (5-15y)",
+    "short_passes_completed": "Short passes completed (5-15y)",
+    "medium_passes_attempted": "Medium passes attempted (15-30y)",
+    "medium_passes_completed": "Medium passes completed (15-30y)",
+    "progressive_pass_distance": "Progressive passing distance (yards)",
+    "crosses_into_pen_area": "Crosses into the penalty area",
+    "corners_taken": "Corners taken",
+    "free_kick_passes": "Free-kicks taken",
+    "free_kick_shots": "Direct free-kick shots",
+    "sca_from_open_play_pass": "Shot-creating actions from open-play passes",
+    "sca_from_set_piece": "Shot-creating actions from set pieces",
+    "sca_from_dribble": "Shot-creating actions from dribbles",
+    "sca_from_defensive_action": "Shot-creating actions from defensive actions",
+    "tackles_def_third": "Tackles in the defensive third",
+    "tackles_mid_third": "Tackles in the middle third",
+    "tackles_att_third": "Tackles in the attacking third",
+    "dribblers_challenged": "Dribblers challenged",
+    "dribblers_tackled": "Dribblers dispossessed",
+    "pressures_att_third": "Pressures in the attacking third",
+    "shots_blocked": "Shots blocked",
+    "touches_def_pen": "Touches in own box",
+    "touches_def_third": "Touches in the defensive third",
+    "touches_mid_third": "Touches in the middle third",
+    "touches_att_third": "Touches in the attacking third",
+    "carries": "Carries",
+    "progressive_carry_distance": "Progressive carrying distance (yards)",
+    "fouls_won": "Fouls won",
+    "offsides": "Offsides",
+    "pens_won": "Penalties won",
+    "pens_conceded": "Penalties conceded",
 }
 
 # Ratio metrics: (numerator, denominator, minimum denominator per 90 to be
@@ -195,6 +232,12 @@ RATIO_METRICS = {
     "save_rate": ("gk_saves", "_saves_plus_conceded", 25, "Save rate (saves / shots faced) %"),
     "gk_cross_stop_pct": ("gk_crosses_stopped", "gk_crosses_faced", 30, "Cross claim %"),
     "gk_launch_pct": ("gk_launches_completed", "gk_launches_attempted", 30, "Launch completion %"),
+    "gk_pen_save_pct": ("gk_pens_saved", "gk_pens_faced", 3, "Penalty save %"),
+    "short_pass_pct": ("short_passes_completed", "short_passes_attempted", 50, "Short-pass completion %"),
+    "medium_pass_pct": ("medium_passes_completed", "medium_passes_attempted", 40, "Medium-pass completion %"),
+    # One-against-one defending: the share of dribblers taken on who were
+    # actually dispossessed. Volume of tackles says nothing about this.
+    "dribbler_stop_pct": ("dribblers_tackled", "dribblers_challenged", 20, "Dribblers stopped %"),
 }
 
 # Derived metrics that are neither a plain per-90 nor a ratio.
@@ -211,6 +254,14 @@ DERIVED_METRICS = {
     "aerials_contested_per90": "Aerial duels contested per 90",
     "defensive_actions_per90": "Defensive actions per 90",
     "progressive_actions_per90": "Progressive actions per 90",
+    # Positional signature: not how much a player does, but where he does it.
+    "att_third_touch_share": "Share of touches in the attacking third %",
+    "box_touch_share": "Share of touches in the opposition box %",
+    "def_third_touch_share": "Share of touches in the defensive third %",
+    "att_third_tackle_share": "Share of tackles in the attacking third %",
+    "pass_progress_per_pass": "Progressive distance per pass attempted (yards)",
+    "carry_progress_per_carry": "Progressive distance per carry (yards)",
+    "set_piece_sca_share": "Share of chances created from set pieces %",
 }
 
 # Metrics that describe the *team* more than the player. A summary feed
@@ -234,6 +285,8 @@ LOWER_IS_BETTER = {
     "gk_goals_against_per90",
     "aerials_lost_per90",
     "pens_taken_per90",
+    "offsides_per90",
+    "pens_conceded_per90",
 }
 
 # Counting stats that should never be turned into a per-90 rate.
@@ -266,6 +319,14 @@ METRIC_LABELS.update(
         "clubs_in_season": "Clubs played for",
         "detailed_position": "Line-up position",
         "position_source": "Position source",
+        "market_value_eur": "Market value (Transfermarkt, EUR)",
+        "foot": "Preferred foot",
+        "nationality": "Nationality",
+        "date_of_birth": "Date of birth",
+        "xa_definition": "Expected-assist definition",
+        "team_points_per_match": "Team points per match while on the pitch",
+        "gk_avg_pass_length": "Average pass length (yards)",
+        "gk_avg_sweeper_distance": "Average sweeper distance from goal (yards)",
     }
 )
 
@@ -273,6 +334,8 @@ METRIC_LABELS.update(
 PERCENT_METRICS = set(RATIO_METRICS) | {
     "team_possession", "pressured_pass_share", "open_play_npxg_share",
     "clean_sheet_rate", "starts_share", "ownership_pct",
+    "att_third_touch_share", "box_touch_share", "def_third_touch_share",
+    "att_third_tackle_share", "set_piece_sca_share",
 }
 
 # --------------------------------------------------------------------------
@@ -609,6 +672,136 @@ POSITION_FEATURES = {
     ],
 }
 
+# --------------------------------------------------------------------------
+# Role templates
+# --------------------------------------------------------------------------
+# A position is not a job. Two centre-backs in the same squad can be recruited
+# against opposite briefs - one to carry the ball out, one to head it away - and
+# a search that ranks both on one "centre-back score" is answering a question
+# nobody asked.
+#
+# Each template is simply a named set of category weights: the same arithmetic
+# as the default weighting, starting from a different place. They are editable
+# in the app, and they are **assumptions, not measurements** - a reasonable
+# reading of what each role asks for, offered as a starting point for a scout
+# who will disagree with some of them.
+
+ROLE_TEMPLATES: dict[str, dict[str, dict[str, int]]] = {
+    "GK": {
+        "Sweeper keeper": {"Sweeping": 30, "Distribution": 25, "Shot Stopping": 25,
+                           "Goal Prevention": 10, "Claiming Crosses": 10},
+        "Pure shot-stopper": {"Shot Stopping": 45, "Goal Prevention": 30,
+                              "Claiming Crosses": 15, "Distribution": 5, "Sweeping": 5},
+        "Commanding in the air": {"Claiming Crosses": 35, "Shot Stopping": 30,
+                                  "Goal Prevention": 15, "Long Distribution": 10,
+                                  "Sweeping": 10},
+    },
+    "CB": {
+        "Ball-playing centre-back": {"Passing": 30, "Ball Progression": 30,
+                                     "Defending": 20, "Aerial": 15, "Dribbling": 5},
+        "Aerial stopper": {"Aerial": 40, "Defending": 35, "Passing": 15,
+                           "Ball Progression": 10},
+        "Covering defender": {"Defending": 45, "Ball Progression": 20,
+                              "Passing": 20, "Aerial": 15},
+        "Wide centre-back (back three)": {"Ball Progression": 30, "Defending": 25,
+                                          "Passing": 20, "Dribbling": 15, "Aerial": 10},
+    },
+    "FB": {
+        "Attacking full-back": {"Chance Creation": 30, "Ball Progression": 25,
+                                "Dribbling": 20, "Passing": 15, "Defending": 10},
+        "Defensive full-back": {"Defending": 40, "Aerial": 20, "Passing": 20,
+                                "Ball Progression": 15, "Dribbling": 5},
+        "Inverted full-back": {"Passing": 35, "Ball Progression": 25, "Defending": 20,
+                               "Dribbling": 10, "Chance Creation": 10},
+        "Wing-back": {"Ball Progression": 25, "Chance Creation": 25, "Dribbling": 20,
+                      "Defending": 20, "Aerial": 10},
+    },
+    "DM": {
+        "Ball-winning holder": {"Defending": 45, "Aerial": 20, "Passing": 20,
+                                "Ball Progression": 15},
+        "Deep-lying playmaker": {"Passing": 35, "Ball Progression": 30,
+                                 "Defending": 20, "Chance Creation": 15},
+        "Anchor": {"Defending": 35, "Aerial": 25, "Passing": 25, "Ball Progression": 15},
+    },
+    "CM": {
+        "Box-to-box": {"Ball Progression": 25, "Defending": 20, "Chance Creation": 20,
+                       "Passing": 15, "Box Threat": 10, "Finishing": 10},
+        "Deep playmaker": {"Passing": 35, "Ball Progression": 30,
+                           "Chance Creation": 20, "Defending": 15},
+        "Ball-winner": {"Defending": 40, "Passing": 25, "Ball Progression": 20,
+                        "Aerial": 15},
+        "Arriving midfielder": {"Box Threat": 30, "Finishing": 25,
+                                "Ball Progression": 20, "Chance Creation": 15,
+                                "Passing": 10},
+    },
+    "AM": {
+        "Classic number 10": {"Chance Creation": 40, "Passing": 20, "Dribbling": 15,
+                              "Ball Progression": 15, "Finishing": 10},
+        "Goalscoring 10": {"Finishing": 30, "Box Threat": 25, "Chance Creation": 25,
+                           "Ball Progression": 10, "Dribbling": 10},
+        "Pressing 10": {"Defending": 30, "Chance Creation": 25, "Ball Progression": 20,
+                        "Finishing": 15, "Dribbling": 10},
+    },
+    "W": {
+        "Touchline dribbler": {"Dribbling": 35, "Ball Progression": 25,
+                               "Chance Creation": 20, "Finishing": 10, "Passing": 10},
+        "Inverted goalscorer": {"Finishing": 30, "Box Threat": 25, "Dribbling": 20,
+                                "Chance Creation": 15, "Ball Progression": 10},
+        "Creator and crosser": {"Chance Creation": 40, "Passing": 20,
+                                "Ball Progression": 15, "Dribbling": 15, "Finishing": 10},
+        "Hard-working wide man": {"Defending": 30, "Ball Progression": 20,
+                                  "Chance Creation": 20, "Dribbling": 15, "Finishing": 15},
+    },
+    "FW": {
+        "Penalty-box poacher": {"Finishing": 45, "Box Threat": 30, "Aerial": 10,
+                                "Chance Creation": 10, "Passing": 5},
+        "Target man": {"Aerial": 35, "Box Threat": 20, "Finishing": 20, "Passing": 15,
+                       "Chance Creation": 10},
+        "Complete forward": {"Finishing": 25, "Chance Creation": 25, "Box Threat": 20,
+                             "Ball Progression": 15, "Aerial": 10, "Passing": 5},
+        "Pressing forward": {"Defending": 30, "Finishing": 25, "Box Threat": 20,
+                             "Ball Progression": 15, "Chance Creation": 10},
+    },
+    # The four-bucket taxonomy, for summary-feed sources.
+    "DEF": {
+        "Progressive defender": {"Build-up Involvement": 35, "Chance Creation": 25,
+                                 "Defensive Work": 25, "Defensive Solidity": 15},
+        "Stay-at-home defender": {"Defensive Solidity": 40, "Defensive Work": 35,
+                                  "Build-up Involvement": 15, "Goal Threat": 10},
+    },
+    "MID": {
+        "Creator": {"Chance Creation": 45, "Build-up Involvement": 25,
+                    "Goal Threat": 20, "Defensive Work": 10},
+        "Destroyer": {"Defensive Work": 50, "Build-up Involvement": 25,
+                      "Chance Creation": 15, "Goal Threat": 10},
+        "Goalscoring midfielder": {"Goal Threat": 45, "Chance Creation": 25,
+                                   "Build-up Involvement": 20, "Defensive Work": 10},
+    },
+    "FWD": {
+        "Goalscorer": {"Goal Threat": 55, "Chance Creation": 20,
+                       "Build-up Involvement": 15, "Overall Rating": 10},
+        "Link forward": {"Build-up Involvement": 35, "Chance Creation": 35,
+                         "Goal Threat": 20, "Overall Rating": 10},
+    },
+}
+
+DEFAULT_ROLE = "Balanced (position default)"
+
+
+def role_weights(position_group: str, role: str | None = None) -> dict[str, int]:
+    """Category weights for a role, falling back to the position default."""
+    if role and role != DEFAULT_ROLE:
+        template = ROLE_TEMPLATES.get(position_group, {}).get(role)
+        if template:
+            return dict(template)
+    return dict(DEFAULT_WEIGHTS.get(position_group, {}))
+
+
+def roles_for(position_group: str) -> list[str]:
+    """Every selectable role for a position group, default first."""
+    return [DEFAULT_ROLE] + sorted(ROLE_TEMPLATES.get(position_group, {}))
+
+
 # Default recruitment weightings per position (percentages summing to 100).
 # The scout can override every one of these in the UI.
 DEFAULT_WEIGHTS = {
@@ -735,6 +928,47 @@ class DataSource:
 
 
 DATA_SOURCES: dict[str, DataSource] = {
+    "fbref_big5": DataSource(
+        key="fbref_big5",
+        label="Big five leagues 2017/18-2021/22 (FBref + Transfermarkt)",
+        path=FBREF_BIG5_CSV,
+        kind="real",
+        summary=(
+            "13,230 player-seasons and 5,309 players across the Premier League, La Liga, "
+            "Serie A, Bundesliga and Ligue 1, with full match-data metrics, a true position "
+            "and a market value in euros. The deepest and widest dataset here."
+        ),
+        attribution=(
+            "FBref season statistics and Transfermarkt squad records, mirrored by the "
+            "open-source worldfootballR_data repository "
+            "(https://github.com/JaseZiv/worldfootballR_data)."
+        ),
+        caveats=(
+            "**Positions come from Transfermarkt, not from the statistics.** 99.8% of "
+            "player-seasons carry a specific position - centre-back, left-back, defensive "
+            "midfield - taken from an independent source and joined through a curated "
+            "URL mapping, so grouping players by position is not circular.",
+            "**Market values are real and move season by season** (Messi runs 180 -> 150 -> "
+            "112 -> 80 -> 50 million euro across these five seasons). 97.5% of player-seasons "
+            "carry one. This is the only source here where 'undervalued' means anything.",
+            "**No contract data.** Transfermarkt records contract expiry as at the time the "
+            "page was read, so every one of Harry Kane's five seasons reads 2024-06-30. A "
+            "contract filter is exactly what a recruitment tool gets used for, which is why a "
+            "wrong one is worse than none - the columns are dropped rather than shown.",
+            "**It is not current.** It ends with 2021/22. FBref changed data provider in "
+            "October 2022 and the upstream mirror was archived in September 2025; the 2022/23 "
+            "snapshot stops after about 13 rounds, so pooling it with whole seasons would put "
+            "every 2022/23 player at the bottom of every volume metric. For the current "
+            "season, use the Premier League source.",
+            "Players who moved mid-season are one row: totals summed, club and league of "
+            "record taken from wherever they played the most minutes.",
+        ),
+        missing=("npxg_open_play", "npxg_set_piece", "passes_completed_under_pressure",
+                 "xg_chain", "xg_buildup", "influence", "creativity", "threat", "bps", "ict",
+                 "xgc", "cbi", "defensive_contribution"),
+        default_seasons=("2021-22",),
+        taxonomy="detailed",
+    ),
     "premier_league": DataSource(
         key="premier_league",
         label="Premier League 2016/17-2025/26 (FPL + Understat)",
@@ -839,7 +1073,7 @@ DATA_SOURCES: dict[str, DataSource] = {
     ),
 }
 
-DEFAULT_SOURCE = "premier_league"
+DEFAULT_SOURCE = "fbref_big5"
 
 # Minimum-minutes presets offered in the sidebar.
 MINUTES_PRESETS = [500, 900, 1500]

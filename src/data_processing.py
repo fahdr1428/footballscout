@@ -134,9 +134,13 @@ def load_source(source: str = DEFAULT_SOURCE) -> tuple[pd.DataFrame, str]:
         return load_raw_players(), spec.key
     if spec.path.exists():
         frame = pd.read_csv(spec.path)
-        for stat in COUNTING_STATS:
-            if stat not in frame.columns:
-                frame[stat] = np.nan
+        # Add every unsupplied counting stat in one concat: inserting ~90 columns
+        # one at a time fragments the frame badly on a wide source.
+        absent = [stat for stat in COUNTING_STATS if stat not in frame.columns]
+        if absent:
+            frame = pd.concat(
+                [frame, pd.DataFrame(np.nan, index=frame.index, columns=absent)], axis=1
+            )
         frame = _apply_market_enrichment(frame, spec.key)
         return frame, spec.key
     return load_raw_players(), "simulated"

@@ -28,20 +28,81 @@ The platform runs on any of three datasets, selected in the sidebar. All of them
 **identical** cleaning, feature-engineering and modelling code - only ingestion differs. The pool
 currently loaded is **{platform.spec.label}**.
 
-The two real sources answer different questions. The Premier League feed is **current and broad**
-- ten seasons to 2025/26, with age, price and ownership - but it is a summary feed, so there are
-no progressive passes or duels in it. The StatsBomb feed is **deep but older**: every metric is
-derived from raw event data, at the cost of the newest men's league season available being
-2015/16. Neither is better; they are different instruments.
+The real sources answer different questions. The **big five** dataset is the widest and deepest -
+five leagues, five seasons, 13,230 player-seasons, full match-data metrics, a true position and a
+market value in euros - but it ends in 2021/22. The **Premier League** feed is current, running to
+2025/26 with age, price and ownership, but it is a summary feed with no progressive passes or
+duels. The **StatsBomb** feed derives every metric from raw events, at the cost of the newest
+men's league season available being 2015/16. None is better; they are different instruments.
 """
 )
 
-premier, market, real, simulated = st.tabs([
+big5, premier, market, real, simulated = st.tabs([
+    "Big five 2017/18-2021/22 (real)",
     "Premier League 2016/17-2025/26 (real)",
     "Top six leagues (Transfermarkt)",
     "StatsBomb Open Data (real)",
     "Simulated reference universe",
 ])
+
+with big5:
+    st.markdown(
+        """
+The **Premier League, La Liga, Serie A, Bundesliga and Ligue 1**, five seasons from 2017/18 to
+2021/22: **13,230 player-seasons, 5,309 players**. This is the default dataset, and the only one
+here that is simultaneously wide (five leagues), deep (full match-data metrics) and priced
+(a real market value in euros).
+
+`src/fbref.py` builds it from three public files, all mirrored in
+[JaseZiv/worldfootballR_data](https://github.com/JaseZiv/worldfootballR_data), the data repository
+behind the `worldfootballR` R package:
+
+| File | What it gives |
+| --- | --- |
+| FBref season stats, eleven blocks per player | Standard, shooting, passing, pass types, shot- and goal-creating actions, defence, possession, playing time, miscellaneous, and two goalkeeping blocks. |
+| A curated FBref -> Transfermarkt mapping | 15,440 hand-checked URL pairs. |
+| Transfermarkt season squads | Market value for that season, a specific position, height, preferred foot, nationality, date of birth. |
+
+#### Why the join matters
+
+FBref records position as `DF`, `MF`, `FW` or `GK`. Transfermarkt records "Centre-Back",
+"Left-Back", "Defensive Midfield", "Right Winger". Taking the position from **Transfermarkt**
+means the eight position groups are fixed by an independent source rather than inferred from the
+same statistics the models then read - which would be circular reasoning dressed up as a feature.
+
+**99.9%** of player-seasons match to Transfermarkt, **99.8%** carry a specific position, and
+**97.5%** a market value for that exact season.
+
+#### What it measures
+
+Beyond the usual counting stats, this source carries the things that separate players who look
+identical in a summary table: pressures by third of the pitch, tackles by third, touches by zone
+(own box, defensive third, middle third, attacking third, opposition box), carries and
+progressive carry distance, carries into the final third and into the box, passes by distance
+band, through balls and switches, shot-creating actions broken down by *how* they were created,
+and for goalkeepers post-shot xG, cross-stopping and sweeper actions outside the area.
+
+#### What it does not do
+
+- **It is not current.** It ends with 2021/22. FBref changed data provider from StatsBomb to Opta
+  in October 2022 and the upstream mirror was archived in September 2025. The 2022/23 snapshot
+  stops after roughly 13 rounds - a median of 498 minutes against ~1,250 in a whole season - so
+  pooling it with complete seasons would put every 2022/23 player at the bottom of every volume
+  metric for a reason that has nothing to do with the player. It is excluded by default. For the
+  current season, use the Premier League source.
+- **No contract data.** Transfermarkt records contract expiry as at the time the squad page was
+  read, so every one of Harry Kane's five seasons reads `2024-06-30`. Searching by contract status
+  is one of the main things a recruitment tool is used for, which is exactly why shipping a wrong
+  one would be worse than shipping none. The columns are dropped.
+- **Pressures do not exist after 2021/22** - Opta does not count them - and `xA` becomes `xAG`.
+  Columns a season cannot supply are reported unavailable for that season and never imputed.
+- Players who moved mid-season are one row: totals summed, club and league of record taken from
+  wherever they played the most minutes. A stat only one of their clubs measured is left missing
+  rather than summed into an understatement.
+
+Rebuild it with `python scripts/fetch_fbref.py` (about 16 MB, cached, ~20 seconds).
+"""
+    )
 
 with market:
     st.markdown(

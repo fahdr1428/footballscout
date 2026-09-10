@@ -41,6 +41,7 @@ OPERATORS = {
 DEFAULT_GEM_WEIGHTS = {
     "Performance": 40,
     "Age upside": 20,
+    "Underpriced for output": 20,
     "Low exposure": 15,
     "Value for money": 15,
     "Statistical uniqueness": 15,
@@ -50,6 +51,7 @@ DEFAULT_GEM_WEIGHTS = {
 GEM_AGE_FLOOR = 19.0   # at or below this age the age component scores 100
 GEM_AGE_CEILING = 27.0  # at or above this age it scores 0
 GEM_MINUTES_FULL = 1800  # minutes at which the sample-size component maxes out
+MIN_VALUE_FIT_PLAYERS = 30  # players a position group needs before a price line is fitted
 
 
 @dataclass
@@ -64,6 +66,9 @@ class RecruitmentBrief:
     max_league_strength: float | None = None
     thresholds: list[tuple[str, str, float]] = field(default_factory=list)
     weights: dict[str, float] = field(default_factory=dict)
+    role: str | None = None                 # which template the weights started from
+    max_market_value: float | None = None   # euros, where the source has a valuation
+    feet: list[str] = field(default_factory=list)
 
     def resolved_weights(self) -> dict[str, float]:
         weights = self.weights or DEFAULT_WEIGHTS.get(self.position_group, {})
@@ -91,6 +96,13 @@ def apply_brief(pool: pd.DataFrame, brief: RecruitmentBrief) -> pd.Series:
         mask &= pool["season"].isin(brief.seasons)
     if brief.max_league_strength is not None:
         mask &= _league_strength(pool).le(brief.max_league_strength)
+    if brief.max_market_value is not None and "market_value_eur" in pool.columns:
+        # A player with no recorded valuation is kept: absence of a price is not
+        # evidence of an unaffordable one, and the shortlist flags it as unknown.
+        value = pd.to_numeric(pool["market_value_eur"], errors="coerce")
+        mask &= value.le(brief.max_market_value) | value.isna()
+    if brief.feet and "foot" in pool.columns:
+        mask &= pool["foot"].astype(str).str.lower().isin([f.lower() for f in brief.feet])
     for metric, operator, value in brief.thresholds:
         if metric in pool.columns and operator in OPERATORS:
             mask &= OPERATORS[operator](pool[metric], value).fillna(False)
@@ -139,8 +151,14 @@ def threshold_summary(brief: RecruitmentBrief) -> list[str]:
         f"Age: {brief.age_range[0]:.0f}-{brief.age_range[1]:.0f}",
         f"Minimum minutes: {brief.min_minutes:,}",
     ]
+    if brief.role:
+        lines.append(f"Role: {brief.role}")
     if brief.leagues:
         lines.append(f"Leagues: {', '.join(brief.leagues)}")
+    if brief.max_market_value is not None:
+        lines.append(f"Maximum market value: EUR {brief.max_market_value / 1e6:,.1f}m")
+    if brief.feet:
+        lines.append(f"Preferred foot: {', '.join(brief.feet)}")
     for metric, operator, value in brief.thresholds:
         lines.append(f"{METRIC_LABELS.get(metric, metric)} {operator} {value:g}")
     return lines
@@ -187,15 +205,68 @@ def exposure_score(strength: pd.Series) -> pd.Series:
 def value_for_money(performance: pd.Series, price: pd.Series) -> pd.Series:
     """Percentile of performance per unit of price.
 
-    Where a source publishes a price this asks the obvious scouting question:
-    how much on-pitch output is this player returning for what he costs? The
-    price here is the fantasy game's own valuation - a popularity and
-    perceived-value signal, not a transfer fee or a wage - so this is
-    value-for-money inside that game's market, and nothing more.
+    The obvious scouting question: how much on-pitch output is this player
+    returning for what he costs? What "cost" means depends on the source, and
+    the app says which one it used - a real Transfermarkt market value in euros
+    on the big-five dataset, or the fantasy game's own valuation on the Premier
+    League one, which is a popularity signal rather than a fee or a wage.
     """
     price = pd.to_numeric(price, errors="coerce")
     ratio = performance / price.where(price > 0)
     return ratio.rank(pct=True).mul(100).round(1)
+
+
+def market_value_residual(
+    performance: pd.Series, market_value: pd.Series, groups: pd.Series
+) -> pd.DataFrame:
+    """What the market pays for this level of performance, and who is off the line.
+
+    A ratio of output to price answers "who is cheap", which mostly finds
+    players who are cheap because they are not very good. The recruitment
+    question is different: **for a player performing this well, is this price
+    normal?**
+
+    So, within each position group, log10(market value) is fitted against the
+    performance score by ordinary least squares - one straight line, two
+    coefficients - and each player's residual is read off it. A player far
+    below the line is cheaper than the market usually charges for his output.
+
+    Returns the fitted expectation and the residual as a percentile, both of
+    which the app shows, alongside the line itself, so the arithmetic is
+    checkable rather than asserted. It is a description of one season's prices,
+    not a valuation model: the market may be right and the player limited in
+    ways these metrics do not see.
+    """
+    value = pd.to_numeric(market_value, errors="coerce")
+    score = pd.to_numeric(performance, errors="coerce")
+    expected = pd.Series(np.nan, index=value.index, dtype=float)
+    residual = pd.Series(np.nan, index=value.index, dtype=float)
+
+    for group in groups.dropna().unique():
+        mask = (groups == group) & value.gt(0) & score.notna()
+        if mask.sum() < MIN_VALUE_FIT_PLAYERS:
+            continue
+        x = score[mask].to_numpy(dtype=float)
+        y = np.log10(value[mask].to_numpy(dtype=float))
+        if np.ptp(x) < 1e-9:
+            # Every player scored the same: there is no line to fit, and
+            # forcing one through a vertical scatter invents a ranking.
+            continue
+        slope, intercept = np.polyfit(x, y, 1)
+        fitted = slope * x + intercept
+        expected.loc[mask] = np.power(10.0, fitted)
+        residual.loc[mask] = y - fitted
+
+    out = pd.DataFrame({
+        "expected_market_value_eur": expected.round(0),
+        "value_residual": residual.round(3),
+    })
+    # Low residual = cheaper than the market charges for that output, so the
+    # percentile is inverted to make 100 mean "most underpriced".
+    out["value_residual_pct"] = (
+        (1 - residual.rank(pct=True)).mul(100).round(1)
+    )
+    return out
 
 
 def sample_size_score(minutes: pd.Series) -> pd.Series:
@@ -212,9 +283,12 @@ def hidden_gem_scores(
 ) -> pd.DataFrame:
     """Composite 'hidden gem' score with every component exposed.
 
-    Not a valuation. With no fee or wage data available it cannot be one; it
-    ranks players who combine output, youth, sample size, limited exposure and
-    an unusual statistical profile.
+    Not a transfer valuation. It ranks players who combine output, youth,
+    sample size, limited exposure and an unusual statistical profile - and,
+    where the source carries a real market value, how far below the market's
+    own price-for-performance line they sit. Every component is listed in the
+    app with its weight, and any the source cannot support is dropped and the
+    remaining weights renormalised rather than filled in with a placeholder.
     """
     weights = weights or DEFAULT_GEM_WEIGHTS
     performance_weights = performance_weights or DEFAULT_WEIGHTS
@@ -245,7 +319,14 @@ def hidden_gem_scores(
         # Meaningless in a single-league pool: everyone has the same exposure.
         columns["Low exposure"] = exposure_score(strength)
 
-    if "price_m" in pool.columns and pool["price_m"].notna().any():
+    # A real market value in euros beats a fantasy price wherever one exists.
+    if "market_value_eur" in pool.columns and pool["market_value_eur"].notna().any():
+        columns["Value for money"] = value_for_money(performance, pool["market_value_eur"])
+        priced = market_value_residual(performance, pool["market_value_eur"],
+                                       pool["position_group"])
+        if priced["value_residual_pct"].notna().any():
+            columns["Underpriced for output"] = priced["value_residual_pct"]
+    elif "price_m" in pool.columns and pool["price_m"].notna().any():
         columns["Value for money"] = value_for_money(performance, pool["price_m"])
 
     components = pd.DataFrame(columns)

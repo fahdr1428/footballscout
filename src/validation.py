@@ -428,7 +428,13 @@ def build_validation_report(
         parts.append(
             "Team style leaks into individual numbers: a defender in a possession side passes "
             "more because of the side. Some over-representation of team-mates is expected and "
-            "correct; a large lift would mean the model is partly clustering clubs."
+            "correct; a large lift would mean the model is partly clustering clubs.\n\n"
+            "**Read the absolute column, not the ratio.** In a wide pool - five leagues in one "
+            "season - two team-mates are a vanishing share of the candidates, so `chance` is "
+            "tiny and `lift` divides by it. A lift of 4 on a 1% observed share still means a "
+            "top-ten list contains one-tenth of a team-mate on average, which is not a model "
+            "clustering clubs. The ratio only becomes worrying when the observed share itself "
+            "climbs into double figures."
         )
 
     parts += ["", "## 3. Is the model dominated by a few metrics?", ""]

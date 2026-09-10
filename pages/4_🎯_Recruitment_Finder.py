@@ -6,8 +6,8 @@ import pandas as pd
 import streamlit as st
 
 from src.config import (
-    DEFAULT_WEIGHTS, LEAGUE_STRENGTH, METRIC_LABELS, POSITION_GROUP_NAMES, POSITION_GROUPS,
-    categories_for,
+    DEFAULT_ROLE, DEFAULT_WEIGHTS, LEAGUE_STRENGTH, METRIC_LABELS, POSITION_GROUP_NAMES,
+    POSITION_GROUPS, categories_for, role_weights, roles_for,
 )
 from src.feature_engineering import metrics_for_percentiles
 from src.pipeline import format_metric
@@ -52,7 +52,36 @@ with row1[3]:
              "src/config.py and are assumptions, not measurements.",
     )
 
-leagues = st.multiselect("Restrict to leagues (optional)", sorted(pool["league"].unique()))
+filter_row = st.columns([2, 1.3, 1.2])
+with filter_row[0]:
+    leagues = st.multiselect("Restrict to leagues (optional)",
+                             sorted(pool["league"].unique()))
+
+# A budget and a preferred foot are two of the first things a real brief
+# specifies, so both appear wherever the dataset can answer them.
+max_market_value = None
+with filter_row[1]:
+    if platform.has("market_value_eur"):
+        values = pd.to_numeric(pool["market_value_eur"], errors="coerce").dropna()
+        ceiling = float(values.max() / 1e6) if len(values) else 100.0
+        budget = st.slider("Budget (market value, EURm)", 0.0, ceiling, ceiling,
+                           max(0.5, round(ceiling / 100, 1)),
+                           help="Transfermarkt market value for that season - an estimate of "
+                                "what the player is worth, not a fee that was paid. Players "
+                                "with no recorded value are kept and flagged.")
+        if budget < ceiling:
+            max_market_value = budget * 1e6
+    else:
+        st.caption("No market values in this dataset.")
+with filter_row[2]:
+    feet: list[str] = []
+    if platform.has("foot"):
+        options = sorted(pool["foot"].dropna().astype(str).str.lower().unique())
+        feet = st.multiselect("Preferred foot", options,
+                              help="A left-footed centre-back or right-back is a specific "
+                                   "recruitment brief, not a preference.")
+    else:
+        st.caption("No footedness in this dataset.")
 
 metric_choices = sorted(
     metrics_for_percentiles(group, list(pool.columns)), key=lambda m: METRIC_LABELS.get(m, m)
@@ -110,15 +139,32 @@ with st.expander("Desired characteristics (hard thresholds on raw rates)", expan
 
 # ---- weights -------------------------------------------------------------
 st.markdown("## 2. Weight what matters")
-defaults = DEFAULT_WEIGHTS.get(group, {})
 category_names = list(categories_for(group))
+
+# A position is not a job: two centre-backs can be recruited against opposite
+# briefs. Picking a role reseeds the sliders, which stay editable afterwards.
+role = st.selectbox(
+    "Role", roles_for(group), key=f"role_{group}",
+    help="Each role is a named starting set of weights, listed in src/config.ROLE_TEMPLATES. "
+         "They are assumptions about what a role asks for, not measurements - move the "
+         "sliders and the shortlist follows.",
+)
+seed_key = f"_seeded_{group}"
+if st.session_state.get(seed_key) != role:
+    st.session_state[seed_key] = role
+    template = role_weights(group, role)
+    for category in category_names:
+        st.session_state[f"weight_{group}_{category}"] = int(template.get(category, 0))
+
 weight_columns = st.columns(min(4, len(category_names)))
 weights: dict[str, float] = {}
 for i, category in enumerate(category_names):
     with weight_columns[i % len(weight_columns)]:
         weights[category] = st.slider(
-            category, 0, 50, int(defaults.get(category, 0)), 5, key=f"weight_{group}_{category}"
+            category, 0, 60, step=5, key=f"weight_{group}_{category}"
         )
+if role != DEFAULT_ROLE:
+    st.caption(f"Starting weights for **{role}**. Adjust any slider to depart from the template.")
 
 total = sum(weights.values())
 if total == 0:
@@ -136,6 +182,9 @@ brief = RecruitmentBrief(
     max_league_strength=max_strength if max_strength < 1.0 else None,
     thresholds=thresholds,
     weights=weights,
+    role=None if role == DEFAULT_ROLE else role,
+    max_market_value=max_market_value,
+    feet=feet,
 )
 
 # ---- results -------------------------------------------------------------

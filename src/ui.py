@@ -361,6 +361,18 @@ def player_selector(
     return index
 
 
+def format_market_value(value) -> str:
+    """Transfermarkt values in the units a scout reads them in."""
+    if pd.isna(value):
+        return "-"
+    value = float(value)
+    if value >= 1e6:
+        return f"EUR {value / 1e6:.1f}m"
+    if value >= 1e3:
+        return f"EUR {value / 1e3:.0f}k"
+    return f"EUR {value:.0f}"
+
+
 def player_header(platform: ScoutingPlatform, index, show_archetype: bool = True) -> None:
     row = platform.row(index)
     archetype, _ = platform.archetype(index) if show_archetype else ("", "")
@@ -378,6 +390,10 @@ def player_header(platform: ScoutingPlatform, index, show_archetype: bool = True
         items.append((f"Age {row['age']:.1f}", ""))
     if platform.has("height_cm") and pd.notna(row.get("height_cm")):
         items.append((f"{row['height_cm']:.0f} cm", ""))
+    if platform.has("foot") and pd.notna(row.get("foot")):
+        items.append((f"{str(row['foot']).capitalize()}-footed", ""))
+    if platform.has("market_value_eur") and pd.notna(row.get("market_value_eur")):
+        items.append((format_market_value(row["market_value_eur"]), "accent"))
     if platform.has("price_m") and pd.notna(row.get("price_m")):
         items.append((f"£{row['price_m']:.1f}m", ""))
     items.append((f"{row['minutes']:,.0f} min", "good" if row["minutes"] >= 1500 else "warn"))
@@ -385,12 +401,20 @@ def player_header(platform: ScoutingPlatform, index, show_archetype: bool = True
         items.insert(1, (archetype, "accent"))
     badges(items)
     if "position_source" in row.index and pd.notna(row.get("position_source")):
+        source = str(row["position_source"])
         detail = row.get("detailed_position")
-        st.caption(
-            f"Line-up position: **{detail}** - {row['position_source']}. "
-            "Models group by the source's own positional buckets."
-            if pd.notna(detail) else f"Position: {row['position_source']}."
-        )
+        if pd.notna(detail):
+            st.caption(
+                f"Line-up position: **{detail}** - {source}. "
+                "Models group by the source's own positional buckets."
+            )
+        elif source.startswith("Transfermarkt") and "broad" not in source:
+            st.caption(
+                f"Position **{row['position']}** recorded by {source}, independently of the "
+                "statistics the models read - so grouping by position is not circular."
+            )
+        else:
+            st.caption(f"Position from {source}: only a broad grouping was available.")
 
 
 # --------------------------------------------------------------------------

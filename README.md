@@ -22,8 +22,10 @@ decides which splits the data supports, and [the evidence is on the table below]
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
-**Live app:** _not yet deployed_ — [Deploying it](#deploying-it) takes about three minutes on
-Streamlit Community Cloud, and is free. Paste the `*.streamlit.app` URL here once it is up.
+**Two ways to run it, both free.** The full Streamlit app takes about three minutes to put on
+[Streamlit Community Cloud](#streamlit-community-cloud--free-and-the-shortest-path). A
+[single-file static build](#a-static-build-that-needs-no-server) of one season opens in any
+browser with no server at all.
 
 ```bash
 pip install -r requirements.txt
@@ -580,6 +582,7 @@ src/
   pipeline.py               Orchestration + the ScoutingPlatform every page reads
   ui.py                     Shared Streamlit helpers
 scripts/
+  export_static.py          Export one season as a single self-contained HTML file
   fetch_fbref.py            Build the big-five dataset from the worldfootballR_data mirror
   position_separability.py  Measure which position splits the data actually supports
   fetch_premier_league.py   Build the Premier League dataset from the FPL + Understat mirror
@@ -587,6 +590,7 @@ scripts/
   fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
+static/                     Templates and the exported single-file build
 tests/                      128 tests covering the analytics layer and all four ETLs
 requirements.txt            Runtime dependencies (what a host installs)
 requirements-dev.txt        The above, plus pytest
@@ -640,6 +644,24 @@ account, and you can rename it under *Settings → General*.
 Resource use sits well inside the free tier: peak memory is roughly 310 MB against a 2.7 GB
 limit, and the whole repository is under 10 MB. Community Cloud puts an app to sleep after about
 a week without traffic — the next visitor wakes it, at the cost of one cold start.
+
+### A static build that needs no server
+
+The Streamlit app needs a Python process. This does not:
+
+```bash
+python scripts/export_static.py        # -> static/index.html, ~1.4 MB
+```
+
+It precomputes one season's percentiles, category scores and nearest neighbours, inlines them as
+JSON, and writes **one self-contained HTML file**. Open it directly, or drop the `static/` folder
+on GitHub Pages, Netlify or Cloudflare Pages — nothing to install, nothing to keep running,
+nothing to wake up.
+
+It is a demo, not the platform. Search, the player read-out, the attribute radar and similarity
+survive the trip; the recruitment finder, squad analysis, archetype maps and the validation suite
+do not, because they refit models against whatever pool you select and there is no Python at the
+other end to do it.
 
 ### Anywhere else
 

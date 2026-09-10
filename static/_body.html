@@ -1,0 +1,263 @@
+<div class="wrap">
+<header>
+  <div>
+    <div class="eyebrow">Big five leagues &middot; 2021&ndash;22</div>
+    <h1>Scouting Intelligence</h1>
+    <p class="sub">Every player who logged 900 minutes in the Premier League, La Liga, Serie A,
+    the Bundesliga or Ligue&nbsp;1. Percentiles are measured against players in the same position
+    group &mdash; never against the whole dataset &mdash; and similarity is nearest-neighbour in a
+    standardised, position-specific feature space.</p>
+  </div>
+  <div class="facts">
+    <div class="fact"><b id="f-players">&mdash;</b><span>Players</span></div>
+    <div class="fact"><b>5</b><span>Leagues</span></div>
+    <div class="fact"><b id="f-groups">&mdash;</b><span>Position models</span></div>
+    <div class="fact"><b id="f-arch">&mdash;</b><span>Archetypes</span></div>
+  </div>
+</header>
+
+<div class="cols">
+  <div style="display:grid;gap:18px">
+    <section class="panel">
+      <div class="panel-h"><h3>Filter</h3><span class="eyebrow" id="hits">&mdash;</span></div>
+      <div class="filters">
+        <div class="field">
+          <label for="q">Search by name or club</label>
+          <input type="search" id="q" placeholder="Salah, Real Madrid&hellip;" autocomplete="off">
+        </div>
+        <div class="two">
+          <div class="field"><label for="grp">Position</label><select id="grp"></select></div>
+          <div class="field"><label for="lg">League</label><select id="lg"></select></div>
+        </div>
+        <div class="two">
+          <div class="field"><label for="side">Side</label><select id="side">
+            <option value="">Any</option><option>Left</option><option>Right</option><option>Central</option>
+          </select></div>
+          <div class="field"><label for="foot">Foot vs side</label><select id="foot">
+            <option value="">Any</option><option>Inverted</option><option>Natural</option>
+          </select></div>
+        </div>
+        <div class="field">
+          <label for="age">Maximum age &mdash; <span class="mono" id="age-v">40</span></label>
+          <input type="range" id="age" min="17" max="40" value="40" step="1">
+        </div>
+        <div class="field">
+          <label for="val">Maximum market value &mdash; <span class="mono" id="val-v">any</span></label>
+          <input type="range" id="val" min="0" max="180" value="180" step="5">
+        </div>
+        <div class="field">
+          <label for="sort">Rank by</label>
+          <select id="sort">
+            <option value="v">Market value</option>
+            <option value="m">Minutes played</option>
+            <option value="a">Age (youngest first)</option>
+            <option value="n">Name</option>
+          </select>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-h"><h3>Players</h3><span class="eyebrow">Click to open</span></div>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+
+  <div class="detail" id="detail"></div>
+</div>
+
+<footer>
+  <div><b>Where the data comes from.</b> FBref match statistics joined to Transfermarkt squad
+  records through a curated 15,440-row player mapping, both mirrored by
+  <a href="https://github.com/JaseZiv/worldfootballR_data">worldfootballR_data</a>. Positions are
+  Transfermarkt's, taken from an independent source rather than inferred from the same statistics
+  the models read &mdash; so grouping players by position is not circular.</div>
+  <div><b>What a percentile means here.</b> A player's rank against others in his position group in
+  this pool, for that metric. 90 means he is in the top tenth of his peers, not the top tenth of
+  all footballers.</div>
+  <div><b>What market value is.</b> Transfermarkt's estimate for that season, in euros. It is not a
+  fee anybody paid, and it is partly informed by the same public data shown here.</div>
+  <div id="fold-note"></div>
+  <div>A static extract of a larger Streamlit platform, which adds recruitment search, squad
+  analysis, archetype maps and the model-validation suite across five seasons.</div>
+</footer>
+</div>
+
+<script>
+const D = window.__SCOUT__;
+const P = D.players, M = D.meta;
+const $ = id => document.getElementById(id);
+
+const eur = v => v == null ? "—"
+  : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7 ? 0 : 1) + "m"
+  : "€" + Math.round(v/1e3) + "k";
+const band = p => p >= 80 ? 5 : p >= 60 ? 4 : p >= 40 ? 3 : p >= 20 ? 2 : 1;
+
+$("f-players").textContent = P.length.toLocaleString();
+$("f-groups").textContent = Object.keys(M.groupNames).length;
+$("f-arch").textContent = new Set(P.map(p => p.ar).filter(Boolean)).size;
+
+const folded = Object.entries(M.collapsed || {});
+$("fold-note").innerHTML = folded.length
+  ? "<b>One season, so two groups are folded in.</b> " + folded.map(([g, parent]) =>
+      "there were too few " + (M.groupNames[g] || g) + "s to rank against, so they are measured against " +
+      (M.groupNames[parent] || parent) + "s").join("; ") +
+    ". The full platform models all ten groups over three seasons."
+  : "";
+
+// selects
+const groups = Object.keys(M.groupNames).sort((a, b) => (M.counts[b]||0) - (M.counts[a]||0));
+$("grp").innerHTML = '<option value="">All positions</option>' +
+  groups.map(g => `<option value="${g}">${M.groupNames[g]} (${M.counts[g]})</option>`).join("");
+$("lg").innerHTML = '<option value="">All leagues</option>' +
+  M.leagues.map(l => `<option>${l}</option>`).join("");
+
+let current = 0;
+const state = {q:"", g:"", l:"", side:"", foot:"", age:40, val:181, sort:"v"};
+
+function matches(p){
+  if (state.g && p.g !== state.g) return false;
+  if (state.l && p.l !== state.l) return false;
+  if (state.side && p.fl !== state.side) return false;
+  if (state.foot && p.fs !== state.foot) return false;
+  if (p.a != null && p.a > state.age) return false;
+  if (state.val <= 180 && p.v != null && p.v > state.val * 1e6) return false;
+  if (state.q){
+    const q = state.q.toLowerCase();
+    if (!(p.n.toLowerCase().includes(q) || p.t.toLowerCase().includes(q))) return false;
+  }
+  return true;
+}
+
+function render(){
+  const idx = [];
+  for (let i = 0; i < P.length; i++) if (matches(P[i])) idx.push(i);
+  const s = state.sort;
+  idx.sort((x, y) => {
+    const a = P[x], b = P[y];
+    if (s === "n") return a.n.localeCompare(b.n);
+    if (s === "a") return (a.a ?? 99) - (b.a ?? 99);
+    if (s === "m") return b.m - a.m;
+    return (b.v ?? -1) - (a.v ?? -1);
+  });
+  $("hits").textContent = idx.length.toLocaleString() + " match";
+  const shown = idx.slice(0, 220);
+  $("list").innerHTML = shown.length ? shown.map(i => {
+    const p = P[i];
+    return `<button class="row" data-i="${i}" aria-current="${i === current}">
+      <span><span class="nm">${p.n}</span><br><span class="mt">${p.p} · ${p.t} · ${p.l}</span></span>
+      <span class="val">${eur(p.v)}<br>${p.a != null ? p.a.toFixed(1) : "—"} yrs</span>
+    </button>`;
+  }).join("") + (idx.length > shown.length
+      ? `<div class="empty">Showing the first ${shown.length} of ${idx.length.toLocaleString()}. Narrow the filters to see the rest.</div>` : "")
+    : `<div class="empty">No player matches those filters.</div>`;
+}
+
+function radar(names, vals){
+  const N = names.length; if (!N) return "";
+  const W = 320, C = W/2, R = 88;
+  const pt = (i, r) => {
+    const ang = -Math.PI/2 + i*2*Math.PI/N;
+    return [C + r*Math.cos(ang), C + r*Math.sin(ang)];
+  };
+  const rings = [25,50,75,100].map(v =>
+    `<polygon points="${names.map((_,i)=>pt(i, R*v/100).join(",")).join(" ")}"
+      fill="none" stroke="var(--line)" stroke-width="1"/>`).join("");
+  const spokes = names.map((_,i)=>{
+    const [x,y]=pt(i,R);
+    return `<line x1="${C}" y1="${C}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+  }).join("");
+  const poly = names.map((_,i)=>pt(i, R*Math.max(0, Math.min(100, vals[i] ?? 0))/100).join(",")).join(" ");
+  const dots = names.map((_,i)=>{
+    const [x,y]=pt(i, R*Math.max(0,Math.min(100, vals[i] ?? 0))/100);
+    return `<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)"/>`;
+  }).join("");
+  const labels = names.map((n,i)=>{
+    const [x,y]=pt(i, R+22);
+    const anchor = x < C-6 ? "end" : x > C+6 ? "start" : "middle";
+    const v = vals[i] == null ? "—" : Math.round(vals[i]);
+    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle"
+      font-size="11" fill="var(--muted)" font-family="IBM Plex Sans,sans-serif">${n}
+      <tspan font-family="IBM Plex Mono,monospace" fill="var(--ink-2)" font-weight="600"> ${v}</tspan></text>`;
+  }).join("");
+  return `<svg viewBox="-92 -16 ${W+184} ${W+32}" role="img"
+    aria-label="Category percentile profile">${rings}${spokes}
+    <polygon points="${poly}" fill="var(--accent)" fill-opacity="0.16"
+      stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${dots}${labels}</svg>`;
+}
+
+function bars(items){
+  return items.map(([label, v]) => `<div class="bar">
+    <span class="barline"><span class="lb">${label}</span>
+      <span class="tr"><span class="fl p${band(v)}" style="width:${Math.max(2,v)}%"></span></span></span>
+    <span class="pv c${band(v)}">${v}</span></div>`).join("");
+}
+
+function open(i){
+  current = i; const p = P[i];
+  const badge = (txt, cls="") => txt ? `<span class="badge ${cls}">${txt}</span>` : "";
+  $("detail").innerHTML = `
+    <section class="panel who">
+      <div class="eyebrow">${M.groupNames[p.g] || p.g} &middot; ${M.season}</div>
+      <h2>${p.n}</h2>
+      <div class="badges">
+        ${badge(p.ar, "arch")}
+        ${badge(p.p, "key")}
+        ${badge(p.t)}${badge(p.l)}
+        ${badge(p.a != null ? "Age " + p.a.toFixed(1) : "")}
+        ${badge(p.h ? p.h + " cm" : "")}
+        ${badge(p.ft ? p.ft[0].toUpperCase() + p.ft.slice(1) + "-footed" : "")}
+        ${badge(p.fs ? p.fs + " on the " + (p.fl || "").toLowerCase() : "")}
+        ${badge(p.v != null ? eur(p.v) : "", "key")}
+        ${badge(p.m.toLocaleString() + " min")}
+      </div>
+    </section>
+    <div class="grid2">
+      <section class="panel">
+        <div class="panel-h"><h3>Attribute profile</h3><span class="eyebrow">Percentile</span></div>
+        <div style="padding:8px 6px 14px">${radar(p.cn, p.cv)}</div>
+        <div class="note">Each spoke is the mean percentile of a basket of per-90 metrics,
+        against ${M.groupNames[p.g] || p.g}s in this pool.</div>
+      </section>
+      <section class="panel">
+        <div class="panel-h"><h3>Strongest</h3><span class="eyebrow">vs position peers</span></div>
+        <div class="bars">${bars(p.top)}</div>
+        <div class="panel-h" style="border-top:1px solid var(--line)"><h3>Weakest</h3></div>
+        <div class="bars">${bars(p.bot)}</div>
+      </section>
+    </div>
+    <section class="panel">
+      <div class="panel-h"><h3>Statistically similar players</h3><span class="eyebrow">Cosine similarity</span></div>
+      <div class="sim">${p.s.length ? p.s.map(([j, sc]) => {
+        const o = P[j];
+        return `<button class="simrow" data-i="${j}">
+          <span><span class="nm">${o.n}</span><br><span class="mt">${o.p} · ${o.t} · ${o.l} · ${eur(o.v)}</span></span>
+          <span class="pc">${sc}%</span></button>`;
+      }).join("") : `<div class="empty">No model for this position group in this pool.</div>`}</div>
+      <div class="note">Nearest neighbours by cosine distance across the standardised
+      feature set for ${M.groupNames[p.g] || p.g}s &mdash; the same metrics the radar summarises,
+      compared one by one rather than as category averages.</div>
+    </section>`;
+  render();
+  if (booted) $("detail").scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+let booted = false;
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-i]");
+  if (b) open(+b.dataset.i);
+});
+const bind = (id, key, fn) => $(id).addEventListener("input", e => {
+  state[key] = fn ? fn(e.target.value) : e.target.value;
+  if (id === "age") $("age-v").textContent = state.age >= 40 ? "40+" : state.age;
+  if (id === "val") $("val-v").textContent = state.val > 180 ? "any" : "€" + state.val + "m";
+  render();
+});
+bind("q","q"); bind("grp","g"); bind("lg","l"); bind("side","side");
+bind("foot","foot"); bind("sort","sort");
+bind("age","age", v => +v);
+bind("val","val", v => +v >= 180 ? 181 : +v);
+
+const first = P.findIndex(p => p.n === "Mohamed Salah");
+open(first >= 0 ? first : 0);
+booted = true;
+</script>

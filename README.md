@@ -24,8 +24,8 @@ Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
 **Two ways to run it, both free.** The full Streamlit app takes about three minutes to put on
 [Streamlit Community Cloud](#streamlit-community-cloud--free-and-the-shortest-path). A
-[single-file static build](#a-static-build-that-needs-no-server) of one season opens in any
-browser with no server at all.
+[single-file static build](#a-static-build-that-needs-no-server) — a working similarity engine
+for one season — opens in any browser with no server at all.
 
 ```bash
 pip install -r requirements.txt
@@ -650,18 +650,27 @@ a week without traffic — the next visitor wakes it, at the cost of one cold st
 The Streamlit app needs a Python process. This does not:
 
 ```bash
-python scripts/export_static.py        # -> static/index.html, ~1.4 MB
+python scripts/export_static.py        # -> static/index.html, ~1.3 MB
 ```
 
-It precomputes one season's percentiles, category scores and nearest neighbours, inlines them as
-JSON, and writes **one self-contained HTML file**. Open it directly, or drop the `static/` folder
-on GitHub Pages, Netlify or Cloudflare Pages — nothing to install, nothing to keep running,
-nothing to wake up.
+**One self-contained HTML file**, and a working similarity engine rather than a snapshot of one.
+Each player ships as the weighted z-vector the model already uses, so the page computes
+`100 × cosine` in the browser — the same number the Streamlit app reports. That means:
 
-It is a demo, not the platform. Search, the player read-out, the attribute radar and similarity
-survive the trip; the recruitment finder, squad analysis, archetype maps and the validation suite
-do not, because they refit models against whatever pool you select and there is no Python at the
-other end to do it.
+- pick any player and rank **every** other player in his position group, not a precomputed top six;
+- refilter the ranking live — league, side, age, market value, minutes, exclude his own club or
+  league — which is how "find a cheaper, younger version of him" actually gets asked;
+- open any match for a **metric-by-metric comparison**: up to 44 metrics with both players'
+  per-90 values and positional percentiles, sorted by biggest gap or closest agreement, with the
+  standardised gap on each metric that the similarity score is built from.
+
+Open it directly, or drop the `static/` folder on GitHub Pages, Netlify or Cloudflare Pages —
+nothing to install, nothing to keep running, nothing to wake up. The file is named `index.html`
+so those hosts serve the folder as-is.
+
+It is still a demo, not the platform: the recruitment finder, squad analysis, archetype maps and
+the validation suite do not survive the trip, because they refit models against whatever pool you
+select and there is no Python at the other end to do it.
 
 ### Anywhere else
 

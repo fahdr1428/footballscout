@@ -2,68 +2,88 @@
 <header>
   <div>
     <div class="eyebrow">Big five leagues &middot; 2021&ndash;22</div>
-    <h1>Scouting Intelligence</h1>
-    <p class="sub">Every player who logged 900 minutes in the Premier League, La Liga, Serie A,
-    the Bundesliga or Ligue&nbsp;1. Percentiles are measured against players in the same position
-    group &mdash; never against the whole dataset &mdash; and similarity is nearest-neighbour in a
-    standardised, position-specific feature space.</p>
+    <h1>Who Plays Like Him</h1>
+    <p class="sub">Pick a player. Every other player in his position group is ranked by how
+    closely his statistical profile matches &mdash; then filtered down to the ones you could
+    actually sign. Similarity is nearest-neighbour in a standardised, position-specific feature
+    space, and every match opens a metric-by-metric account of <em>why</em>.</p>
   </div>
   <div class="facts">
     <div class="fact"><b id="f-players">&mdash;</b><span>Players</span></div>
     <div class="fact"><b>5</b><span>Leagues</span></div>
+    <div class="fact"><b id="f-metrics">&mdash;</b><span>Metrics compared</span></div>
     <div class="fact"><b id="f-groups">&mdash;</b><span>Position models</span></div>
-    <div class="fact"><b id="f-arch">&mdash;</b><span>Archetypes</span></div>
   </div>
 </header>
 
+<section class="panel subject-bar">
+  <div class="pick">
+    <label for="q">Compare from</label>
+    <input type="search" id="q" placeholder="Type a name or club &mdash; Rice, Atalanta&hellip;" autocomplete="off">
+    <div id="picker" class="picker" hidden></div>
+  </div>
+  <div id="subject-line" class="subject-line"></div>
+</section>
+
 <div class="cols">
-  <div style="display:grid;gap:18px">
+  <section class="panel">
+    <div class="panel-h"><h3>Attribute profile</h3><span class="eyebrow" id="peer-note">&mdash;</span></div>
+    <div id="radar" style="padding:6px 4px 12px"></div>
+    <div class="note" id="radar-note"></div>
+  </section>
+
+  <div style="display:grid;gap:18px;min-width:0">
     <section class="panel">
-      <div class="panel-h"><h3>Filter</h3><span class="eyebrow" id="hits">&mdash;</span></div>
+      <div class="panel-h"><h3>Narrow the matches</h3><span class="eyebrow" id="hits">&mdash;</span></div>
       <div class="filters">
-        <div class="field">
-          <label for="q">Search by name or club</label>
-          <input type="search" id="q" placeholder="Salah, Real Madrid&hellip;" autocomplete="off">
-        </div>
         <div class="two">
-          <div class="field"><label for="grp">Position</label><select id="grp"></select></div>
           <div class="field"><label for="lg">League</label><select id="lg"></select></div>
-        </div>
-        <div class="two">
           <div class="field"><label for="side">Side</label><select id="side">
             <option value="">Any</option><option>Left</option><option>Right</option><option>Central</option>
           </select></div>
-          <div class="field"><label for="foot">Foot vs side</label><select id="foot">
-            <option value="">Any</option><option>Inverted</option><option>Natural</option>
-          </select></div>
+        </div>
+        <div class="two">
+          <div class="field">
+            <label for="age">Max age &mdash; <span class="mono" id="age-v">40+</span></label>
+            <input type="range" id="age" min="17" max="40" value="40" step="1">
+          </div>
+          <div class="field">
+            <label for="val">Max value &mdash; <span class="mono" id="val-v">any</span></label>
+            <input type="range" id="val" min="0" max="180" value="180" step="5">
+          </div>
         </div>
         <div class="field">
-          <label for="age">Maximum age &mdash; <span class="mono" id="age-v">40</span></label>
-          <input type="range" id="age" min="17" max="40" value="40" step="1">
+          <label for="mins">Minimum minutes &mdash; <span class="mono" id="mins-v">900</span></label>
+          <input type="range" id="mins" min="900" max="3400" value="900" step="100">
         </div>
-        <div class="field">
-          <label for="val">Maximum market value &mdash; <span class="mono" id="val-v">any</span></label>
-          <input type="range" id="val" min="0" max="180" value="180" step="5">
-        </div>
-        <div class="field">
-          <label for="sort">Rank by</label>
-          <select id="sort">
-            <option value="v">Market value</option>
-            <option value="m">Minutes played</option>
-            <option value="a">Age (youngest first)</option>
-            <option value="n">Name</option>
-          </select>
+        <div class="checks">
+          <label class="chk"><input type="checkbox" id="xclub"> Exclude his own club</label>
+          <label class="chk"><input type="checkbox" id="xleague"> Exclude his own league</label>
         </div>
       </div>
     </section>
+
     <section class="panel">
-      <div class="panel-h"><h3>Players</h3><span class="eyebrow">Click to open</span></div>
-      <div class="list" id="list"></div>
+      <div class="panel-h"><h3>Most similar players</h3><span class="eyebrow">Click for the breakdown</span></div>
+      <div class="matches" id="matches"></div>
     </section>
   </div>
-
-  <div class="detail" id="detail"></div>
 </div>
+
+<section class="panel" id="compare-panel" hidden>
+  <div class="panel-h">
+    <h3 id="compare-title">Side by side</h3>
+    <div class="seg" id="sortseg" role="group" aria-label="Sort metrics">
+      <button data-sort="gap" class="on">Biggest gaps</button>
+      <button data-sort="near">Most alike</button>
+      <button data-sort="pct">By percentile</button>
+    </div>
+  </div>
+  <div id="compare"></div>
+  <div class="note">Percentiles are against players in the same position group in this pool.
+  Where a metric is one a scout wants <em>low</em> &mdash; errors, miscontrols, fouls &mdash;
+  the percentile is already flipped, so a high number is always good.</div>
+</section>
 
 <footer>
   <div><b>Where the data comes from.</b> FBref match statistics joined to Transfermarkt squad
@@ -71,193 +91,247 @@
   <a href="https://github.com/JaseZiv/worldfootballR_data">worldfootballR_data</a>. Positions are
   Transfermarkt's, taken from an independent source rather than inferred from the same statistics
   the models read &mdash; so grouping players by position is not circular.</div>
-  <div><b>What a percentile means here.</b> A player's rank against others in his position group in
-  this pool, for that metric. 90 means he is in the top tenth of his peers, not the top tenth of
-  all footballers.</div>
-  <div><b>What market value is.</b> Transfermarkt's estimate for that season, in euros. It is not a
-  fee anybody paid, and it is partly informed by the same public data shown here.</div>
+  <div><b>How similarity is calculated.</b> Each player is a vector of his position group's
+  metrics, standardised so every metric counts equally, and similarity is the cosine between two
+  such vectors &times;&nbsp;100. Nothing is hand-tuned: a 90% match means the two profiles point
+  in nearly the same direction across all of them. Comparisons only ever happen inside a position
+  group, because a centre-back and a winger share no meaningful axis.</div>
+  <div><b>What market value is.</b> Transfermarkt's estimate for that season, in euros. It is not
+  a fee anybody paid, and it is partly informed by the same public data shown here.</div>
   <div id="fold-note"></div>
   <div>A static extract of a larger Streamlit platform, which adds recruitment search, squad
-  analysis, archetype maps and the model-validation suite across five seasons.</div>
+  analysis, archetype maps and a model-validation suite across five seasons and ten position
+  groups.</div>
 </footer>
 </div>
 
 <script>
-const D = window.__SCOUT__;
-const P = D.players, M = D.meta;
+const D = window.__SCOUT__, P = D.players, M = D.meta, G = M.groups;
 const $ = id => document.getElementById(id);
+const PCT = new Set(M.pct), LOWER = new Set(M.lower);
 
 const eur = v => v == null ? "—"
   : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7 ? 0 : 1) + "m"
   : "€" + Math.round(v/1e3) + "k";
-const band = p => p >= 80 ? 5 : p >= 60 ? 4 : p >= 40 ? 3 : p >= 20 ? 2 : 1;
+const band = p => p == null ? 3 : p >= 80 ? 5 : p >= 60 ? 4 : p >= 40 ? 3 : p >= 20 ? 2 : 1;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (key, v) => v == null ? "—"
+  : PCT.has(key) ? v.toFixed(1) + "%"
+  : Math.abs(v) >= 100 ? Math.round(v).toLocaleString()
+  : v.toFixed(2);
 
 $("f-players").textContent = P.length.toLocaleString();
 $("f-groups").textContent = Object.keys(M.groupNames).length;
-$("f-arch").textContent = new Set(P.map(p => p.ar).filter(Boolean)).size;
+$("f-metrics").textContent = Math.max(...Object.values(G).map(g => g.d.length));
 
 const folded = Object.entries(M.collapsed || {});
 $("fold-note").innerHTML = folded.length
   ? "<b>One season, so two groups are folded in.</b> " + folded.map(([g, parent]) =>
-      "there were too few " + (M.groupNames[g] || g) + "s to rank against, so they are measured against " +
-      (M.groupNames[parent] || parent) + "s").join("; ") +
-    ". The full platform models all ten groups over three seasons."
+      "there were too few " + (M.groupNames[g] || g).toLowerCase() + "s to rank against, so they are compared against " +
+      (M.groupNames[parent] || parent).toLowerCase() + "s").join("; ") +
+    ". The full platform models all ten groups across three seasons."
   : "";
 
-// selects
-const groups = Object.keys(M.groupNames).sort((a, b) => (M.counts[b]||0) - (M.counts[a]||0));
-$("grp").innerHTML = '<option value="">All positions</option>' +
-  groups.map(g => `<option value="${g}">${M.groupNames[g]} (${M.counts[g]})</option>`).join("");
-$("lg").innerHTML = '<option value="">All leagues</option>' +
-  M.leagues.map(l => `<option>${l}</option>`).join("");
+$("lg").innerHTML = '<option value="">Any league</option>' + M.leagues.map(l => `<option>${esc(l)}</option>`).join("");
 
-let current = 0;
-const state = {q:"", g:"", l:"", side:"", foot:"", age:40, val:181, sort:"v"};
+// Players bucketed by position group: every comparison stays inside one.
+const byGroup = {};
+P.forEach((p, i) => (byGroup[p.g] = byGroup[p.g] || []).push(i));
 
-function matches(p){
-  if (state.g && p.g !== state.g) return false;
-  if (state.l && p.l !== state.l) return false;
-  if (state.side && p.fl !== state.side) return false;
-  if (state.foot && p.fs !== state.foot) return false;
-  if (p.a != null && p.a > state.age) return false;
-  if (state.val <= 180 && p.v != null && p.v > state.val * 1e6) return false;
-  if (state.q){
-    const q = state.q.toLowerCase();
-    if (!(p.n.toLowerCase().includes(q) || p.t.toLowerCase().includes(q))) return false;
+function cosine(a, b){
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++){ dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  const d = Math.sqrt(na) * Math.sqrt(nb);
+  return d > 0 ? dot/d : 0;
+}
+
+let subject = 0, match = null, sortMode = "gap";
+const F = {lg:"", side:"", age:40, val:181, mins:900, xclub:false, xleague:false};
+
+function ranked(){
+  const s = P[subject], out = [];
+  for (const i of (byGroup[s.g] || [])){
+    if (i === subject) continue;
+    const o = P[i];
+    if (F.lg && o.l !== F.lg) continue;
+    if (F.side && o.fl !== F.side) continue;
+    if (o.a != null && o.a > F.age) continue;
+    if (F.val <= 180 && o.v != null && o.v > F.val*1e6) continue;
+    if (o.m < F.mins) continue;
+    if (F.xclub && o.t === s.t) continue;
+    if (F.xleague && o.l === s.l) continue;
+    out.push([i, Math.max(0, Math.min(100, cosine(s.z, o.z)*100))]);
   }
-  return true;
+  out.sort((a, b) => b[1] - a[1]);
+  return out;
 }
 
-function render(){
-  const idx = [];
-  for (let i = 0; i < P.length; i++) if (matches(P[i])) idx.push(i);
-  const s = state.sort;
-  idx.sort((x, y) => {
-    const a = P[x], b = P[y];
-    if (s === "n") return a.n.localeCompare(b.n);
-    if (s === "a") return (a.a ?? 99) - (b.a ?? 99);
-    if (s === "m") return b.m - a.m;
-    return (b.v ?? -1) - (a.v ?? -1);
-  });
-  $("hits").textContent = idx.length.toLocaleString() + " match";
-  const shown = idx.slice(0, 220);
-  $("list").innerHTML = shown.length ? shown.map(i => {
-    const p = P[i];
-    return `<button class="row" data-i="${i}" aria-current="${i === current}">
-      <span><span class="nm">${p.n}</span><br><span class="mt">${p.p} · ${p.t} · ${p.l}</span></span>
-      <span class="val">${eur(p.v)}<br>${p.a != null ? p.a.toFixed(1) : "—"} yrs</span>
-    </button>`;
-  }).join("") + (idx.length > shown.length
-      ? `<div class="empty">Showing the first ${shown.length} of ${idx.length.toLocaleString()}. Narrow the filters to see the rest.</div>` : "")
-    : `<div class="empty">No player matches those filters.</div>`;
-}
-
-function radar(names, vals){
+function radar(group, vals){
+  const names = (G[group] || {}).c || [];
   const N = names.length; if (!N) return "";
   const W = 320, C = W/2, R = 88;
-  const pt = (i, r) => {
-    const ang = -Math.PI/2 + i*2*Math.PI/N;
-    return [C + r*Math.cos(ang), C + r*Math.sin(ang)];
-  };
+  const pt = (i, r) => { const a = -Math.PI/2 + i*2*Math.PI/N;
+    return [C + r*Math.cos(a), C + r*Math.sin(a)]; };
   const rings = [25,50,75,100].map(v =>
-    `<polygon points="${names.map((_,i)=>pt(i, R*v/100).join(",")).join(" ")}"
-      fill="none" stroke="var(--line)" stroke-width="1"/>`).join("");
-  const spokes = names.map((_,i)=>{
-    const [x,y]=pt(i,R);
-    return `<line x1="${C}" y1="${C}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
-  }).join("");
-  const poly = names.map((_,i)=>pt(i, R*Math.max(0, Math.min(100, vals[i] ?? 0))/100).join(",")).join(" ");
-  const dots = names.map((_,i)=>{
-    const [x,y]=pt(i, R*Math.max(0,Math.min(100, vals[i] ?? 0))/100);
-    return `<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)"/>`;
-  }).join("");
-  const labels = names.map((n,i)=>{
-    const [x,y]=pt(i, R+22);
+    `<polygon points="${names.map((_,i)=>pt(i,R*v/100).join(",")).join(" ")}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join("");
+  const spokes = names.map((_,i)=>{ const [x,y]=pt(i,R);
+    return `<line x1="${C}" y1="${C}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`; }).join("");
+  const shape = names.map((_,i)=>pt(i, R*Math.max(0,Math.min(100, vals[i] ?? 0))/100).join(",")).join(" ");
+  const dots = names.map((_,i)=>{ const [x,y]=pt(i, R*Math.max(0,Math.min(100, vals[i] ?? 0))/100);
+    return `<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)"/>`; }).join("");
+  const labels = names.map((n,i)=>{ const [x,y]=pt(i,R+22);
     const anchor = x < C-6 ? "end" : x > C+6 ? "start" : "middle";
     const v = vals[i] == null ? "—" : Math.round(vals[i]);
-    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle"
-      font-size="11" fill="var(--muted)" font-family="IBM Plex Sans,sans-serif">${n}
-      <tspan font-family="IBM Plex Mono,monospace" fill="var(--ink-2)" font-weight="600"> ${v}</tspan></text>`;
+    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="11"
+      fill="var(--muted)" font-family="IBM Plex Sans,sans-serif">${esc(n)}<tspan
+      font-family="IBM Plex Mono,monospace" fill="var(--ink-2)" font-weight="600"> ${v}</tspan></text>`; }).join("");
+  return `<svg viewBox="-92 -16 ${W+184} ${W+32}" role="img" aria-label="Category percentile profile">
+    ${rings}${spokes}<polygon points="${shape}" fill="var(--accent)" fill-opacity="0.16"
+    stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${dots}${labels}</svg>`;
+}
+
+const badge = (txt, cls="") => txt ? `<span class="badge ${cls}">${esc(txt)}</span>` : "";
+
+function drawSubject(){
+  const p = P[subject], gname = M.groupNames[p.g] || p.g;
+  $("subject-line").innerHTML = `
+    <div class="who-name"><span class="eyebrow">${esc(gname)} &middot; ${esc(M.season)}</span>
+      <h2>${esc(p.n)}</h2></div>
+    <div class="badges">
+      ${badge(p.ar, "arch")}${badge(p.p, "key")}${badge(p.t)}${badge(p.l)}
+      ${badge(p.a != null ? "Age " + p.a.toFixed(1) : "")}${badge(p.h ? p.h + " cm" : "")}
+      ${badge(p.ft ? p.ft[0].toUpperCase()+p.ft.slice(1) + "-footed" : "")}
+      ${badge(p.fs ? p.fs + " on the " + (p.fl||"").toLowerCase() : "")}
+      ${badge(p.v != null ? eur(p.v) : "", "key")}${badge(p.m.toLocaleString() + " min")}
+    </div>`;
+  $("radar").innerHTML = radar(p.g, p.cv);
+  $("peer-note").textContent = (M.counts[p.g] || 0) + " peers";
+  $("radar-note").textContent =
+    `Each spoke is the mean percentile of a basket of per-90 metrics, against ${gname.toLowerCase()}s in this pool. `
+    + `Similarity below is computed on ${(G[p.g]||{f:[]}).f.length} individual metrics, not on these eight averages.`;
+}
+
+function drawMatches(){
+  const rows = ranked();
+  $("hits").textContent = rows.length.toLocaleString() + " candidates";
+  const top = rows.slice(0, 40);
+  if (!top.length){ $("matches").innerHTML = `<div class="empty">No player in this position group clears those filters. Loosen one.</div>`; return; }
+  $("matches").innerHTML = top.map(([i, sc], n) => {
+    const o = P[i];
+    return `<button class="mrow" data-m="${i}" aria-current="${i === match}">
+      <span class="rk mono">${n+1}</span>
+      <span class="who"><span class="nm">${esc(o.n)}</span><br>
+        <span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span></span>
+      <span class="meta mono">${o.a != null ? o.a.toFixed(1) : "—"}<br>${eur(o.v)}</span>
+      <span class="score"><span class="tr"><span class="fl" style="width:${sc}%"></span></span>
+        <span class="pc mono">${sc.toFixed(1)}%</span></span>
+    </button>`;
   }).join("");
-  return `<svg viewBox="-92 -16 ${W+184} ${W+32}" role="img"
-    aria-label="Category percentile profile">${rings}${spokes}
-    <polygon points="${poly}" fill="var(--accent)" fill-opacity="0.16"
-      stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${dots}${labels}</svg>`;
 }
 
-function bars(items){
-  return items.map(([label, v]) => `<div class="bar">
-    <span class="barline"><span class="lb">${label}</span>
-      <span class="tr"><span class="fl p${band(v)}" style="width:${Math.max(2,v)}%"></span></span></span>
-    <span class="pv c${band(v)}">${v}</span></div>`).join("");
+function drawCompare(){
+  const panel = $("compare-panel");
+  if (match == null){ panel.hidden = true; return; }
+  panel.hidden = false;
+  const a = P[subject], b = P[match], spec = G[a.g];
+  const sim = Math.max(0, Math.min(100, cosine(a.z, b.z)*100));
+  $("compare-title").textContent = `${a.n} vs ${b.n} — ${sim.toFixed(1)}% alike`;
+
+  // Per-feature contribution to the distance between the two, exactly as the
+  // Streamlit app explains it: the standardised gap on each model metric.
+  const zgap = {};
+  spec.f.forEach((key, i) => { zgap[key] = Math.abs((a.z[i] ?? 0) - (b.z[i] ?? 0)); });
+
+  let rows = spec.d.map((key, i) => ({
+    key, label: M.labels[key] || key,
+    av: a.d[i] ? a.d[i][0] : null, ap: a.d[i] ? a.d[i][1] : null,
+    bv: b.d[i] ? b.d[i][0] : null, bp: b.d[i] ? b.d[i][1] : null,
+    gap: zgap[key], modelled: key in zgap,
+  })).filter(r => r.av != null || r.bv != null);
+
+  const widest = Math.max(0.001, ...rows.map(r => r.gap ?? 0));
+  if (sortMode === "gap") rows.sort((x, y) => (y.gap ?? -1) - (x.gap ?? -1));
+  else if (sortMode === "near") rows.sort((x, y) => (x.gap ?? 99) - (y.gap ?? 99));
+  else rows.sort((x, y) => (y.ap ?? -1) - (x.ap ?? -1));
+
+  const cell = (v, p, key) => `<td class="num mono">${fmt(key, v)}</td>
+    <td class="pcell"><span class="chip c${band(p)}">${p == null ? "—" : p}</span></td>`;
+
+  $("compare").innerHTML = `<div class="tablewrap"><table>
+    <thead><tr>
+      <th>Metric</th><th class="num" colspan="2">${esc(a.n.split(" ").slice(-1)[0])}</th>
+      <th class="num" colspan="2">${esc(b.n.split(" ").slice(-1)[0])}</th><th>Gap</th>
+    </tr>
+    <tr class="sub"><th></th><th class="num">per 90</th><th>%ile</th>
+      <th class="num">per 90</th><th>%ile</th><th></th></tr></thead>
+    <tbody>${rows.map(r => `<tr${r.modelled ? "" : ' class="off"'}>
+      <td class="lb">${esc(r.label)}${r.modelled ? "" : '<span class="tag">context</span>'}</td>
+      ${cell(r.av, r.ap, r.key)}${cell(r.bv, r.bp, r.key)}
+      <td class="gap">${r.gap == null ? '<span class="muted">—</span>'
+        : `<span class="gbar" title="${r.gap.toFixed(2)} standard deviations apart"><span style="width:${
+            Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td>
+    </tr>`).join("")}</tbody></table></div>
+    <div class="note" style="border-top:1px solid var(--line)">
+      Rows marked <span class="tag">context</span> are measured and shown, but are not part of
+      this position's similarity model, so they carry no gap bar. The
+      ${spec.f.length} that are modelled drive the ${sim.toFixed(1)}% above.</div>`;
 }
 
-function open(i){
-  current = i; const p = P[i];
-  const badge = (txt, cls="") => txt ? `<span class="badge ${cls}">${txt}</span>` : "";
-  $("detail").innerHTML = `
-    <section class="panel who">
-      <div class="eyebrow">${M.groupNames[p.g] || p.g} &middot; ${M.season}</div>
-      <h2>${p.n}</h2>
-      <div class="badges">
-        ${badge(p.ar, "arch")}
-        ${badge(p.p, "key")}
-        ${badge(p.t)}${badge(p.l)}
-        ${badge(p.a != null ? "Age " + p.a.toFixed(1) : "")}
-        ${badge(p.h ? p.h + " cm" : "")}
-        ${badge(p.ft ? p.ft[0].toUpperCase() + p.ft.slice(1) + "-footed" : "")}
-        ${badge(p.fs ? p.fs + " on the " + (p.fl || "").toLowerCase() : "")}
-        ${badge(p.v != null ? eur(p.v) : "", "key")}
-        ${badge(p.m.toLocaleString() + " min")}
-      </div>
-    </section>
-    <div class="grid2">
-      <section class="panel">
-        <div class="panel-h"><h3>Attribute profile</h3><span class="eyebrow">Percentile</span></div>
-        <div style="padding:8px 6px 14px">${radar(p.cn, p.cv)}</div>
-        <div class="note">Each spoke is the mean percentile of a basket of per-90 metrics,
-        against ${M.groupNames[p.g] || p.g}s in this pool.</div>
-      </section>
-      <section class="panel">
-        <div class="panel-h"><h3>Strongest</h3><span class="eyebrow">vs position peers</span></div>
-        <div class="bars">${bars(p.top)}</div>
-        <div class="panel-h" style="border-top:1px solid var(--line)"><h3>Weakest</h3></div>
-        <div class="bars">${bars(p.bot)}</div>
-      </section>
-    </div>
-    <section class="panel">
-      <div class="panel-h"><h3>Statistically similar players</h3><span class="eyebrow">Cosine similarity</span></div>
-      <div class="sim">${p.s.length ? p.s.map(([j, sc]) => {
-        const o = P[j];
-        return `<button class="simrow" data-i="${j}">
-          <span><span class="nm">${o.n}</span><br><span class="mt">${o.p} · ${o.t} · ${o.l} · ${eur(o.v)}</span></span>
-          <span class="pc">${sc}%</span></button>`;
-      }).join("") : `<div class="empty">No model for this position group in this pool.</div>`}</div>
-      <div class="note">Nearest neighbours by cosine distance across the standardised
-      feature set for ${M.groupNames[p.g] || p.g}s &mdash; the same metrics the radar summarises,
-      compared one by one rather than as category averages.</div>
-    </section>`;
-  render();
-  if (booted) $("detail").scrollIntoView({block:"nearest", behavior:"smooth"});
+function draw(){ drawSubject(); drawMatches(); drawCompare(); }
+
+function setSubject(i){
+  subject = i; match = null; sortMode = "gap";
+  document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b.dataset.sort === "gap"));
+  $("q").value = ""; $("picker").hidden = true;
+  draw();
 }
-let booted = false;
+
+// ---- picker --------------------------------------------------------------
+$("q").addEventListener("input", e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (q.length < 2){ $("picker").hidden = true; return; }
+  const hits = [];
+  for (let i = 0; i < P.length && hits.length < 40; i++){
+    const p = P[i];
+    if (p.n.toLowerCase().includes(q) || p.t.toLowerCase().includes(q)) hits.push(i);
+  }
+  $("picker").hidden = false;
+  $("picker").innerHTML = hits.length ? hits.map(i => {
+    const p = P[i];
+    return `<button class="prow" data-s="${i}"><span class="nm">${esc(p.n)}</span>
+      <span class="mt">${esc(p.p)} · ${esc(p.t)} · ${esc(p.l)}</span></button>`;
+  }).join("") : `<div class="empty">No player by that name.</div>`;
+});
 
 document.addEventListener("click", e => {
-  const b = e.target.closest("[data-i]");
-  if (b) open(+b.dataset.i);
+  const pick = e.target.closest("[data-s]");
+  if (pick){ setSubject(+pick.dataset.s); return; }
+  const m = e.target.closest("[data-m]");
+  if (m){ match = +m.dataset.m; drawMatches(); drawCompare();
+    $("compare-panel").scrollIntoView({block:"nearest", behavior:"smooth"}); return; }
+  const s = e.target.closest("#sortseg button");
+  if (s){ sortMode = s.dataset.sort;
+    document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b === s));
+    drawCompare(); return; }
+  if (!e.target.closest(".pick")) $("picker").hidden = true;
 });
-const bind = (id, key, fn) => $(id).addEventListener("input", e => {
-  state[key] = fn ? fn(e.target.value) : e.target.value;
-  if (id === "age") $("age-v").textContent = state.age >= 40 ? "40+" : state.age;
-  if (id === "val") $("val-v").textContent = state.val > 180 ? "any" : "€" + state.val + "m";
-  render();
-});
-bind("q","q"); bind("grp","g"); bind("lg","l"); bind("side","side");
-bind("foot","foot"); bind("sort","sort");
-bind("age","age", v => +v);
-bind("val","val", v => +v >= 180 ? 181 : +v);
 
-const first = P.findIndex(p => p.n === "Mohamed Salah");
-open(first >= 0 ? first : 0);
-booted = true;
+const bind = (id, key, fn) => $(id).addEventListener("input", e => {
+  F[key] = fn ? fn(e.target) : e.target.value;
+  if (id === "age") $("age-v").textContent = F.age >= 40 ? "40+" : F.age;
+  if (id === "val") $("val-v").textContent = F.val > 180 ? "any" : "€" + F.val + "m";
+  if (id === "mins") $("mins-v").textContent = F.mins.toLocaleString();
+  drawMatches(); if (match != null && !ranked().some(([i]) => i === match)){ match = null; drawCompare(); }
+});
+bind("lg","lg"); bind("side","side");
+bind("age","age", t => +t.value);
+bind("val","val", t => +t.value >= 180 ? 181 : +t.value);
+bind("mins","mins", t => +t.value);
+bind("xclub","xclub", t => t.checked);
+bind("xleague","xleague", t => t.checked);
+
+const start = P.findIndex(p => p.n === "Declan Rice");
+setSubject(start >= 0 ? start : 0);
+const first = ranked()[0];
+if (first){ match = first[0]; drawMatches(); drawCompare(); $("compare-panel").hidden = false; }
 </script>

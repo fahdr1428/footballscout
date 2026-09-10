@@ -6,11 +6,11 @@ import pandas as pd
 import streamlit as st
 
 from src.config import METRIC_LABELS, POSITION_GROUP_NAMES
-from src.ui import chart, eyebrow, note, page_setup, sidebar_filters
+from src.ui import chart, eyebrow, note, page_setup, sidebar_filters, tiles
 from src.validation import (
     build_validation_report, clustering_diagnostics, correlation_summary, drop_metric_sensitivity,
     feature_dominance, pca_variance, reweight_sensitivity, self_season_recall,
-    similarity_role_agreement, team_mate_bias,
+    similarity_role_agreement, team_mate_bias, value_growth_backtest,
 )
 from src.visualisation import correlation_heatmap
 
@@ -117,6 +117,56 @@ if not bias.empty:
         "Team style leaks into individual numbers - a defender in a possession side passes more "
         "because of the side. Some over-representation of team-mates is expected and correct; a "
         "large lift would mean the model is partly clustering clubs rather than players."
+    )
+
+# ---- forward test --------------------------------------------------------
+st.markdown("## 2d. Did the market later agree?")
+horizon = st.radio("Follow players forward by", [1, 2], index=1, horizontal=True,
+                   format_func=lambda h: f"{h} season" + ("s" if h > 1 else ""),
+                   key="growth_horizon")
+growth, growth_summary = value_growth_backtest(platform, horizon=int(horizon))
+if not growth_summary.get("available"):
+    note(
+        "Needs a source carrying market values, and enough seasons in the pool to look "
+        f"{horizon} season(s) ahead. Load the big-five dataset and select several seasons "
+        "in the sidebar."
+    )
+else:
+    st.caption(
+        f"Hidden-gem score in season *t*, against the player's Transfermarkt valuation "
+        f"{horizon} season(s) later. The score sees only season *t*, so nothing about the "
+        f"outcome enters it. {growth_summary['tested']:,} of "
+        f"{growth_summary['candidates']:,} player-seasons "
+        f"({growth_summary['coverage']:.0%}) could be followed up."
+    )
+    headline = [
+        ("Bottom decile", f"x{growth.iloc[0]['median_growth_x']:.2f}", "median value change"),
+        ("Top decile", f"x{growth.iloc[-1]['median_growth_x']:.2f}", "median value change"),
+        ("Rank correlation", f"{growth_summary['rank_correlation']:.3f}", "score vs growth"),
+    ]
+    if growth_summary.get("stratified"):
+        headline.append((
+            "Holding age and price constant",
+            f"{growth_summary['within_stratum_rank_correlation']:.3f}",
+            f"{growth_summary['strata_cells_positive']}/"
+            f"{growth_summary['strata_cells']} cells positive",
+        ))
+    tiles(headline)
+    st.dataframe(growth, hide_index=True)
+    st.caption(
+        "**Most of a monotone table like this can be an artefact.** The top decile is also "
+        "younger and cheaper, and a cheap twenty-year-old rises in percentage terms for reasons "
+        "the model can take no credit for. Repeating the test inside cells of similar age *and* "
+        "similar starting price roughly halves the correlation - which is the number to quote. "
+        "A modest edge that survives both controls is believable; the headline alone would be an "
+        "overclaim."
+    )
+    note(
+        "Three limits. **Survivorship**: a player who left the big five has no later valuation "
+        "and drops out, and those are disproportionately the ones who did not work out, so the "
+        "absolute growth figures flatter every decile. **Market value is Transfermarkt's "
+        "estimate**, not a fee anyone paid, and is partly informed by the same public data the "
+        "model reads. **One market regime**, five seasons, one continent."
     )
 
 # ---- dominance -----------------------------------------------------------

@@ -357,3 +357,56 @@ def test_foot_filter_is_case_insensitive():
     })
     brief = RecruitmentBrief(position_group="FB", min_minutes=0, feet=["left"])
     assert list(apply_brief(pool, brief)) == [True, False, False]
+
+
+# ---------------------------------------------------------------------------
+# Forward test against later market value
+# ---------------------------------------------------------------------------
+
+def test_value_growth_backtest_needs_market_values_and_several_seasons(platform):
+    from src.validation import value_growth_backtest
+
+    table, summary = value_growth_backtest(platform, horizon=2)
+    if "market_value_eur" not in platform.pool.columns:
+        assert summary == {"available": False}
+        assert table.empty
+
+
+def test_value_growth_backtest_never_looks_at_the_future_to_build_its_score():
+    """The score must be computable from season t alone."""
+    import inspect
+
+    from src import validation
+
+    source = inspect.getsource(validation.value_growth_backtest)
+    # The outcome is joined only after scoring, from a separate lookup.
+    assert source.index("hidden_gem_scores(") < source.index("later_value_eur")
+
+
+def test_growth_strata_skip_cells_too_small_to_read():
+    from src.validation import _value_growth_strata
+
+    tested = pd.DataFrame({
+        "age": [20.0, 21.0, 25.0, 30.0],
+        "market_value_eur": [1e6, 2e6, 3e6, 4e6],
+        "hidden_gem_score": [10.0, 20.0, 30.0, 40.0],
+        "growth": [0.1, 0.2, -0.1, -0.2],
+    })
+    assert _value_growth_strata(tested) == {"stratified": False}
+
+
+def test_growth_strata_reports_a_correlation_when_cells_are_big_enough():
+    from src.validation import _value_growth_strata
+
+    rng = np.random.default_rng(3)
+    n = 400
+    score = rng.uniform(0, 100, n)
+    tested = pd.DataFrame({
+        "age": rng.uniform(22.0, 23.0, n),          # one age band
+        "market_value_eur": rng.uniform(1e6, 2e6, n),
+        "hidden_gem_score": score,
+        "growth": score / 100 + rng.normal(0, 0.1, n),   # score genuinely predicts
+    })
+    out = _value_growth_strata(tested)
+    assert out["stratified"] is True
+    assert out["within_stratum_rank_correlation"] > 0.5

@@ -437,6 +437,61 @@ def build_validation_report(
             "climbs into double figures."
         )
 
+    parts += ["", "## 2d. Did the market later agree? (forward test)", ""]
+    growth, growth_summary = value_growth_backtest(platform, horizon=2)
+    if not growth_summary.get("available"):
+        parts.append(
+            "Not run. This needs a source with market values and at least three seasons "
+            "loaded in the pool - select more seasons in the sidebar."
+        )
+    else:
+        parts.append(
+            f"Hidden-gem score in season *t*, against the player's Transfermarkt valuation "
+            f"**{growth_summary['horizon']} seasons later**. The score sees only season *t*, "
+            f"so nothing about the outcome enters it. "
+            f"{growth_summary['tested']:,} of {growth_summary['candidates']:,} player-seasons "
+            f"({growth_summary['coverage']:.0%}) could be followed up."
+        )
+        parts.append("")
+        parts.append(_md_table(growth))
+        parts.append("")
+        parts.append(
+            f"Median value change runs from **x{growth.iloc[0]['median_growth_x']}** in the "
+            f"bottom decile to **x{growth.iloc[-1]['median_growth_x']}** in the top, and the "
+            f"share of players whose value rose climbs from "
+            f"{growth.iloc[0]['share_that_rose']:.0%} to {growth.iloc[-1]['share_that_rose']:.0%}. "
+            f"Rank correlation of score against growth: **{growth_summary['rank_correlation']}**."
+        )
+        if growth_summary.get("stratified"):
+            parts.append("")
+            parts.append(
+                f"**But most of a monotone table like that can be an artefact.** The top decile "
+                f"is also younger and cheaper, and a cheap twenty-year-old rises in percentage "
+                f"terms for reasons the model can take no credit for. Asking the same question "
+                f"inside cells of similar age *and* similar starting price "
+                f"({growth_summary['strata_cells']} cells, "
+                f"{growth_summary['strata_players']:,} players, minimum 40 each) gives a "
+                f"correlation of **{growth_summary['within_stratum_rank_correlation']}** - "
+                f"roughly half the headline figure, positive in "
+                f"{growth_summary['strata_cells_positive']} of "
+                f"{growth_summary['strata_cells']} cells."
+            )
+            parts.append("")
+            parts.append(
+                "So: about half the apparent signal is youth and a low starting price, and about "
+                "half is left over. A modest edge that survives both controls is a believable "
+                "result for a model built from public data; the headline number on its own would "
+                "be an overclaim."
+            )
+        parts.append("")
+        parts.append(
+            "Three limits. **Survivorship** - a player who left the big five has no later "
+            "valuation and drops out, and those are disproportionately the ones who did not work "
+            "out, so absolute growth figures flatter every decile. **Market value is "
+            "Transfermarkt's estimate**, not a fee anyone paid, and it is partly informed by the "
+            "same public data the model reads. **One market regime**, five seasons, one continent."
+        )
+
     parts += ["", "## 3. Is the model dominated by a few metrics?", ""]
     for group in sensitivity_groups:
         if group not in platform.models:
@@ -519,3 +574,166 @@ def write_validation_report(platform: ScoutingPlatform, path=None) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report)
     return report
+
+
+# --------------------------------------------------------------------------
+# Forward test: did the market later agree?
+# --------------------------------------------------------------------------
+
+def value_growth_backtest(
+    platform: ScoutingPlatform,
+    horizon: int = 2,
+    top_share: float = 0.10,
+    weights: dict[str, float] | None = None,
+) -> tuple[pd.DataFrame, dict]:
+    """Does a high hidden-gem score in season *t* precede a rise in market value?
+
+    This is the closest thing to an out-of-sample test the project has. The
+    score for a player-season uses **only that season's data**; the outcome is
+    his Transfermarkt valuation `horizon` seasons later. Nothing about the
+    future enters the score, so the two are cleanly separated.
+
+    It is a backtest, not a proof, and three things limit it:
+
+    * **Survivorship.** A player who left the big five leagues has no later
+      valuation and drops out. Those are disproportionately the players who did
+      not work out, so the surviving sample flatters every score equally - the
+      comparison between deciles is fairer than the absolute growth figures.
+    * **Market value is Transfermarkt's estimate**, not a fee anybody paid, and
+      it is partly informed by the same public performance data the model reads.
+    * **One market regime**, five seasons, one continent.
+
+    Returns a per-decile table and a summary dict.
+    """
+    from .recruitment import hidden_gem_scores
+
+    pool = platform.pool
+    if "market_value_eur" not in pool.columns or pool["season"].nunique() < 2:
+        return pd.DataFrame(), {"available": False}
+
+    seasons = sorted(pool["season"].unique())
+    offsets = {season: i for i, season in enumerate(seasons)}
+
+    scores = hidden_gem_scores(
+        pool, platform.categories,
+        {group: model.z for group, model in platform.models.items()},
+        weights=weights,
+    )
+    columns = ["player_id", "season", "position_group", "market_value_eur"]
+    if "age" in pool.columns:
+        columns.append("age")
+    frame = pool[columns].join(scores[["hidden_gem_score"]])
+    frame = frame[frame["market_value_eur"].gt(0) & frame["hidden_gem_score"].notna()]
+
+    # The outcome is looked up in the *full* dataset, not the filtered pool, so a
+    # player is not counted as "disappeared" merely for dropping below the
+    # minute threshold in the later season.
+    future = platform.features[["player_id", "season", "market_value_eur"]].copy()
+    future = future[future["market_value_eur"].gt(0)]
+    future["offset"] = future["season"].map(offsets)
+    future = future.dropna(subset=["offset"])
+    lookup = (future.set_index(["player_id", "offset"])["market_value_eur"]
+                    .groupby(level=[0, 1]).max())
+
+    frame["offset"] = frame["season"].map(offsets)
+    frame = frame[frame["offset"] <= len(seasons) - 1 - horizon]
+    if frame.empty:
+        return pd.DataFrame(), {"available": False}
+
+    keys = list(zip(frame["player_id"], frame["offset"] + horizon))
+    frame["later_value_eur"] = [lookup.get(k, np.nan) for k in keys]
+
+    tested = frame.dropna(subset=["later_value_eur"]).copy()
+    if len(tested) < 100:
+        return pd.DataFrame(), {"available": False}
+
+    tested["growth"] = np.log10(tested["later_value_eur"] / tested["market_value_eur"])
+    tested["decile"] = (
+        tested["hidden_gem_score"].rank(pct=True).mul(10).clip(upper=9.999).astype(int) + 1
+    )
+
+    table = (
+        tested.groupby("decile")
+        .agg(
+            players=("growth", "size"),
+            median_score=("hidden_gem_score", "median"),
+            median_value_eur=("market_value_eur", "median"),
+            median_growth_x=("growth", lambda s: round(float(10 ** s.median()), 2)),
+            share_that_rose=("growth", lambda s: round(float((s > 0).mean()), 3)),
+        )
+        .reset_index()
+    )
+
+    # The obvious confound: the top decile is also younger and cheaper, and a
+    # cheap 20-year-old rises in percentage terms for reasons that have nothing
+    # to do with the model. So the same question is asked again *inside* cells
+    # of similar age and similar starting price, where that advantage is held
+    # constant. If the signal survives there, it is not merely "young and cheap".
+    strata = _value_growth_strata(tested)
+
+    cutoff = tested["hidden_gem_score"].quantile(1 - top_share)
+    top = tested[tested["hidden_gem_score"] >= cutoff]
+    rest = tested[tested["hidden_gem_score"] < cutoff]
+    summary = {
+        "available": True,
+        "horizon": horizon,
+        "candidates": int(len(frame)),
+        "tested": int(len(tested)),
+        "coverage": round(float(len(tested) / len(frame)), 3),
+        "top_decile_growth_x": round(float(10 ** top["growth"].median()), 2),
+        "rest_growth_x": round(float(10 ** rest["growth"].median()), 2),
+        "top_share_that_rose": round(float((top["growth"] > 0).mean()), 3),
+        "rest_share_that_rose": round(float((rest["growth"] > 0).mean()), 3),
+        "rank_correlation": round(
+            float(tested["hidden_gem_score"].corr(tested["growth"], method="spearman")), 3
+        ),
+    }
+    summary.update(strata)
+    return table, summary
+
+
+AGE_BANDS = [(0, 21, "under 21"), (21, 24, "21-23"), (24, 28, "24-27"), (28, 99, "28+")]
+
+
+def _value_growth_strata(tested: pd.DataFrame) -> dict:
+    """Rank correlation of score against growth *within* age and price cells.
+
+    Holding both confounds constant at once. Cells with fewer than
+    `MIN_STRATUM` players are skipped rather than reported on noise; the
+    headline is the sample-weighted mean of the cells that qualify.
+    """
+    MIN_STRATUM = 40
+    if "age" not in tested.columns or tested["age"].isna().all():
+        return {"stratified": False}
+
+    frame = tested.dropna(subset=["age"]).copy()
+    frame["age_band"] = pd.cut(
+        frame["age"],
+        bins=[b[0] for b in AGE_BANDS] + [AGE_BANDS[-1][1]],
+        labels=[b[2] for b in AGE_BANDS], right=False,
+    )
+    frame["value_band"] = pd.qcut(
+        frame["market_value_eur"].rank(method="first"), 5, labels=False, duplicates="drop"
+    )
+
+    correlations, sizes = [], []
+    for _, cell in frame.groupby(["age_band", "value_band"], observed=True):
+        if len(cell) < MIN_STRATUM or cell["hidden_gem_score"].nunique() < 5:
+            continue
+        rho = cell["hidden_gem_score"].corr(cell["growth"], method="spearman")
+        if pd.notna(rho):
+            correlations.append(float(rho))
+            sizes.append(len(cell))
+    if not correlations:
+        return {"stratified": False}
+
+    weights = np.array(sizes, dtype=float)
+    return {
+        "stratified": True,
+        "strata_cells": len(correlations),
+        "strata_players": int(weights.sum()),
+        "within_stratum_rank_correlation": round(
+            float(np.average(correlations, weights=weights)), 3
+        ),
+        "strata_cells_positive": int(sum(c > 0 for c in correlations)),
+    }

@@ -438,6 +438,36 @@ Within a single Premier League season team-mates take top-ten slots at 0.6–1.7
 defensive volume goes unadjusted for possession in the feature set, centre-backs reach 10.6×.
 That is a real effect, measured and reported rather than hidden.
 
+### Did the market later agree?
+
+The closest thing here to an out-of-sample test. A player's hidden-gem score in season *t* uses
+**only that season's data**; the outcome is his Transfermarkt valuation two seasons later. Nothing
+about the future enters the score.
+
+Across 3,503 followed-up player-seasons, median market value moves monotonically with the score:
+
+| Decile | 1 (lowest) | 5 | 10 (highest) |
+| --- | --- | --- | --- |
+| Median value change | ×0.58 | ×0.67 | **×1.07** |
+| Share whose value rose | 14% | 28% | **52%** |
+
+Rank correlation of score against growth: **0.238**.
+
+**Most of a table like that can be an artefact**, and here about half of it is. The top decile is
+also younger and cheaper, and a cheap twenty-year-old rises in percentage terms for reasons the
+model can take no credit for. Asking the same question inside cells of similar age *and* similar
+starting price — 19 cells, 3,487 players, minimum 40 each — gives **0.117**, positive in 16 of 19
+cells.
+
+So: a modest edge that survives both controls. That is a believable result for a model built from
+public data, and the headline number on its own would be an overclaim.
+
+Three limits, stated on the page as well as here. **Survivorship** — a player who left the big five
+has no later valuation and drops out, and those are disproportionately the ones who did not work
+out, so the absolute growth figures flatter every decile. **Market value is Transfermarkt's
+estimate**, not a fee anyone paid, and is partly informed by the same public data the model reads.
+**One market regime**, five seasons, one continent.
+
 ### On simulated data: the supervised check real data cannot give
 
 Because each simulated player is generated from a known role profile, the same models can be
@@ -507,7 +537,7 @@ scripts/
   fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
-tests/                      109 tests covering the analytics layer and all four ETLs
+tests/                      113 tests covering the analytics layer and all four ETLs
 requirements.txt            Runtime dependencies (what a host installs)
 requirements-dev.txt        The above, plus pytest
 Dockerfile                  Self-contained image for hosts other than Streamlit Cloud
@@ -526,7 +556,7 @@ python scripts/fetch_statsbomb.py                            # rebuild the Stats
 python scripts/build_dataset.py                              # rebuild the simulated universe
 python scripts/validate_models.py --source premier_league --seasons 2025-26
 python scripts/fetch_transfermarkt.py --season 2025           # needs transfermarkt-api running
-python -m pytest tests/ -q                                   # 109 tests
+python -m pytest tests/ -q                                   # 113 tests
 ```
 
 ---

@@ -73,6 +73,36 @@ same statistics the models then read - which would be circular reasoning dressed
 **99.9%** of player-seasons match to Transfermarkt, **99.8%** carry a specific position, and
 **97.5%** a market value for that exact season.
 
+#### How finely to group them is measured, not guessed
+
+Transfermarkt records thirteen positions. Using all thirteen would leave several groups too small
+to rank against; collapsing them to four would measure players against peers doing a different
+job. `scripts/position_separability.py` settles it: for each candidate pair it trains a
+cross-validated classifier to tell the two apart on that group's own model features, scored by
+**balanced accuracy**, so 0.50 is a coin flip whatever the class imbalance.
+
+| Pair | Balanced accuracy | Verdict |
+| --- | --- | --- |
+| Second striker vs attacking midfield | **0.79** | different jobs - own model |
+| Wide midfield vs winger | **0.77** | different jobs - own model |
+| Left-back vs right-back | 0.61 | the same job, mirrored - one model |
+| Left wing vs right wing | 0.59 | the same job, mirrored - one model |
+| *Centre-back vs defensive midfield (control)* | *0.96* | *sanity check* |
+| *Defensive vs attacking midfield (control)* | *0.98* | *sanity check* |
+
+Hence ten groups: **GK, CB, FB, DM, CM, AM, SS, WM, W, FW**. Side of the pitch is carried as a
+**filter** instead - a club recruiting a left-back does not want right-backs on the shortlist,
+but that is a recruitment constraint, not a reason to halve a peer group.
+
+Paired with preferred foot it gives the distinction a scout names: an **inverted** wide player is
+on the opposite flank to his stronger foot and cuts inside; a **natural** one goes outside and
+crosses. Wide groups only - a left-footed centre-back is not inverted.
+
+A split-out group still has to clear a minimum sample **in the pool you selected**. One season
+holds about twenty second strikers, so they fall back to attacking midfield and the app says so;
+the three-season default holds sixty-three and they stand alone. That is why this source opens on
+three seasons.
+
 #### What it measures
 
 Beyond the usual counting stats, this source carries the things that separate players who look

@@ -361,6 +361,69 @@ def player_selector(
     return index
 
 
+def position_filters(
+    platform: ScoutingPlatform, pool: pd.DataFrame, key_prefix: str,
+) -> tuple[pd.Series, list[str], dict[str, list[str]]]:
+    """Specific position, side of the pitch, and inverted-vs-natural foot.
+
+    The models group a left-back with a right-back because a classifier cannot
+    reliably tell them apart - they do the same job mirrored. A club looking for
+    a left-back still only wants left-backs, and one looking for a winger who
+    cuts inside wants a right-footer on the left. Neither is a modelling
+    question; both are filters, and this is where they live.
+
+    Returns a boolean mask over `pool`, a human-readable echo of what was set,
+    and the raw selections, so a caller can put them into a recruitment brief
+    rather than filtering rows behind its back.
+    """
+    mask = pd.Series(True, index=pool.index)
+    described: list[str] = []
+    selections: dict[str, list[str]] = {"positions": [], "flanks": [], "footed_sides": []}
+
+    specific = sorted(
+        v for v in pool.get("position", pd.Series(dtype=str)).dropna().unique()
+        if v not in POSITION_GROUPS
+    )
+    sides = [s for s in ("Left", "Right", "Central")
+             if s in set(pool.get("flank", pd.Series(dtype=str)).dropna())]
+    footed = sorted(pool.get("footed_side", pd.Series(dtype=str)).dropna().unique())
+    if not (specific or sides or footed):
+        return mask, described, selections
+
+    columns = st.columns([1.5, 1.1, 1.4])
+    with columns[0]:
+        chosen = st.multiselect(
+            "Specific position", specific, key=f"{key_prefix}_specific",
+            help="Recorded by the data source. The models group some of these "
+                 "together - a left-back and a right-back share a peer set "
+                 "because they do the same job - but a shortlist should not.",
+        ) if specific else []
+    with columns[1]:
+        chosen_side = st.multiselect(
+            "Side", sides, key=f"{key_prefix}_flank",
+            help="Which flank the player is listed on.",
+        ) if sides else []
+    with columns[2]:
+        chosen_foot = st.multiselect(
+            "Foot vs side", footed, key=f"{key_prefix}_footed",
+            help="**Inverted** is a wide player on the opposite flank to his "
+                 "stronger foot - a right-footed left winger, who cuts inside. "
+                 "**Natural** stays outside and crosses. Wide positions only.",
+        ) if footed else []
+
+    selections = {"positions": chosen, "flanks": chosen_side, "footed_sides": chosen_foot}
+    if chosen:
+        mask &= pool["position"].isin(chosen)
+        described.append(f"Position: {', '.join(chosen)}")
+    if chosen_side:
+        mask &= pool["flank"].isin(chosen_side)
+        described.append(f"Side: {', '.join(chosen_side)}")
+    if chosen_foot:
+        mask &= pool["footed_side"].isin(chosen_foot)
+        described.append(f"Foot vs side: {', '.join(chosen_foot)}")
+    return mask, described, selections
+
+
 def format_market_value(value) -> str:
     """Transfermarkt values in the units a scout reads them in."""
     if pd.isna(value):

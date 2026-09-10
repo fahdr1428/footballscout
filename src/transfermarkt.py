@@ -105,12 +105,12 @@ POSITION_MAP: dict[str, tuple[str, str]] = {
     "Right-Back": ("FB", "RB"),
     "Defensive Midfield": ("DM", "DM"),
     "Central Midfield": ("CM", "CM"),
-    "Left Midfield": ("W", "LM"),
-    "Right Midfield": ("W", "RM"),
+    "Left Midfield": ("WM", "LM"),
+    "Right Midfield": ("WM", "RM"),
     "Attacking Midfield": ("AM", "AM"),
     "Left Winger": ("W", "LW"),
     "Right Winger": ("W", "RW"),
-    "Second Striker": ("AM", "SS"),
+    "Second Striker": ("SS", "SS"),
     "Centre-Forward": ("FW", "CF"),
 }
 

@@ -20,8 +20,8 @@ import numpy as np
 import pandas as pd
 
 from .config import (
-    COUNTING_STATS, DATA_SOURCES, DEFAULT_SOURCE, POSITION_TO_GROUP, RAW_DIR, RAW_PLAYERS_CSV,
-    TRANSFERMARKT_MARKET_CSV,
+    COUNTING_STATS, DATA_SOURCES, DEFAULT_FLANK, DEFAULT_SOURCE, FLANKS, POSITION_TO_GROUP,
+    RAW_DIR, RAW_PLAYERS_CSV, TRANSFERMARKT_MARKET_CSV, WIDE_GROUPS,
 )
 
 MAX_MINUTES = 38 * 90  # a full domestic league season
@@ -355,8 +355,48 @@ def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
         df["age"] = df["age"].round(1)
     if "height_cm" in df.columns and df["height_cm"].notna().any():
         df["height_cm"] = df["height_cm"].round()
+
+    df = add_flank(df)
     report.rows_out = len(df)
     return df, report
+
+
+# --------------------------------------------------------------------------
+# Side of the pitch
+# --------------------------------------------------------------------------
+
+def add_flank(df: pd.DataFrame) -> pd.DataFrame:
+    """Which side a player is listed on, and whether that side is inverted.
+
+    The separability test says a left-back and a right-back do the same job, so
+    they share a model. But a club recruiting a left-back does not want
+    right-backs on the shortlist, which makes side a filter rather than a group.
+
+    `inverted` is the scouting idea the pair unlocks: a right-footed left winger
+    cuts inside onto his stronger foot; a left-footed one goes outside and
+    crosses. Same position, different player, and until now nothing here could
+    tell them apart. It is only set for the wide groups, where the distinction
+    means something - a right-footed centre-back is not "inverted".
+    """
+    df = df.copy()
+    if "position" not in df.columns:
+        return df
+
+    df["flank"] = df["position"].map(FLANKS).fillna(DEFAULT_FLANK)
+
+    if "foot" not in df.columns or df["foot"].isna().all():
+        return df
+    foot = df["foot"].astype(str).str.strip().str.lower()
+    wide = df["position_group"].isin(WIDE_GROUPS) if "position_group" in df.columns else False
+    opposite = ((df["flank"].eq("Left") & foot.eq("right"))
+                | (df["flank"].eq("Right") & foot.eq("left")))
+    same = ((df["flank"].eq("Left") & foot.eq("left"))
+            | (df["flank"].eq("Right") & foot.eq("right")))
+    df["footed_side"] = np.where(
+        ~wide | ~(opposite | same), None,
+        np.where(opposite, "Inverted", "Natural"),
+    )
+    return df
 
 
 # --------------------------------------------------------------------------

@@ -110,11 +110,11 @@ TM_POSITIONS: dict[str, tuple[str, str]] = {
     "Defensive Midfield": ("DM", "DM"),
     "Central Midfield": ("CM", "CM"),
     "Attacking Midfield": ("AM", "AM"),
-    "Second Striker": ("AM", "SS"),
+    "Second Striker": ("SS", "SS"),
     "Left Winger": ("W", "LW"),
     "Right Winger": ("W", "RW"),
-    "Left Midfield": ("W", "LM"),
-    "Right Midfield": ("W", "RM"),
+    "Left Midfield": ("WM", "LM"),
+    "Right Midfield": ("WM", "RM"),
     "Centre-Forward": ("FW", "CF"),
 }
 

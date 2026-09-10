@@ -9,7 +9,7 @@ Three real datasets, switchable in the sidebar, plus a simulated one used to val
 
 | Dataset | Coverage | What it is good for |
 | --- | --- | --- |
-| **Big five leagues** (default, committed) | **Five seasons, 2017/18 → 2021/22** · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **13,230 player-seasons, 5,309 players** | The widest and deepest. Full match-data metrics — pressures by third, carries into the box, post-shot xG — plus a **true position** and a **real market value in euros**. Ends in 2021/22. |
+| **Big five leagues** (default, committed) | **Five seasons, 2017/18 → 2021/22** · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **13,230 player-seasons, 5,309 players** | The widest and deepest, and the only one supporting all **ten position groups**. Full match-data metrics — pressures by third, carries into the box, post-shot xG — plus a **true position**, **side of the pitch** and a **real market value in euros**. Ends in 2021/22. |
 | **Premier League** (committed) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
 | **StatsBomb Open Data** (committed) | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. The newest complete men's league season published openly is 2015/16. |
 | **Top six leagues** (Transfermarkt) | Big five + Liga Portugal, any season · **build it yourself** | **Real market values in euros**, true positions (centre-back, not "defender"), age, height, foot, nationality. Thin on performance: appearances, goals, assists, cards, minutes. |
@@ -17,7 +17,8 @@ Three real datasets, switchable in the sidebar, plus a simulated one used to val
 
 Positions in the big-five dataset come from **Transfermarkt**, joined through a curated 15,440-row
 URL mapping — an independent source, so grouping players by position is not inferred from the same
-statistics the models then read.
+statistics the models then read. How *finely* to group them is not guessed either: a classifier
+decides which splits the data supports, and [the evidence is on the table below](#ten-position-groups-and-the-splits-are-measured).
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
@@ -254,7 +255,7 @@ created as `NaN` and drops out of the models rather than being imputed.
 | Page | What it answers |
 | --- | --- |
 | 🏠 **Home** | Pool composition, the leagues loaded, and the full data-quality report from the cleaning step. |
-| 👤 **Player Search** | Filter by position, league, nationality, minutes, archetype and raw metric thresholds. |
+| 👤 **Player Search** | Filter by position group, **specific position, side of the pitch and inverted-vs-natural foot**, league, nationality, minutes, archetype and raw metric thresholds. |
 | 📊 **Player Profile** | Percentile radar, per-90 read-out, automatic strengths/weaknesses, archetype, season-by-season trajectory, similar players, and a generated scouting report. |
 | 🔎 **Similar Players** | Nearest neighbours in the standardised position-specific space, with a feature-by-feature account of *why* — plus filters for a lower-league or younger equivalent. |
 | 🆚 **Compare Players** | Two or three players side by side: info, per-90s, percentiles, radar, strengths, similarity. |
@@ -264,7 +265,7 @@ created as `NaN` and drops out of the models rather than being imputed.
 | 🏟️ **Squad Analysis** | A club's squad, positional depth against the league, style profile, minutes reliance — and a **replacement finder** that ranks the rest of the pool on a style-versus-quality blend you control. |
 | 🧬 **Player Archetypes** | K-Means per position: how *k* was chosen, what defines each cluster, a PCA map, and the most representative players. |
 | 🌍 **League Explorer** | Leaderboards, breakout candidates, a scatter workbench and league style profiles. |
-| 🔬 **Model Validation** | Cluster quality, self-season recall, team-mate bias, feature dominance and sensitivity tests, run live against the current pool. |
+| 🔬 **Model Validation** | **Whether the position groups are the right shape**, cluster quality, self-season recall, team-mate bias, the market forward test, feature dominance and sensitivity tests, all run live against the current pool. |
 | 📖 **Methodology** | Every formula, assumption and limitation in one place. |
 
 ---
@@ -295,6 +296,54 @@ men's and women's competitions — the competition type as well. Comparing a Fra
 midfielder's output against Premier League men would not mean anything, so the platform does not
 do it. The comparison pool itself (minimum minutes, leagues, seasons) is set in the sidebar and
 every page states what it is.
+
+### Ten position groups, and the splits are measured
+
+A taxonomy has to come from somewhere. Splitting every position Transfermarkt records gives
+thirteen groups, several too small to rank against; leaving them merged measures players against
+peers doing a different job. `scripts/position_separability.py` decides it with evidence: for each
+candidate pair it trains a cross-validated classifier to tell the two apart on that group's own
+model features, scored by **balanced accuracy**, so 0.50 is a coin flip whatever the class
+imbalance.
+
+| Pair | Balanced accuracy | Verdict |
+| --- | --- | --- |
+| Second striker vs attacking midfield | **0.79** | different jobs → own model |
+| Wide midfield vs winger | **0.77** | different jobs → own model |
+| Left-back vs right-back | 0.61 | the same job, mirrored → one model |
+| Left wing vs right wing | 0.59 | the same job, mirrored → one model |
+| *Centre-back vs defensive midfield (control)* | *0.96* | *sanity check* |
+| *Defensive vs attacking midfield (control)* | *0.98* | *sanity check* |
+
+So the groups are **GK · CB · FB · DM · CM · AM · SS · WM · W · FW**. Second strikers and wide
+midfielders get their own peer set because the data says they earn one. Left and right do not,
+because a classifier given a full-back's whole metric profile can barely beat a coin flip at
+guessing which touchline he plays on.
+
+The table is reproduced on the Model Validation page against whatever pool is loaded, and the
+verdict column says so explicitly if the code and the evidence ever disagree.
+
+A group that is split out still has to clear a minimum sample **in the pool you actually
+selected**. On one season there are only about twenty second strikers, so they are measured
+against attacking midfielders instead and the app says so; on the three-season default there are
+sixty-three and they stand alone. That is why this dataset opens on three seasons rather than one.
+
+### Side of the pitch, and which foot
+
+Side is not a modelling question — the classifier settled that — but it is a recruitment one. A
+club looking for a left-back does not want right-backs on the shortlist. So `flank`
+(Left / Right / Central) is a **filter**, available in Player Search and the Recruitment Finder,
+and it never splits a peer group.
+
+Pairing it with preferred foot gives the distinction a scout actually names:
+
+- **Inverted** — a wide player on the opposite flank to his stronger foot. A right-footed left
+  winger cuts inside onto his shooting foot.
+- **Natural** — same side as his foot. He goes outside and crosses.
+
+It is only set for wide groups, because a left-footed centre-back is not "inverted". In this
+dataset 72% of left wingers are right-footed against 41% of right wingers being left-footed —
+which is what you would expect, given how much more common right-footers are.
 
 ### Position-specific models — not one model for every footballer
 
@@ -532,12 +581,13 @@ src/
   ui.py                     Shared Streamlit helpers
 scripts/
   fetch_fbref.py            Build the big-five dataset from the worldfootballR_data mirror
+  position_separability.py  Measure which position splits the data actually supports
   fetch_premier_league.py   Build the Premier League dataset from the FPL + Understat mirror
   fetch_transfermarkt.py    Build the top-six-league dataset from a transfermarkt-api instance
   fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
-tests/                      113 tests covering the analytics layer and all four ETLs
+tests/                      128 tests covering the analytics layer and all four ETLs
 requirements.txt            Runtime dependencies (what a host installs)
 requirements-dev.txt        The above, plus pytest
 Dockerfile                  Self-contained image for hosts other than Streamlit Cloud
@@ -551,12 +601,13 @@ Machine-learning logic is kept entirely out of the Streamlit layer: pages read a
 
 ```bash
 python scripts/fetch_fbref.py                                # rebuild the big-five data
+python scripts/position_separability.py                      # which position splits hold up
 python scripts/fetch_premier_league.py                       # rebuild the Premier League data
 python scripts/fetch_statsbomb.py                            # rebuild the StatsBomb data
 python scripts/build_dataset.py                              # rebuild the simulated universe
 python scripts/validate_models.py --source premier_league --seasons 2025-26
 python scripts/fetch_transfermarkt.py --season 2025           # needs transfermarkt-api running
-python -m pytest tests/ -q                                   # 113 tests
+python -m pytest tests/ -q                                   # 128 tests
 ```
 
 ---

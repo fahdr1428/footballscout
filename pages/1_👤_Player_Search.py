@@ -8,7 +8,10 @@ import streamlit as st
 from src.config import METRIC_LABELS, POSITION_GROUP_NAMES, POSITION_GROUPS
 from src.feature_engineering import metrics_for_percentiles
 from src.pipeline import format_metric
-from src.ui import age_slider, apply_age, chart, default_axis, eyebrow, note, page_setup, sidebar_filters
+from src.ui import (
+    age_slider, apply_age, chart, default_axis, eyebrow, note, page_setup,
+    position_filters, sidebar_filters,
+)
 from src.visualisation import scatter
 
 page_setup("Player Search", "👤")
@@ -50,6 +53,8 @@ with row2[1]:
 with row2[2]:
     archetypes = st.multiselect("Archetype", sorted(pool["archetype"].dropna().unique()))
 
+position_mask, position_described, _ = position_filters(platform, pool, "search")
+
 if "detailed_position" in pool.columns and pool["detailed_position"].notna().any():
     lineup_positions = st.multiselect(
         "Line-up position (where the source publishes one)",
@@ -59,7 +64,7 @@ if "detailed_position" in pool.columns and pool["detailed_position"].notna().any
 else:
     lineup_positions = []
 
-filtered = apply_age(pool[pool["minutes"].between(*minutes_range)], age_range)
+filtered = apply_age(pool[position_mask & pool["minutes"].between(*minutes_range)], age_range)
 if nationalities:
     filtered = filtered[filtered["nationality"].isin(nationalities)]
 if groups:

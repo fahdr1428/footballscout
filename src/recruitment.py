@@ -69,6 +69,12 @@ class RecruitmentBrief:
     role: str | None = None                 # which template the weights started from
     max_market_value: float | None = None   # euros, where the source has a valuation
     feet: list[str] = field(default_factory=list)
+    # Side of the pitch and inverted-foot are filters rather than models: a
+    # left-back and a right-back share a peer set because a classifier cannot
+    # tell them apart, but a shortlist for a left-back should hold left-backs.
+    positions: list[str] = field(default_factory=list)
+    flanks: list[str] = field(default_factory=list)
+    footed_sides: list[str] = field(default_factory=list)
 
     def resolved_weights(self) -> dict[str, float]:
         weights = self.weights or DEFAULT_WEIGHTS.get(self.position_group, {})
@@ -103,6 +109,10 @@ def apply_brief(pool: pd.DataFrame, brief: RecruitmentBrief) -> pd.Series:
         mask &= value.le(brief.max_market_value) | value.isna()
     if brief.feet and "foot" in pool.columns:
         mask &= pool["foot"].astype(str).str.lower().isin([f.lower() for f in brief.feet])
+    for column, wanted in (("position", brief.positions), ("flank", brief.flanks),
+                           ("footed_side", brief.footed_sides)):
+        if wanted and column in pool.columns:
+            mask &= pool[column].isin(wanted)
     for metric, operator, value in brief.thresholds:
         if metric in pool.columns and operator in OPERATORS:
             mask &= OPERATORS[operator](pool[metric], value).fillna(False)
@@ -159,6 +169,12 @@ def threshold_summary(brief: RecruitmentBrief) -> list[str]:
         lines.append(f"Maximum market value: EUR {brief.max_market_value / 1e6:,.1f}m")
     if brief.feet:
         lines.append(f"Preferred foot: {', '.join(brief.feet)}")
+    if brief.positions:
+        lines.append(f"Specific position: {', '.join(brief.positions)}")
+    if brief.flanks:
+        lines.append(f"Side: {', '.join(brief.flanks)}")
+    if brief.footed_sides:
+        lines.append(f"Foot vs side: {', '.join(brief.footed_sides)}")
     for metric, operator, value in brief.thresholds:
         lines.append(f"{METRIC_LABELS.get(metric, metric)} {operator} {value:g}")
     return lines

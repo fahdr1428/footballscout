@@ -44,12 +44,23 @@ VALIDATION_REPORT = MODELS_DIR / "validation_report.md"
 # League API knows only four buckets, and inventing a finer position from the
 # same statistics the models then read would be circular - so those buckets are
 # first-class groups rather than a guess dressed up as detail.
-DETAILED_GROUPS = ["GK", "CB", "FB", "DM", "CM", "AM", "W", "FW"]
+# Ten groups, and the split between them is measured rather than assumed.
+# `scripts/position_separability.py` trains a cross-validated classifier to tell
+# each candidate pair apart on their own model features, scored by balanced
+# accuracy so 0.50 is a coin flip whatever the class imbalance. Two splits earn
+# their place - a second striker is not an attacking midfielder (0.81) and a
+# wide midfielder is not a winger (0.76) - against controls at 0.96 and 0.98.
+# Two do not: left-back against right-back reads 0.62 and left against right
+# wing 0.60, because they are the same job mirrored. So side is carried as a
+# filter (see FLANKS) instead of halving those peer groups for no information.
+DETAILED_GROUPS = ["GK", "CB", "FB", "DM", "CM", "AM", "SS", "WM", "W", "FW"]
 BUCKET_GROUPS = ["GK", "DEF", "MID", "FWD"]
 POSITION_GROUPS = DETAILED_GROUPS + ["DEF", "MID", "FWD"]
 
 POSITION_GROUP_NAMES = {
     "GK": "Goalkeeper",
+    "SS": "Second striker",
+    "WM": "Wide midfielder",
     "DEF": "Defender",
     "MID": "Midfielder",
     "FWD": "Forward",
@@ -70,10 +81,31 @@ DETAILED_POSITIONS = {
     "FB": ["LB", "RB", "LWB", "RWB"],
     "DM": ["DM"],
     "CM": ["CM", "B2B"],
-    "AM": ["AM", "SS"],
-    "W": ["LW", "RW", "LM", "RM"],
+    "AM": ["AM"],
+    "SS": ["SS"],
+    "WM": ["LM", "RM"],
+    "W": ["LW", "RW"],
     "FW": ["CF", "ST"],
 }
+
+# When a pool is too thin to model a group on its own, its players are measured
+# against the next group up rather than dropped. The parent is the group the
+# split came out of, so the fallback is the taxonomy this project used before
+# the separability test justified going finer.
+POSITION_PARENT = {"SS": "AM", "WM": "W"}
+
+# Side of the pitch. Not a separate model - the classifier says a left-back and a
+# right-back do the same job - but a club recruiting a left-back does not want
+# right-backs in the shortlist, so it is a first-class filter.
+FLANKS = {
+    "LB": "Left", "LW": "Left", "LM": "Left",
+    "RB": "Right", "RW": "Right", "RM": "Right",
+}
+DEFAULT_FLANK = "Central"
+
+# Groups where being on the "wrong" foot for your flank is a real distinction:
+# a right-footed left winger cuts inside, a left-footed one goes outside.
+WIDE_GROUPS = {"FB", "W", "WM"}
 
 POSITION_TO_GROUP = {
     pos: group for group, positions in DETAILED_POSITIONS.items() for pos in positions
@@ -621,6 +653,62 @@ POSITION_FEATURES = {
         "ball_recoveries_per90",
         "tackles_per90",
     ],
+    # A second striker plays off a centre-forward: the classifier separates him
+    # from an attacking midfielder mainly on where he receives the ball and how
+    # little defensive work he does, so both are in his feature set.
+    "SS": [
+        "npxg_per90",
+        "np_goals_per90",
+        "npxg_per_shot",
+        "shots_per90",
+        "shot_accuracy_pct",
+        "touches_att_pen_per90",
+        "box_touch_share",
+        "att_third_touch_share",
+        "assists_per90",
+        "xa_per90",
+        "key_passes_per90",
+        "sca_per90",
+        "progressive_receptions_per90",
+        "progressive_carries_per90",
+        "dribbles_completed_per90",
+        "dribble_success_pct",
+        "pass_pct",
+        "passes_attempted_per90",
+        "aerials_won_per90",
+        "aerial_win_pct",
+        "pressures_per90",
+        "ball_recoveries_per90",
+        "offsides_per90",
+    ],
+    # A wide midfielder in a flat four is not a winger: less dribbling, more
+    # defending, and he receives the ball far less often in a progressive spot.
+    "WM": [
+        "crosses_per90",
+        "crosses_into_pen_area_per90",
+        "key_passes_per90",
+        "xa_per90",
+        "sca_per90",
+        "passes_into_final_third_per90",
+        "passes_into_pen_area_per90",
+        "pass_pct",
+        "passes_attempted_per90",
+        "progressive_passes_per90",
+        "progressive_carries_per90",
+        "progressive_receptions_per90",
+        "dribbles_completed_per90",
+        "dribble_success_pct",
+        "npxg_per90",
+        "np_goals_per90",
+        "shots_per90",
+        "touches_att_pen_per90",
+        "tackles_per90",
+        "interceptions_per90",
+        "pressures_per90",
+        "att_third_tackle_share",
+        "ball_recoveries_per90",
+        "aerial_win_pct",
+    ],
     "W": [
         "npxg_open_play_per90",
         "np_goals_per90",
@@ -742,6 +830,23 @@ ROLE_TEMPLATES: dict[str, dict[str, dict[str, int]]] = {
         "Pressing 10": {"Defending": 30, "Chance Creation": 25, "Ball Progression": 20,
                         "Finishing": 15, "Dribbling": 10},
     },
+    "SS": {
+        "Poacher off the striker": {"Finishing": 40, "Box Threat": 35, "Chance Creation": 10,
+                                    "Ball Progression": 10, "Aerial": 5},
+        "Creative second striker": {"Chance Creation": 35, "Ball Progression": 25,
+                                    "Finishing": 20, "Dribbling": 10, "Passing": 10},
+        "Pressing second striker": {"Defending": 30, "Finishing": 25, "Box Threat": 20,
+                                    "Ball Progression": 15, "Chance Creation": 10},
+    },
+    "WM": {
+        "Crossing wide midfielder": {"Chance Creation": 40, "Passing": 20,
+                                     "Ball Progression": 20, "Defending": 15, "Dribbling": 5},
+        "Defensive wide midfielder": {"Defending": 40, "Ball Progression": 20, "Passing": 20,
+                                      "Chance Creation": 15, "Aerial": 5},
+        "Inside-moving wide midfielder": {"Ball Progression": 30, "Finishing": 20,
+                                          "Chance Creation": 20, "Dribbling": 20,
+                                          "Passing": 10},
+    },
     "W": {
         "Touchline dribbler": {"Dribbling": 35, "Ball Progression": 25,
                                "Chance Creation": 20, "Finishing": 10, "Passing": 10},
@@ -836,6 +941,22 @@ DEFAULT_WEIGHTS = {
         "Dribbling": 15,
         "Passing": 10,
         "Defending": 5,
+    },
+    "SS": {
+        "Finishing": 30,
+        "Box Threat": 25,
+        "Chance Creation": 20,
+        "Ball Progression": 15,
+        "Dribbling": 5,
+        "Aerial": 5,
+    },
+    "WM": {
+        "Chance Creation": 25,
+        "Defending": 20,
+        "Ball Progression": 20,
+        "Passing": 15,
+        "Dribbling": 10,
+        "Finishing": 10,
     },
     "W": {
         "Dribbling": 25,
@@ -936,7 +1057,8 @@ DATA_SOURCES: dict[str, DataSource] = {
         summary=(
             "13,230 player-seasons and 5,309 players across the Premier League, La Liga, "
             "Serie A, Bundesliga and Ligue 1, with full match-data metrics, a true position "
-            "and a market value in euros. The deepest and widest dataset here."
+            "and a market value in euros. The deepest and widest dataset here, and the only "
+            "one that supports all ten position groups."
         ),
         attribution=(
             "FBref season statistics and Transfermarkt squad records, mirrored by the "
@@ -948,6 +1070,13 @@ DATA_SOURCES: dict[str, DataSource] = {
             "player-seasons carry a specific position - centre-back, left-back, defensive "
             "midfield - taken from an independent source and joined through a curated "
             "URL mapping, so grouping players by position is not circular.",
+            "**Ten position groups, and the splits are measured.** A classifier that tells a "
+            "centre-back from a defensive midfielder at 0.96 balanced accuracy separates a "
+            "second striker from an attacking midfielder at 0.81, and a wide midfielder from a "
+            "winger at 0.76 - so both get their own model. It reads left-back against "
+            "right-back at 0.62 and left wing against right wing at 0.60, near the 0.50 coin "
+            "flip, so side is a **filter** rather than a separate group. Run it yourself with "
+            "`python scripts/position_separability.py`.",
             "**Market values are real and move season by season** (Messi runs 180 -> 150 -> "
             "112 -> 80 -> 50 million euro across these five seasons). 97.5% of player-seasons "
             "carry one. This is the only source here where 'undervalued' means anything.",
@@ -966,7 +1095,12 @@ DATA_SOURCES: dict[str, DataSource] = {
         missing=("npxg_open_play", "npxg_set_piece", "passes_completed_under_pressure",
                  "xg_chain", "xg_buildup", "influence", "creativity", "threat", "bps", "ict",
                  "xgc", "cbi", "defensive_contribution"),
-        default_seasons=("2021-22",),
+        # Three seasons, not one. A single season leaves only ~20 second
+        # strikers and ~20 wide midfielders in the pool - too few to rank
+        # against, so both would fold back into attacking midfield and the
+        # wingers. Three gives every one of the ten groups its own peer set and
+        # triples the pool, which is also how a scout reads recent form.
+        default_seasons=("2019-20", "2020-21", "2021-22"),
         taxonomy="detailed",
     ),
     "premier_league": DataSource(

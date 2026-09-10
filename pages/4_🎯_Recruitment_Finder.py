@@ -15,7 +15,7 @@ from src.recruitment import RecruitmentBrief, search, threshold_summary
 from src.reporting import generate_report
 from src.ui import (
     add_to_watchlist, age_slider, chart, default_axis, eyebrow, note, page_setup,
-    sidebar_filters, tiles, watchlist_sidebar,
+    position_filters, sidebar_filters, tiles, watchlist_sidebar,
 )
 from src.visualisation import component_bar, radar_chart, scatter
 
@@ -82,6 +82,12 @@ with filter_row[2]:
                                    "recruitment brief, not a preference.")
     else:
         st.caption("No footedness in this dataset.")
+
+# Side of the pitch and inverted-foot are filters, not models: a left-back and a
+# right-back share a peer set because the data says they do the same job, but a
+# shortlist for a left-back should only contain left-backs.
+group_pool = pool[pool["position_group"] == group]
+_, _, position_choice = position_filters(platform, group_pool, "rec")
 
 metric_choices = sorted(
     metrics_for_percentiles(group, list(pool.columns)), key=lambda m: METRIC_LABELS.get(m, m)
@@ -185,6 +191,9 @@ brief = RecruitmentBrief(
     role=None if role == DEFAULT_ROLE else role,
     max_market_value=max_market_value,
     feet=feet,
+    positions=position_choice["positions"],
+    flanks=position_choice["flanks"],
+    footed_sides=position_choice["footed_sides"],
 )
 
 # ---- results -------------------------------------------------------------

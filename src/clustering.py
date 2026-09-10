@@ -131,6 +131,8 @@ POSITION_NOUNS = {
     "DM": "holding midfielder",
     "CM": "midfielder",
     "AM": "attacking midfielder",
+    "SS": "second striker",
+    "WM": "wide midfielder",
     "W": "winger",
     "FW": "forward",
 }
@@ -293,6 +295,13 @@ def name_clusters(
     used: set[str] = set()
 
     nameable = [c for c in concept_scores.columns if c not in NAMING_EXCLUDED]
+    if not nameable:
+        # No feature in this group mapped to a naming concept, so there is
+        # nothing to describe the clusters *with*. Numbering them is honest;
+        # inventing an adjective from nothing would not be.
+        return {int(cluster): f"{noun.capitalize()} group {i + 1}"
+                for i, cluster in enumerate(concept_scores.index)}
+
     for cluster in concept_scores.index:
         ranked = concept_scores.loc[cluster, nameable].sort_values(ascending=False)
         parts: list[str] = []
@@ -365,6 +374,18 @@ def fit_clusters(
         min(MIN_CLUSTER_FLOOR, len(z) // 4),
         int(MIN_CLUSTER_SHARE * len(z)),
     )
+    # A small group can have room for three archetypes on paper - sixty players
+    # against a floor of twelve - and still not split into three that clear it,
+    # because the players are not arranged that way. Rather than settle for a
+    # three-way split with eight players in one corner, offer k=2 as well and
+    # let the same rule choose. Only when nothing else qualifies, so the
+    # tolerance baseline for every healthy group is left alone.
+    if (k is None and k_min > 2
+            and (evaluation["smallest_cluster"] < floor).all()):
+        evaluation = pd.concat(
+            [evaluate_k(z, k_min=2, k_max=2, random_state=random_state), evaluation],
+            ignore_index=True,
+        )
     chosen = int(k or choose_k(evaluation, min_cluster_size=floor))
     chosen = max(2, min(chosen, len(z) - 1))
 

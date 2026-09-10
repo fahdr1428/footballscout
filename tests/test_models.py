@@ -410,3 +410,186 @@ def test_growth_strata_reports_a_correlation_when_cells_are_big_enough():
     out = _value_growth_strata(tested)
     assert out["stratified"] is True
     assert out["within_stratum_rank_correlation"] > 0.5
+
+
+# ---------------------------------------------------------------------------
+# The position taxonomy, and the evidence for it
+# ---------------------------------------------------------------------------
+
+def test_every_split_out_group_has_a_parent_to_fall_back_to():
+    from src.config import DETAILED_GROUPS, POSITION_PARENT
+
+    for group, parent in POSITION_PARENT.items():
+        assert group in DETAILED_GROUPS
+        assert parent in DETAILED_GROUPS
+        assert parent not in POSITION_PARENT, f"{group} -> {parent} is a chain"
+
+
+def test_every_group_has_features_weights_and_a_noun():
+    from src.clustering import POSITION_NOUNS
+    from src.config import DEFAULT_WEIGHTS, DETAILED_GROUPS, POSITION_FEATURES
+
+    for group in DETAILED_GROUPS:
+        assert POSITION_FEATURES.get(group), group
+        assert sum(DEFAULT_WEIGHTS.get(group, {}).values()) == 100, group
+        assert POSITION_NOUNS.get(group), group
+
+
+def test_thin_groups_fold_into_their_parent_rather_than_being_dropped():
+    from src.pipeline import collapse_thin_groups
+
+    pool = pd.DataFrame({
+        "position_group": ["SS"] * 5 + ["AM"] * 50 + ["W"] * 50,
+        "minutes": [1000.0] * 105,
+    })
+    out, collapsed = collapse_thin_groups(pool, min_size=40)
+    assert (out["position_group"] == "SS").sum() == 0
+    assert (out["position_group"] == "AM").sum() == 55
+    assert collapsed == {"SS": {"parent": "AM", "players": 5}}
+
+
+def test_a_group_with_enough_players_keeps_its_own_peer_set():
+    from src.pipeline import collapse_thin_groups
+
+    pool = pd.DataFrame({
+        "position_group": ["SS"] * 60 + ["AM"] * 50,
+        "minutes": [1000.0] * 110,
+    })
+    out, collapsed = collapse_thin_groups(pool, min_size=40)
+    assert (out["position_group"] == "SS").sum() == 60
+    assert collapsed == {}
+
+
+def test_separability_verdict_flags_a_taxonomy_that_contradicts_the_evidence():
+    from src.validation import _separability_verdict
+
+    assert "BUT" not in _separability_verdict(0.90, split=True)
+    assert "BUT" not in _separability_verdict(0.55, split=False)
+    assert "BUT" in _separability_verdict(0.90, split=False)   # separable but merged
+    assert "BUT" in _separability_verdict(0.55, split=True)    # inseparable but split
+
+
+def test_separability_uses_balanced_accuracy_so_imbalance_cannot_flatter_it():
+    """Four AMs per SS: plain accuracy would score 0.80 for learning nothing."""
+    import inspect
+
+    from src import validation
+
+    assert 'scoring="balanced_accuracy"' in inspect.getsource(validation.position_separability)
+
+
+# ---------------------------------------------------------------------------
+# Side of the pitch
+# ---------------------------------------------------------------------------
+
+def test_flank_comes_from_the_specific_position():
+    from src.data_processing import add_flank
+
+    out = add_flank(pd.DataFrame({
+        "position": ["LB", "RB", "CB", "LW", "RM", "GK"],
+        "position_group": ["FB", "FB", "CB", "W", "WM", "GK"],
+    }))
+    assert list(out["flank"]) == ["Left", "Right", "Central", "Left", "Right", "Central"]
+
+
+def test_inverted_is_a_wide_player_on_the_opposite_foot():
+    from src.data_processing import add_flank
+
+    out = add_flank(pd.DataFrame({
+        "position": ["LW", "LW", "RW", "CB"],
+        "position_group": ["W", "W", "W", "CB"],
+        "foot": ["right", "left", "right", "left"],
+    }))
+    assert list(out["footed_side"][:3]) == ["Inverted", "Natural", "Natural"]
+    # A left-footed centre-back is not "inverted" - the idea does not apply.
+    assert pd.isna(out["footed_side"].iloc[3]) or out["footed_side"].iloc[3] is None
+
+
+def test_flank_survives_a_source_with_no_footedness():
+    from src.data_processing import add_flank
+
+    out = add_flank(pd.DataFrame({"position": ["LB"], "position_group": ["FB"]}))
+    assert out["flank"].iloc[0] == "Left"
+    assert "footed_side" not in out.columns
+
+
+def test_brief_filters_on_side_without_touching_the_model_group():
+    from src.recruitment import RecruitmentBrief, apply_brief
+
+    pool = pd.DataFrame({
+        "position_group": ["FB"] * 4,
+        "position": ["LB", "RB", "LB", "RB"],
+        "flank": ["Left", "Right", "Left", "Right"],
+        "footed_side": ["Inverted", "Natural", "Natural", "Inverted"],
+        "minutes": [2000.0] * 4,
+        "league": ["Ligue 1"] * 4,
+    })
+    brief = RecruitmentBrief(position_group="FB", min_minutes=0,
+                             flanks=["Left"], footed_sides=["Inverted"])
+    assert list(apply_brief(pool, brief)) == [True, False, False, False]
+
+
+def test_min_minutes_of_none_means_the_default_not_an_empty_pool():
+    """`>= None` compares false for every row and would silently return nothing."""
+    from src.config import DEFAULT_MIN_MINUTES
+    from src.pipeline import build_platform
+    import inspect
+
+    source = inspect.getsource(build_platform)
+    assert "if min_minutes is None" in source
+    assert "DEFAULT_MIN_MINUTES" in source
+
+
+def test_a_small_group_drops_to_two_archetypes_rather_than_stranding_one():
+    """Sixty players have room for three clusters of twelve on paper. If they do
+    not actually fall that way, two well-supported archetypes beat three with a
+    handful of players in one corner."""
+    from src.clustering import MIN_CLUSTER_ABSOLUTE, fit_clusters
+
+    from src.config import POSITION_FEATURES
+
+    columns = POSITION_FEATURES["SS"][:6]
+    rng = np.random.default_rng(11)
+    # Two genuine blobs plus a few stragglers: k=3 would isolate the stragglers.
+    z = pd.DataFrame(
+        np.vstack([
+            rng.normal(-2, 0.4, (30, len(columns))),
+            rng.normal(2, 0.4, (30, len(columns))),
+            rng.normal(0, 0.3, (3, len(columns))),
+        ]),
+        columns=columns,
+    )
+    model = fit_clusters(z, "SS")
+    assert model.labels.value_counts().min() >= MIN_CLUSTER_ABSOLUTE
+
+
+def test_a_healthy_group_is_not_dragged_down_to_two():
+    """The k=2 option is a fallback, not a new default: a group that supports
+    more archetypes must keep them."""
+    from src.clustering import fit_clusters
+
+    from src.config import POSITION_FEATURES
+
+    columns = POSITION_FEATURES["CB"][:6]
+    rng = np.random.default_rng(12)
+    z = pd.DataFrame(
+        np.vstack([rng.normal(centre, 0.35, (80, len(columns)))
+                   for centre in (-3, 0, 3, 6)]),
+        columns=columns,
+    )
+    assert fit_clusters(z, "CB").k >= 3
+
+
+def test_clusters_are_numbered_when_no_feature_maps_to_a_naming_concept():
+    """A source whose columns describe nothing the vocabulary knows must still
+    produce usable labels rather than crash on an empty concept table."""
+    from src.clustering import fit_clusters
+
+    rng = np.random.default_rng(13)
+    z = pd.DataFrame(
+        np.vstack([rng.normal(c, 0.3, (40, 4)) for c in (-2, 2)]),
+        columns=[f"unmapped_{i}_per90" for i in range(4)],
+    )
+    names = set(fit_clusters(z, "CB").names.values())
+    assert len(names) == len(set(names))
+    assert all(name for name in names)

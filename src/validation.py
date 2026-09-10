@@ -369,6 +369,46 @@ def build_validation_report(
         "look better; where a result is weak it is reported and interpreted."
     )
 
+    parts += ["", "## 0. Are the position groups the right shape?", ""]
+    taxonomy = position_separability(platform)
+    if taxonomy.empty:
+        parts.append(
+            "Not run. This source does not record positions specific enough to test - it "
+            "publishes broad buckets rather than 'Left-Back' and 'Second Striker'."
+        )
+    else:
+        parts.append(
+            "Before asking whether the models are any good, the groups they are fitted on have "
+            "to be the right ones. Each row trains a cross-validated classifier to tell two "
+            "specific positions apart on their own model features. **Balanced accuracy**, so "
+            "0.50 is a coin flip whatever the class imbalance; the two control rows are pairs "
+            "nobody doubts are different jobs, and exist to show the measurement works."
+        )
+        parts.append("")
+        parts.append(_md_table(taxonomy))
+        parts.append("")
+        parts.append(
+            "A pair the classifier cannot separate is one job under two names: giving them "
+            "separate peer groups would halve the sample and buy nothing. A pair it separates "
+            "easily is two jobs, and measuring one against the other's percentiles is a bias no "
+            "sample size fixes. The taxonomy in `src/config.py` follows this table - second "
+            "strikers and wide midfielders are modelled apart, left and right are not - and the "
+            "verdict column says so explicitly when the code and the evidence disagree."
+        )
+        collapsed = getattr(platform, "collapsed_groups", {})
+        if collapsed:
+            parts.append("")
+            parts.append(
+                "In **this** pool, "
+                + "; ".join(
+                    f"**{group}** has only {info['players']} players and is measured against "
+                    f"**{info['parent']}** instead"
+                    for group, info in collapsed.items()
+                )
+                + ". A finer group still has to clear a minimum sample before it gets its own "
+                  "peer set; widen the seasons in the sidebar to model it separately."
+            )
+
     parts += ["", "## 1. Clustering", ""]
     parts.append(_md_table(clustering_diagnostics(platform)))
     parts.append("")
@@ -574,6 +614,106 @@ def write_validation_report(platform: ScoutingPlatform, path=None) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(report)
     return report
+
+
+# --------------------------------------------------------------------------
+# Is the position taxonomy right?
+# --------------------------------------------------------------------------
+
+# Pairs the taxonomy had to decide about, and the controls that prove the
+# measurement works. `split` records what config.py actually does with each.
+SEPARABILITY_PAIRS = [
+    ("SS", "AM", "candidate", True, "Second striker vs attacking midfield"),
+    ("LM", "LW", "candidate", True, "Wide midfield vs winger"),
+    ("LB", "RB", "candidate", False, "Left-back vs right-back"),
+    ("LW", "RW", "candidate", False, "Left wing vs right wing"),
+    ("CB", "DM", "control", True, "Centre-back vs defensive midfield"),
+    ("DM", "AM", "control", True, "Defensive vs attacking midfield"),
+]
+SEPARABLE_AT = 0.75    # above this, two positions are doing different jobs
+COIN_FLIP_AT = 0.65    # below this, they are the same job and a split costs peers
+MIN_PAIR_PLAYERS = 60
+
+
+def position_separability(
+    platform: ScoutingPlatform, folds: int = 5, seed: int = 0
+) -> pd.DataFrame:
+    """Can a classifier tell two specific positions apart on their own metrics?
+
+    This is what decides how fine the position taxonomy should be. A pair the
+    model cannot separate is one job listed under two names: giving them
+    separate peer groups halves the sample and buys nothing. A pair it separates
+    easily is two jobs, and measuring one against the other's percentiles is a
+    bias no amount of sample size fixes.
+
+    The score is cross-validated **balanced accuracy** - the mean of the two
+    per-class recalls - not plain accuracy. The pairs are lopsided (there are
+    four attacking midfielders for every second striker), and plain accuracy
+    rewards a classifier for simply calling everything the majority class: it
+    would score 0.81 on that pair while having learned nothing. Balanced
+    accuracy is 0.50 for that classifier, and 0.50 is chance whatever the split.
+    """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import cross_val_score
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    pool = platform.pool
+    if "position" not in pool.columns or pool["position"].nunique() < 4:
+        return pd.DataFrame()
+
+    rows = []
+    for first, second, kind, split, label in SEPARABILITY_PAIRS:
+        subset = pool[pool["position"].isin([first, second])]
+        if len(subset) < MIN_PAIR_PLAYERS or subset["position"].nunique() < 2:
+            continue
+        # Judge the pair on the feature set of whichever group actually models
+        # them, so the test asks what the platform would really see.
+        group = subset["position_group"].mode().iloc[0]
+        model = platform.models.get(group)
+        if model is None:
+            continue
+        columns = [f for f in model.features if f in subset.columns]
+        if len(columns) < 5:
+            continue
+
+        frame = subset[columns].astype(float)
+        frame = frame.fillna(frame.median())
+        target = (subset["position"] == first).astype(int)
+        baseline = float(max(target.mean(), 1 - target.mean()))
+        classifier = make_pipeline(
+            StandardScaler(), LogisticRegression(max_iter=2000, random_state=seed)
+        )
+        accuracy = float(
+            cross_val_score(
+                classifier, frame, target, cv=folds, scoring="balanced_accuracy"
+            ).mean()
+        )
+        rows.append({
+            "pair": label,
+            "kind": kind,
+            "players": len(subset),
+            "balanced_accuracy": round(accuracy, 3),
+            "chance": 0.5,
+            "majority_class": round(baseline, 3),
+            "modelled_separately": split,
+            "verdict": _separability_verdict(accuracy, split),
+        })
+    return pd.DataFrame(rows)
+
+
+def _separability_verdict(accuracy: float, split: bool) -> str:
+    """Plain English, and it says so when the evidence disagrees with the code."""
+    if accuracy >= SEPARABLE_AT:
+        finding = "different jobs - deserves its own model"
+        agrees = split
+    elif accuracy <= COIN_FLIP_AT:
+        finding = "the same job - splitting would only cost peers"
+        agrees = not split
+    else:
+        finding = "borderline"
+        agrees = True
+    return finding if agrees else f"{finding} - BUT the taxonomy does the opposite"
 
 
 # --------------------------------------------------------------------------

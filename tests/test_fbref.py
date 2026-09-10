@@ -65,8 +65,20 @@ def test_unmapped_player_falls_back_to_fbrefs_own_position():
 
 
 def test_every_detailed_group_is_reachable_from_transfermarkt():
+    """Compared against config, so adding a group cannot leave it unreachable."""
+    from src.config import DETAILED_GROUPS
+
     groups = {g for g, _ in TM_POSITIONS.values()}
-    assert groups == {"GK", "CB", "FB", "DM", "CM", "AM", "W", "FW"}
+    assert groups == set(DETAILED_GROUPS)
+
+
+def test_the_split_out_groups_are_routed_to_themselves_not_their_parent():
+    """Second strikers and wide midfielders are separable, so they must not
+    arrive labelled as attacking midfielders and wingers."""
+    assert TM_POSITIONS["Second Striker"] == ("SS", "SS")
+    assert TM_POSITIONS["Left Midfield"] == ("WM", "LM")
+    assert TM_POSITIONS["Right Midfield"] == ("WM", "RM")
+    assert TM_POSITIONS["Left Winger"] == ("W", "LW")
 
 
 # ---------------------------------------------------------------------------

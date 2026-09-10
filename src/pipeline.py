@@ -25,13 +25,14 @@ from . import feature_engineering as fe
 from .config import (
     DATA_SOURCES,
     DEFAULT_MIN_MINUTES,
-    DEFAULT_WEIGHTS,
     DEFAULT_SOURCE,
+    DEFAULT_WEIGHTS,
     LEAGUE_STRENGTH,
     LEAGUE_TIER,
     METRIC_LABELS,
     PERCENT_METRICS,
     POSITION_GROUPS,
+    POSITION_PARENT,
     categories_for,
 )
 from .data_processing import CleaningReport, clean_players, load_source
@@ -41,6 +42,35 @@ from .similarity import SimilarityEngine
 # league-season has only about twenty goalkeepers, which is enough to rank but
 # not enough to carve into many archetypes.
 MIN_GROUP_SIZE = 18
+
+# A finer group has to earn its own peer set. The taxonomy splits second
+# strikers out of attacking midfield and wide midfielders out of the wingers
+# because a classifier can tell those apart - but a percentile measured against
+# thirty peers moves more than three points per player, which is a worse error
+# than the one the split removes. Below this many players in the *current pool*
+# a group is measured against its parent instead, and the app says so.
+MIN_SPECIFIC_GROUP = 40
+
+
+def collapse_thin_groups(
+    pool: pd.DataFrame, min_size: int = MIN_SPECIFIC_GROUP
+) -> tuple[pd.DataFrame, dict[str, dict]]:
+    """Fold a split-out group back into its parent when this pool is too thin.
+
+    Filters are the scout's to set, so the same dataset can arrive here as five
+    seasons of five leagues or one season of one. Whether a second striker has
+    enough peers to be ranked against depends on that choice, so it is decided
+    here rather than fixed in the taxonomy.
+    """
+    pool = pool.copy()
+    collapsed: dict[str, dict] = {}
+    for group, parent in POSITION_PARENT.items():
+        members = pool["position_group"].eq(group)
+        count = int(members.sum())
+        if 0 < count < min_size:
+            pool.loc[members, "position_group"] = parent
+            collapsed[group] = {"parent": parent, "players": count}
+    return pool, collapsed
 
 STRENGTH_PERCENTILE = 70
 WEAKNESS_PERCENTILE = 30
@@ -83,6 +113,7 @@ class ScoutingPlatform:
     leagues: list[str] = field(default_factory=list)
     peer_columns: list[str] = field(default_factory=lambda: ["position_group"])
     unmodelled_groups: dict[str, int] = field(default_factory=dict)
+    collapsed_groups: dict[str, dict] = field(default_factory=dict)
 
     @property
     def unmodelled_players(self) -> int:
@@ -383,6 +414,10 @@ def build_platform(
     should usually be scoped to one or the other before a percentile is read as
     a statement about a player's standing.
     """
+    # `None` here would compare every minutes value against None and silently
+    # return an empty pool, so it means "use the default" rather than "no floor".
+    if min_minutes is None:
+        min_minutes = DEFAULT_MIN_MINUTES
     pool = features[features["minutes"] >= min_minutes]
     if seasons:
         pool = pool[pool["season"].isin(seasons)]
@@ -395,6 +430,8 @@ def build_platform(
         pool["league_strength"] = pool["league"].map(LEAGUE_STRENGTH).fillna(0.80)
     if "league_tier" not in pool.columns or pool["league_tier"].isna().all():
         pool["league_tier"] = pool["league"].map(LEAGUE_TIER).fillna(1).astype(int)
+
+    pool, collapsed = collapse_thin_groups(pool)
 
     available = list(pool.columns)
     metrics = sorted(
@@ -459,6 +496,7 @@ def build_platform(
         leagues=leagues or sorted(pool["league"].unique()),
         peer_columns=peer_columns,
         unmodelled_groups=unmodelled,
+        collapsed_groups=collapsed,
     )
     platform.pool["archetype"] = platform.archetype_series()
     return platform

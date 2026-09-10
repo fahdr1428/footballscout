@@ -10,7 +10,7 @@ from src.ui import chart, eyebrow, note, page_setup, sidebar_filters, tiles
 from src.validation import (
     build_validation_report, clustering_diagnostics, correlation_summary, drop_metric_sensitivity,
     feature_dominance, pca_variance, reweight_sensitivity, self_season_recall,
-    similarity_role_agreement, team_mate_bias, value_growth_backtest,
+    position_separability, similarity_role_agreement, team_mate_bias, value_growth_backtest,
 )
 from src.visualisation import correlation_heatmap
 
@@ -24,6 +24,40 @@ note(
 )
 
 # ---- clustering ----------------------------------------------------------
+st.markdown("## 0. Are the position groups the right shape?")
+taxonomy = position_separability(platform)
+if taxonomy.empty:
+    note(
+        "This source publishes broad positional buckets rather than 'Left-Back' and "
+        "'Second Striker', so there is nothing finer to test. Load the big-five dataset."
+    )
+else:
+    st.caption(
+        "Before asking whether the models are any good, the groups they are fitted on have to "
+        "be the right ones. Each row trains a cross-validated classifier to tell two specific "
+        "positions apart on their own model features. **Balanced accuracy**, so 0.50 is a coin "
+        "flip whatever the imbalance; the control rows are pairs nobody doubts are different "
+        "jobs and exist to show the measurement works."
+    )
+    st.dataframe(taxonomy, hide_index=True)
+    st.caption(
+        "A pair the classifier cannot separate is one job under two names, and splitting it "
+        "would halve the peer group for nothing. A pair it separates easily is two jobs, and "
+        "measuring one against the other's percentiles is a bias no sample size fixes. The "
+        "taxonomy follows this table - second strikers and wide midfielders modelled apart, "
+        "left and right not - and the verdict column says so when code and evidence disagree."
+    )
+    if platform.collapsed_groups:
+        note(
+            "In this pool, "
+            + "; ".join(
+                f"**{group}** has only {info['players']} players and is measured against "
+                f"**{info['parent']}** instead"
+                for group, info in platform.collapsed_groups.items()
+            )
+            + ". Widen the seasons in the sidebar to give it its own peer set."
+        )
+
 st.markdown("## 1. Clustering quality")
 if platform.unmodelled_players:
     st.caption(

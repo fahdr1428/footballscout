@@ -110,7 +110,10 @@ def test_position_mapping_covers_the_defence_split_a_fantasy_feed_cannot():
     assert map_position("Right-Back") == ("FB", "RB")
     assert map_position("Defensive Midfield")[0] == "DM"
     assert map_position("Left Winger")[0] == "W"
-    assert map_position("Second Striker")[0] == "AM"
+    # A second striker is separable from an attacking midfielder (0.79 balanced
+    # accuracy), so it is its own group rather than folded into AM.
+    assert map_position("Second Striker")[0] == "SS"
+    assert map_position("Left Midfield")[0] == "WM"
     # An unknown string falls back rather than raising.
     assert map_position("Sweeper")[0] == "CM"
     assert map_position(None)[0] == "CM"

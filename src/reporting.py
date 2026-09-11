@@ -235,7 +235,7 @@ def generate_report(
         result = platform.explain_similarity(index, top, metric=similarity_metric)
         matches, differences = explanation_sentences(
             result, row["player"], platform.pool.loc[top, "player"], platform.pool
-        )
+        ) if result is not None else ([], [])
         parts.append(f"\n**Why {platform.pool.loc[top, 'player']} is the closest match**")
         parts += [f"- {m}" for m in matches]
         if differences:

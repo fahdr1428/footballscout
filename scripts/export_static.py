@@ -135,7 +135,13 @@ def export(platform, season: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--source", default=DEFAULT_SOURCE)
+    # Pinned rather than following DEFAULT_SOURCE. This page is a similarity
+    # demo, and the big-five source is much the better one for that: 44 varied
+    # metrics and ten detailed positions, where the six-league source has ~13
+    # correlated attacking metrics, four buckets and no goalkeeper model - which
+    # would push every match into the nineties and flatten the thing being
+    # demonstrated. Pass --source understat_big6 --season 2024-25 for recency.
+    parser.add_argument("--source", default="fbref_big5")
     parser.add_argument("--season", default="2021-22",
                         help="one season: every player appears once, which a demo wants")
     parser.add_argument("--min-minutes", type=int, default=900)

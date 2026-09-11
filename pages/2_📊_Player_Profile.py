@@ -28,6 +28,18 @@ group = row["position_group"]
 model = platform.model_for(index)
 archetype, archetype_description = platform.archetype(index)
 
+if model is None:
+    # The player is real and in the pool; this dataset simply cannot rank him.
+    st.divider()
+    player_header(platform, index, show_archetype=False)
+    note(
+        f"**No model behind this player.** {platform.no_model_reason(index)} "
+        "His raw numbers are above, but there are no percentiles, no archetype and no "
+        "similar players here - switch dataset in the sidebar for a source that measures "
+        "this position."
+    )
+    st.stop()
+
 st.divider()
 header_columns = st.columns([4, 1])
 with header_columns[0]:

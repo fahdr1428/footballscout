@@ -47,7 +47,8 @@ tiles(
     [
         ("Players", f"{squad['player_id'].nunique():,}", f"above {platform.min_minutes:,} minutes"),
         ("Minutes covered", f"{squad['minutes'].sum():,.0f}", "in the filtered pool"),
-        ("Possession", f"{squad['team_possession'].mean():.1f}%", "share of on-ball involvements"),
+        *( [("Possession", f"{squad['team_possession'].mean():.1f}%",
+             "share of on-ball involvements")] if platform.has("team_possession") else [] ),
         (
             "Mean profile",
             f"{squad_profile.mean():.0f}",
@@ -70,7 +71,7 @@ view = pd.DataFrame(
         "Group": squad["position_group"],
         "Season": squad["season"],
         "Minutes": squad["minutes"],
-        "Starts": squad["starts"],
+        **({"Starts": squad["starts"]} if platform.has("starts") else {}),
         "Archetype": squad["archetype"],
         "Profile": squad_profile,
     }

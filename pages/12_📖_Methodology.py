@@ -37,13 +37,76 @@ men's league season available being 2015/16. None is better; they are different 
 """
 )
 
-big5, premier, market, real, simulated = st.tabs([
+big6, big5, premier, market, real, simulated = st.tabs([
+    "Six leagues 2014/15-2024/25 (real)",
     "Big five 2017/18-2021/22 (real)",
     "Premier League 2016/17-2025/26 (real)",
     "Top six leagues (Transfermarkt)",
     "StatsBomb Open Data (real)",
     "Simulated reference universe",
 ])
+
+with big6:
+    st.markdown(
+        """
+Understat's per-player season aggregates for the **big five plus the Russian Premier League**,
+mirrored as CSV in
+[vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated).
+**34,159 player-seasons, 10,541 players, eleven complete seasons** from 2014/15 to 2024/25.
+
+This is the source for anything recent - the only one here reaching 2022/23, 2023/24 and 2024/25 -
+and eleven seasons is enough to follow a career.
+
+#### What it measures unusually well
+
+xG and npxG from a shot model, xA from the chance created, and - rarely in open data -
+**xGChain** and **xGBuildup**, which credit every player in a possession that ended in a shot.
+xGBuildup excludes the shot and the assist, making it the closest available measure of
+contributing to attacks without finishing them.
+
+#### What it cannot do
+
+- **It measures no defending.** Understat models shots, not the rest of the game: no tackles,
+  interceptions, clearances, duels, pressures or blocks. Just under half the pool are defenders,
+  and here they are ranked purely on what they offer going forward.
+- **Goalkeepers get no model.** None of the seventeen metrics a keeper is ranked on exist in this
+  feed. They stay in the pool and are listed everywhere with no similarity score or archetype,
+  and the Home page reports how many that is.
+- **Four positional buckets.** GK / DEF / MID / FWD only. Deriving something finer from the same
+  statistics the models read would be circular.
+- **Similarity reads high and means less.** Every metric measures attacking output, so they move
+  together: the median closest match scores **95.5%** here against **76.3%** on the FBref source.
+  Read the ranking, not the number, and never compare a percentage across the two.
+
+#### The Transfermarkt join
+
+Understat publishes no age, height, foot, nationality or valuation - and without an age there is
+no age filter, no "younger equivalent" search and no age term in the hidden-gem score. Those come
+from Transfermarkt profiles, mirrored by
+[salimt/football-datasets](https://github.com/salimt/football-datasets).
+
+The feeds share no id, so players are matched **on name, and only where the name is unique on both
+sides**: 73% match, covering 79% of the minutes played. A name held by two players is left
+unmatched rather than guessed at, and where the joined date of birth implies an impossible age the
+match is treated as wrong and the whole enrichment withdrawn for that row.
+
+**Position is deliberately not taken from this join**, even though Transfermarkt has a specific
+one, because it would arrive for two players in three - so a player's peer group would depend on
+whether his name happened to match rather than on football.
+
+Market value is read **as at that season**: Transfermarkt revalues players several times a year,
+so each row takes the most recent valuation on or before 1 January inside its season.
+
+#### 2025/26
+
+The mirror stopped updating in September 2025, leaving about ten rounds, so 2025/26 is excluded by
+default. No source reachable from here has a complete 2025/26 for these leagues; for the Premier
+League alone, the FPL source does. `scripts/fetch_soccerdata.py` pulls the current season straight
+from FBref with full depth, but only from a machine where fbref.com is reachable.
+
+Rebuild it with `python scripts/fetch_understat.py` (about 57 MB, cached).
+"""
+    )
 
 with big5:
     st.markdown(

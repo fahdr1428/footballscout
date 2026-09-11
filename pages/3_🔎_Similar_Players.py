@@ -26,7 +26,15 @@ if index is None:
 row = platform.row(index)
 model = platform.model_for(index)
 st.divider()
-player_header(platform, index)
+player_header(platform, index, show_archetype=model is not None)
+
+if model is None:
+    note(
+        f"**Similarity needs a model, and there is not one for this player.** "
+        f"{platform.no_model_reason(index)} Switch dataset in the sidebar for a source "
+        "that measures this position."
+    )
+    st.stop()
 
 # ---- search controls -----------------------------------------------------
 st.markdown("### Search settings")

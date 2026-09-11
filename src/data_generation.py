@@ -361,7 +361,11 @@ CLUB_SUFFIX = {
     "Denmark": ["BK", "IF", "FC"],
     "Switzerland": ["FC", "SC", "Grasshopper"],
     "Poland": ["KS", "Legia", "GKS"],
+    "Russia": ["FK", "Dinamo", "Lokomotiv", "Spartak"],
 }
+# A country added to LEAGUES without a suffix list here used to take the whole
+# simulated build down with a KeyError. Generic club names are a better failure.
+DEFAULT_CLUB_SUFFIX = ["FC", "SC", "Athletic"]
 
 
 # --------------------------------------------------------------------------
@@ -385,7 +389,9 @@ def build_teams(rng: np.random.Generator) -> pd.DataFrame:
         for i in range(league["teams"]):
             while True:
                 town = rng.choice(TOWN_NAMES)
-                suffix = rng.choice(CLUB_SUFFIX[league["country"]])
+                suffix = rng.choice(
+                    CLUB_SUFFIX.get(league["country"], DEFAULT_CLUB_SUFFIX)
+                )
                 name = f"{town} {suffix}"
                 if name not in used:
                     used.add(name)

@@ -31,6 +31,7 @@ PROCESSED_PLAYERS_CSV = PROCESSED_DIR / "players_processed.csv.gz"
 STATSBOMB_PLAYERS_CSV = RAW_DIR / "statsbomb_players.csv.gz"
 PREMIER_LEAGUE_CSV = RAW_DIR / "premier_league.csv.gz"
 FBREF_BIG5_CSV = RAW_DIR / "fbref_big5.csv.gz"
+UNDERSTAT_CSV = RAW_DIR / "understat_big6.csv.gz"
 TRANSFERMARKT_CSV = RAW_DIR / "transfermarkt.csv.gz"
 TRANSFERMARKT_MARKET_CSV = RAW_DIR / "transfermarkt_market.csv.gz"
 VALIDATION_REPORT = MODELS_DIR / "validation_report.md"
@@ -516,13 +517,15 @@ POSITION_FEATURES = {
     "DEF": [
         "cbi_per90", "tackles_per90", "ball_recoveries_per90", "defensive_contribution_per90",
         "xgc_per90",
-        "xg_per90", "xa_per90", "goals_per90", "assists_per90",
+        "xg_per90", "npxg_per90", "xa_per90", "goals_per90", "np_goals_per90",
+        "assists_per90", "xgi_per90",
         "threat_per90", "creativity_per90", "influence_per90", "bps_per90",
         "key_passes_per90", "shots_per90", "xg_chain_per90", "xg_buildup_per90",
         "yellow_cards_per90", "starts_share",
     ],
     "MID": [
-        "xg_per90", "npxg_per90", "xa_per90", "goals_per90", "assists_per90",
+        "xg_per90", "npxg_per90", "xa_per90", "goals_per90", "np_goals_per90",
+        "assists_per90", "xgi_per90", "npxg_per_shot", "np_goals_minus_npxg_per90",
         "shots_per90", "key_passes_per90", "threat_per90", "creativity_per90",
         "influence_per90", "bps_per90", "xg_chain_per90", "xg_buildup_per90",
         "tackles_per90", "ball_recoveries_per90", "cbi_per90",
@@ -531,7 +534,8 @@ POSITION_FEATURES = {
     ],
     "FWD": [
         "xg_per90", "npxg_per90", "goals_per90", "np_goals_per90", "shots_per90",
-        "npxg_per_shot", "xa_per90", "assists_per90", "key_passes_per90",
+        "npxg_per_shot", "np_goals_minus_npxg_per90", "xa_per90", "assists_per90",
+        "xgi_per90", "key_passes_per90",
         "threat_per90", "creativity_per90", "influence_per90", "bps_per90",
         "xg_chain_per90", "xg_buildup_per90", "tackles_per90",
         "ball_recoveries_per90", "defensive_contribution_per90", "starts_share",
@@ -1014,6 +1018,11 @@ LEAGUES = [
     {"name": "Jupiler Pro League", "country": "Belgium", "tier": 2, "strength": 0.74, "teams": 16},
     {"name": "Championship", "country": "England", "tier": 2, "strength": 0.74, "teams": 24},
     {"name": "Süper Lig", "country": "Turkey", "tier": 3, "strength": 0.70, "teams": 20},
+    # Understat covers the Russian top flight alongside the big five. It sat
+    # around Süper Lig level before 2022; the European ban and the departure of
+    # most foreign players since have cost it, hence tier 3. Like every other
+    # coefficient here this is an editable assumption, not a measurement.
+    {"name": "Russian Premier League", "country": "Russia", "tier": 3, "strength": 0.66, "teams": 16},
     {"name": "Austrian Bundesliga", "country": "Austria", "tier": 3, "strength": 0.66, "teams": 12},
     {"name": "Danish Superliga", "country": "Denmark", "tier": 3, "strength": 0.65, "teams": 12},
     {"name": "Swiss Super League", "country": "Switzerland", "tier": 3, "strength": 0.64, "teams": 12},
@@ -1049,6 +1058,64 @@ class DataSource:
 
 
 DATA_SOURCES: dict[str, DataSource] = {
+    "understat_big6": DataSource(
+        key="understat_big6",
+        label="Six leagues 2014/15-2024/25 (Understat)",
+        path=UNDERSTAT_CSV,
+        kind="real",
+        summary=(
+            "Eleven complete seasons to 2024/25 across the big five plus the Russian Premier "
+            "League - 34,159 player-seasons, 10,541 players. The longest, most recent and "
+            "widest run of real data here, and the only source carrying 2022/23 onwards."
+        ),
+        attribution=(
+            "Understat per-player season aggregates, mirrored by the open-source "
+            "understat_players_aggregated repository "
+            "(https://github.com/vibedatascience/understat_players_aggregated)."
+        ),
+        caveats=(
+            "**This source does not measure defending. At all.** Understat models shots, not "
+            "the rest of the game, so there are no tackles, interceptions, clearances, duels, "
+            "pressures or blocks. Just under half the pool are defenders, and here they are "
+            "ranked purely on what they contribute going forward. For defending, switch to the "
+            "big-five (FBref) source, which carries 44 metrics including all of those.",
+            "**Four positional buckets, not ten.** The season aggregate records only GK / D / "
+            "M / F - no centre-back against full-back, no left against right wing. Deriving a "
+            "finer position from the same statistics the models then read would be circular, "
+            "so this source uses the four-bucket taxonomy.",
+            "**What it is unmatched at**: recency and reach. Eleven seasons is enough to follow "
+            "a career, and **xGChain** and **xGBuildup** credit every player in a move that "
+            "ended in a shot - xGBuildup excluding the shot and the assist, which is the closest "
+            "thing in open data to contribution without finishing.",
+            "**2025/26 is a fragment.** The mirror stopped updating in September 2025, leaving "
+            "about ten rounds. It is excluded by default; `--include-partial` adds it, and the "
+            "app will then rank those players at the bottom of every volume metric for a reason "
+            "that has nothing to do with them.",
+            "**Similarity percentages read high here, and mean less.** Every metric this source "
+            "has is measuring attacking output, so they move together and two players look "
+            "alike easily: the median closest match scores **95.5%**, against **76.3%** on the "
+            "big-five source with its 15-24 more varied metrics. Read the ranking, not the "
+            "number - and do not compare a percentage here with a percentage there.",
+            "**Goalkeepers have no model.** None of the 17 metrics a goalkeeper is ranked on "
+            "exist in this feed, so they stay in the pool, are listed everywhere, and carry no "
+            "similarity score or archetype. The app says how many that is.",
+            "**Ages, heights, feet, nationalities and market values are joined on from "
+            "Transfermarkt**, because Understat publishes none of them - and without an age, "
+            "the whole youth side of scouting is unavailable. The two feeds share no id, so "
+            "players are matched on name and **only where the name is unique on both sides**: "
+            "about 73% match, covering 79% of the minutes played. A name held by two players is "
+            "left unmatched rather than guessed at, and where the joined date of birth implies "
+            "an impossible age the match is treated as wrong and withdrawn entirely.",
+            "**Market value is read as at that season**, not scraped once and applied to every "
+            "year: Transfermarkt revalues players a few times annually, so each row takes the "
+            "most recent valuation on or before 1 January inside its season.",
+        ),
+        missing=("team_possession", "starts",
+                 "tackles", "interceptions", "clearances", "blocks", "pressures",
+                 "aerials_won", "ball_recoveries", "passes_attempted", "progressive_passes"),
+        default_seasons=("2022-23", "2023-24", "2024-25"),
+        taxonomy="bucket",
+    ),
     "fbref_big5": DataSource(
         key="fbref_big5",
         label="Big five leagues 2017/18-2021/22 (FBref + Transfermarkt)",
@@ -1207,7 +1274,7 @@ DATA_SOURCES: dict[str, DataSource] = {
     ),
 }
 
-DEFAULT_SOURCE = "fbref_big5"
+DEFAULT_SOURCE = "understat_big6"
 
 # Minimum-minutes presets offered in the sidebar.
 MINUTES_PRESETS = [500, 900, 1500]

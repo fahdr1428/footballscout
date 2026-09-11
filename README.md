@@ -5,11 +5,12 @@ find statistically similar players, turn a recruitment brief into a ranked short
 player's strengths and weaknesses against his positional peers, and work out who could replace
 him — with the arithmetic behind every number on show.
 
-Three real datasets, switchable in the sidebar, plus a simulated one used to validate the models:
+Four real datasets, switchable in the sidebar, plus a simulated one used to validate the models:
 
 | Dataset | Coverage | What it is good for |
 | --- | --- | --- |
-| **Big five leagues** (default, committed) | **Five seasons, 2017/18 → 2021/22** · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **13,230 player-seasons, 5,309 players** | The widest and deepest, and the only one supporting all **ten position groups**. Full match-data metrics — pressures by third, carries into the box, post-shot xG — plus a **true position**, **side of the pitch** and a **real market value in euros**. Ends in 2021/22. |
+| **Six leagues** (default, committed) | **Eleven seasons, 2014/15 → 2024/25** · big five + the Russian Premier League · **34,159 player-seasons, 10,541 players** | The longest, widest and most recent run here, and the only one carrying 2022/23 onwards. xG, npxG, xA plus **xGChain and xGBuildup**. Ages, heights, feet and **market values as at each season** joined on from Transfermarkt. **Measures no defending at all**, and groups players GK/DEF/MID/FWD. |
+| **Big five leagues** (committed) | **Five seasons, 2017/18 → 2021/22** · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **13,230 player-seasons, 5,309 players** | The widest and deepest, and the only one supporting all **ten position groups**. Full match-data metrics — pressures by third, carries into the box, post-shot xG — plus a **true position**, **side of the pitch** and a **real market value in euros**. Ends in 2021/22. |
 | **Premier League** (committed) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
 | **StatsBomb Open Data** (committed) | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. The newest complete men's league season published openly is 2015/16. |
 | **Top six leagues** (Transfermarkt) | Big five + Liga Portugal, any season · **build it yourself** | **Real market values in euros**, true positions (centre-back, not "defender"), age, height, foot, nationality. Thin on performance: appearances, goals, assists, cards, minutes. |
@@ -81,7 +82,57 @@ The real dataset is committed, so the app runs immediately — no downloads or A
 
 ## The data
 
-### The big five leagues, 2017/18 → 2021/22 (the default)
+### Six leagues, 2014/15 → 2024/25 (the default)
+
+Understat's per-player season aggregates for the big five plus the Russian Premier League,
+mirrored as CSV in
+[vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated).
+**34,159 player-seasons, 10,541 players, eleven complete seasons** — roughly 230–350 players past
+900 minutes in every league in every season.
+
+This is the source to use for anything recent: it is the only one here that reaches 2022/23,
+2023/24 and 2024/25. Eleven seasons is also enough to follow a career, so a player's 2016/17 and
+his 2024/25 sit in the same table.
+
+**What it is unusually good at.** xG and npxG from a shot model, xA from the chance created, and
+— rarely in open data — **xGChain** and **xGBuildup**, which credit every player in a possession
+that ended in a shot. xGBuildup excludes the shot and the assist, which makes it the closest
+available measure of contributing to attacks without finishing them.
+
+**What it cannot do, and this matters.** Understat models shots, not the rest of the game, so
+there are **no tackles, interceptions, clearances, duels, pressures or blocks**. Just under half
+the pool are defenders and here they are ranked purely on what they offer going forward.
+Goalkeepers get **no model at all** — none of the seventeen metrics a keeper is ranked on exist in
+this feed — so they stay listed everywhere with no similarity score, and the app says how many
+that is. For either job, switch to the big-five FBref source below.
+
+Positions are only **GK / DEF / MID / FWD**. Deriving something finer from the same statistics the
+models then read would be circular, so this source uses the four-bucket taxonomy.
+
+**Similarity percentages read high here and mean less.** Every metric measures attacking output,
+so they move together and two players look alike easily: the median closest match scores
+**95.5%**, against **76.3%** on the FBref source with its more varied 15–24 metrics. Read the
+ranking, not the number, and never compare a percentage here with a percentage there.
+
+**Ages, heights, feet, nationalities and market values** come from Transfermarkt profiles
+(mirrored by [salimt/football-datasets](https://github.com/salimt/football-datasets)), because
+Understat publishes none of them — and without an age there is no age filter, no "younger
+equivalent" search and no age term in the hidden-gem score. The feeds share no id, so players are
+matched **on name and only where the name is unique on both sides**: 73% match, covering 79% of
+the minutes played. A name held by two players is left unmatched rather than guessed at, and where
+the joined date of birth implies an impossible age the match is treated as wrong and withdrawn
+entirely. Market value is read **as at that season** — the most recent valuation on or before
+1 January inside it — not scraped once and pasted onto eleven years.
+
+**2025/26 is a fragment.** The mirror stopped updating in September 2025, leaving about ten
+rounds, so it is excluded by default; `--include-partial` adds it. No source reachable here has a
+complete 2025/26 for these leagues — for the Premier League alone, the FPL source below does.
+
+```bash
+python scripts/fetch_understat.py     # ~57 MB, cached, about a minute
+```
+
+### The big five leagues, 2017/18 → 2021/22 — the deepest
 
 The Premier League, La Liga, Serie A, Bundesliga and Ligue 1 — **13,230 player-seasons, 5,309
 players**, roughly 460–600 per league per season. `src/fbref.py` builds it from three public files,
@@ -566,6 +617,7 @@ app.py                      Streamlit entry point (navigation only)
 pages/                      One file per page — layout only, no modelling
 src/
   config.py                 Metric registry, position groups, feature sets, categories, theme
+  understat.py              Six-league ETL: Understat xG data joined to Transfermarkt biography
   fbref.py                  Big-five ETL: FBref match data joined to Transfermarkt positions and values
   premier_league.py         Summary-feed ETL: ten Premier League seasons to 2025/26
   transfermarkt.py          transfermarkt-api client, top-six-league ETL, enrichment layer
@@ -583,7 +635,9 @@ src/
   ui.py                     Shared Streamlit helpers
 scripts/
   export_static.py          Export one season as a single self-contained HTML file
+  fetch_understat.py        Build the six-league dataset, enriched from Transfermarkt
   fetch_fbref.py            Build the big-five dataset from the worldfootballR_data mirror
+  fetch_soccerdata.py       Pull the CURRENT FBref season - needs fbref.com reachable
   position_separability.py  Measure which position splits the data actually supports
   fetch_premier_league.py   Build the Premier League dataset from the FPL + Understat mirror
   fetch_transfermarkt.py    Build the top-six-league dataset from a transfermarkt-api instance
@@ -591,11 +645,12 @@ scripts/
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
 static/                     Templates and the exported single-file build
-tests/                      128 tests covering the analytics layer and all four ETLs
+tests/                      144 tests covering the analytics layer and all five ETLs
 requirements.txt            Runtime dependencies (what a host installs)
 requirements-dev.txt        The above, plus pytest
 Dockerfile                  Self-contained image for hosts other than Streamlit Cloud
-data/raw/                   fbref_big5.csv.gz, premier_league.csv.gz, statsbomb_players.csv.gz, players_raw.csv.gz
+data/raw/                   understat_big6.csv.gz, fbref_big5.csv.gz, premier_league.csv.gz,
+                            statsbomb_players.csv.gz, players_raw.csv.gz
 data/processed/             Rebuilt on demand
 models/                     One validation report per dataset
 ```
@@ -604,6 +659,7 @@ Machine-learning logic is kept entirely out of the Streamlit layer: pages read a
 `ScoutingPlatform` object and never fit anything themselves.
 
 ```bash
+python scripts/fetch_understat.py                            # rebuild the six-league data
 python scripts/fetch_fbref.py                                # rebuild the big-five data
 python scripts/position_separability.py                      # which position splits hold up
 python scripts/fetch_premier_league.py                       # rebuild the Premier League data
@@ -611,7 +667,7 @@ python scripts/fetch_statsbomb.py                            # rebuild the Stats
 python scripts/build_dataset.py                              # rebuild the simulated universe
 python scripts/validate_models.py --source premier_league --seasons 2025-26
 python scripts/fetch_transfermarkt.py --season 2025           # needs transfermarkt-api running
-python -m pytest tests/ -q                                   # 128 tests
+python -m pytest tests/ -q                                   # 144 tests
 ```
 
 ---

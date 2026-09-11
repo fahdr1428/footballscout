@@ -32,6 +32,7 @@ from .config import (
     METRIC_LABELS,
     PERCENT_METRICS,
     POSITION_GROUPS,
+    POSITION_GROUP_NAMES,
     POSITION_PARENT,
     categories_for,
 )
@@ -50,6 +51,13 @@ MIN_GROUP_SIZE = 18
 # than the one the split removes. Below this many players in the *current pool*
 # a group is measured against its parent instead, and the app says so.
 MIN_SPECIFIC_GROUP = 40
+
+# A position group needs this many usable metrics before fitting anything. Not
+# every source measures every part of the game: Understat models shots and
+# nothing else, so its goalkeepers have no goalkeeping metric at all. A model
+# on two features is not a model, and an empty one used to take the whole build
+# down, so the group is reported unmodelled with the reason instead.
+MIN_GROUP_FEATURES = 5
 
 
 def collapse_thin_groups(
@@ -113,6 +121,7 @@ class ScoutingPlatform:
     leagues: list[str] = field(default_factory=list)
     peer_columns: list[str] = field(default_factory=lambda: ["position_group"])
     unmodelled_groups: dict[str, int] = field(default_factory=dict)
+    unmodelled_reasons: dict[str, str] = field(default_factory=dict)
     collapsed_groups: dict[str, dict] = field(default_factory=dict)
 
     @property
@@ -181,11 +190,31 @@ class ScoutingPlatform:
     def row(self, index) -> pd.Series:
         return self.pool.loc[index]
 
-    def model_for(self, index) -> PositionModel:
-        return self.models[self.pool.loc[index, "position_group"]]
+    def model_for(self, index) -> PositionModel | None:
+        """The fitted model for this player's group, or None if there is not one.
+
+        A group can go unmodelled because the pool holds too few of them, or
+        because the source does not measure that position - Understat carries no
+        goalkeeping metric at all. Those players stay in the pool and in every
+        table, so every caller has to cope with the absence rather than assume.
+        """
+        return self.models.get(self.pool.loc[index, "position_group"])
+
+    def is_modelled(self, index) -> bool:
+        return self.model_for(index) is not None
+
+    def no_model_reason(self, index) -> str:
+        """Why this player has no model behind him, in a sentence."""
+        group = self.pool.loc[index, "position_group"]
+        reason = self.unmodelled_reasons.get(group)
+        name = POSITION_GROUP_NAMES.get(group, group)
+        return (f"{name}s are not modelled on this dataset: {reason}." if reason
+                else f"{name}s are not modelled on this dataset.")
 
     def archetype(self, index) -> tuple[str, str]:
         model = self.model_for(index)
+        if model is None:
+            return "Not modelled", self.no_model_reason(index)
         cluster = int(model.clusters.labels.loc[index])
         return model.clusters.names[cluster], model.clusters.descriptions[cluster]
 
@@ -240,6 +269,8 @@ class ScoutingPlatform:
 
     def _profile_frame(self, index) -> pd.DataFrame:
         model = self.model_for(index)
+        if model is None:
+            return pd.DataFrame(columns=["metric", "value", "percentile"])
         frame = self.percentile_frame(index, model.features)
         return frame.sort_values("percentile", ascending=False)
 
@@ -259,6 +290,8 @@ class ScoutingPlatform:
         candidate_mask: pd.Series | None = None,
     ) -> pd.DataFrame:
         model = self.model_for(index)
+        if model is None:
+            return self.pool.iloc[0:0].assign(similarity=pd.Series(dtype=float))
         return self._enrich(
             model.engine.neighbours(index, n=n, metric=metric, candidate_mask=candidate_mask)
         )
@@ -283,6 +316,8 @@ class ScoutingPlatform:
         from .recruitment import fit_scores
 
         model = self.model_for(index)
+        if model is None:
+            return self.pool.iloc[0:0].assign(similarity=pd.Series(dtype=float))
         neighbours = self._enrich(
             model.engine.neighbours(
                 index, n=max(n * 6, 60), metric=metric, candidate_mask=candidate_mask
@@ -374,10 +409,15 @@ class ScoutingPlatform:
         return pd.DataFrame(rows)
 
     def explain_similarity(self, index_a, index_b, metric: str = "cosine"):
-        return self.model_for(index_a).engine.explain(index_a, index_b, metric=metric)
+        model = self.model_for(index_a)
+        if model is None:
+            return None
+        return model.engine.explain(index_a, index_b, metric=metric)
 
     def pair_similarity(self, index_a, index_b, metric: str = "cosine") -> float:
         model = self.model_for(index_a)
+        if model is None:
+            return float("nan")
         if self.pool.loc[index_b, "position_group"] != model.group:
             return float("nan")
         distances = model.engine.distance_to_all(index_a, metric=metric)
@@ -448,6 +488,7 @@ def build_platform(
 
     models: dict[str, PositionModel] = {}
     unmodelled: dict[str, int] = {}
+    reasons: dict[str, str] = {}
     present = [g for g in POSITION_GROUPS if g in set(pool["position_group"].unique())]
     for group in present:
         subset = pool[pool["position_group"] == group]
@@ -457,6 +498,7 @@ def build_platform(
             # and the app reports how many that is rather than dropping them
             # quietly.
             unmodelled[group] = len(subset)
+            reasons[group] = f"only {len(subset)} players in the pool"
             continue
         # Drop features this source cannot populate for this position, rather
         # than feeding a column of imputed medians into the distance metric.
@@ -464,6 +506,13 @@ def build_platform(
         group_features = [
             f for f in wanted if subset[f].notna().mean() >= min_feature_coverage
         ]
+        if len(group_features) < MIN_GROUP_FEATURES:
+            unmodelled[group] = len(subset)
+            reasons[group] = (
+                f"this source supplies only {len(group_features)} of the "
+                f"{len(wanted)} metrics the {group} model needs"
+            )
+            continue
         dropped = [f for f in wanted if f not in group_features]
         z, scaler = fe.scale_features(subset, group_features)
         engine = SimilarityEngine(z, subset, random_state=random_state)
@@ -496,6 +545,7 @@ def build_platform(
         leagues=leagues or sorted(pool["league"].unique()),
         peer_columns=peer_columns,
         unmodelled_groups=unmodelled,
+        unmodelled_reasons=reasons,
         collapsed_groups=collapsed,
     )
     platform.pool["archetype"] = platform.archetype_series()

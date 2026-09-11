@@ -79,7 +79,7 @@ def _profile_fields(index, row) -> list[tuple[str, str]]:
         ("Season", str(row["season"])),
         ("Minutes", f"{row['minutes']:,.0f}"),
         ("Appearances", f"{row['matches']:,.0f}"),
-        ("Starts", f"{row['starts']:,.0f}"),
+        *( [("Starts", f"{row['starts']:,.0f}")] if platform.has("starts") else [] ),
     ]
     if platform.has("height_cm"):
         fields.append(("Height", f"{row['height_cm']:.0f} cm"))
@@ -176,13 +176,23 @@ for column, (i, r) in zip(columns, zip(indices, rows)):
 if len(groups) == 1 and len(indices) >= 2:
     st.markdown("## Where the first pair matches and diverges")
     result = platform.explain_similarity(indices[0], indices[1])
-    matches, differences = explanation_sentences(result, names[0], names[1], pool)
-    columns = st.columns(2)
-    with columns[0]:
-        eyebrow("Matches")
-        for sentence in matches:
-            st.markdown(f"- {sentence}")
-    with columns[1]:
-        eyebrow("Differences")
-        for sentence in differences:
-            st.markdown(f"- {sentence}")
+    if result is None:
+        # Same position group, but one this dataset does not model - Understat
+        # carries no goalkeeping metric, for instance.
+        note(
+            "**This comparison has no similarity model behind it.** "
+            f"{platform.no_model_reason(indices[0])} The tables above are still the players' "
+            "real numbers; only the feature-by-feature account of *why* they are alike is "
+            "unavailable."
+        )
+    else:
+        matches, differences = explanation_sentences(result, names[0], names[1], pool)
+        columns = st.columns(2)
+        with columns[0]:
+            eyebrow("Matches")
+            for sentence in matches:
+                st.markdown(f"- {sentence}")
+        with columns[1]:
+            eyebrow("Differences")
+            for sentence in differences:
+                st.markdown(f"- {sentence}")

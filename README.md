@@ -23,10 +23,15 @@ decides which splits the data supports, and [the evidence is on the table below]
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
-**Two ways to run it, both free.** The full Streamlit app takes about three minutes to put on
-[Streamlit Community Cloud](#streamlit-community-cloud--free-and-the-shortest-path). A
-[single-file static build](#a-static-build-that-needs-no-server) — a working similarity engine
-for one season — opens in any browser with no server at all.
+### ▶ Live: **[footballscout-fahdr1428s-projects.vercel.app](https://footballscout-fahdr1428s-projects.vercel.app)**
+
+Public, free, no sign-in. Pick a player, get every other player in his position group ranked by
+how closely his profile matches, and open any match for a metric-by-metric account of why. Three
+datasets in one page — Premier League 2025/26, six leagues 2024/25, big five 2021/22.
+
+The full Streamlit app, which adds recruitment search, squad analysis, archetype maps and the
+validation suite, takes about three minutes to put on
+[Streamlit Community Cloud](#streamlit-community-cloud--free-and-the-shortest-path).
 
 ```bash
 pip install -r requirements.txt

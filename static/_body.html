@@ -1,7 +1,7 @@
 <div class="wrap">
 <header>
   <div>
-    <div class="eyebrow">Big five leagues &middot; 2021&ndash;22</div>
+    <div class="eyebrow" id="hero-eyebrow">&nbsp;</div>
     <h1>Who Plays Like Him</h1>
     <p class="sub">Pick a player. Every other player in his position group is ranked by how
     closely his statistical profile matches &mdash; then filtered down to the ones you could
@@ -10,11 +10,19 @@
   </div>
   <div class="facts">
     <div class="fact"><b id="f-players">&mdash;</b><span>Players</span></div>
-    <div class="fact"><b>5</b><span>Leagues</span></div>
+    <div class="fact"><b id="f-leagues">&mdash;</b><span>Leagues</span></div>
     <div class="fact"><b id="f-metrics">&mdash;</b><span>Metrics compared</span></div>
     <div class="fact"><b id="f-groups">&mdash;</b><span>Position models</span></div>
   </div>
 </header>
+
+<section class="panel datasets">
+  <div class="ds-head">
+    <span class="eyebrow">Dataset</span>
+    <div class="seg" id="dsseg" role="group" aria-label="Choose a dataset"></div>
+  </div>
+  <p class="ds-blurb" id="ds-blurb"></p>
+</section>
 
 <section class="panel subject-bar">
   <div class="pick">
@@ -106,9 +114,9 @@
 </div>
 
 <script>
-const D = window.__SCOUT__, P = D.players, M = D.meta, G = M.groups;
+const BUNDLE = window.__SCOUT__;
 const $ = id => document.getElementById(id);
-const PCT = new Set(M.pct), LOWER = new Set(M.lower);
+let P, M, G, PCT, LOWER, byGroup, dsKey = BUNDLE.order[0];
 
 const eur = v => v == null ? "—"
   : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7 ? 0 : 1) + "m"
@@ -120,23 +128,45 @@ const fmt = (key, v) => v == null ? "—"
   : Math.abs(v) >= 100 ? Math.round(v).toLocaleString()
   : v.toFixed(2);
 
-$("f-players").textContent = P.length.toLocaleString();
-$("f-groups").textContent = Object.keys(M.groupNames).length;
-$("f-metrics").textContent = Math.max(...Object.values(G).map(g => g.d.length));
+$("dsseg").innerHTML = BUNDLE.order.map(k =>
+  `<button data-ds="${k}">${esc(BUNDLE.datasets[k].meta.label)}</button>`).join("");
 
-const folded = Object.entries(M.collapsed || {});
-$("fold-note").innerHTML = folded.length
-  ? "<b>One season, so two groups are folded in.</b> " + folded.map(([g, parent]) =>
+function loadDataset(key){
+  dsKey = key;
+  const D = BUNDLE.datasets[key];
+  P = D.players; M = D.meta; G = M.groups;
+  PCT = new Set(M.pct); LOWER = new Set(M.lower);
+
+  // Every comparison stays inside one position group, so index them once.
+  byGroup = {};
+  P.forEach((p, i) => (byGroup[p.g] = byGroup[p.g] || []).push(i));
+
+  document.querySelectorAll("#dsseg button").forEach(b =>
+    b.classList.toggle("on", b.dataset.ds === key));
+  $("ds-blurb").textContent = M.blurb || "";
+  $("hero-eyebrow").textContent = M.label;
+  $("f-players").textContent = P.length.toLocaleString();
+  $("f-leagues").textContent = M.leagues.length;
+  $("f-groups").textContent = Object.keys(M.groupNames).length;
+  $("f-metrics").textContent = Math.max(...Object.values(G).map(g => g.d.length));
+  $("lg").innerHTML = '<option value="">Any league</option>'
+    + M.leagues.map(l => `<option>${esc(l)}</option>`).join("");
+
+  const notes = [];
+  const folded = Object.entries(M.collapsed || {});
+  if (folded.length) notes.push("<b>Two groups are folded in on one season.</b> " + folded.map(([g, parent]) =>
       "there were too few " + (M.groupNames[g] || g).toLowerCase() + "s to rank against, so they are compared against " +
-      (M.groupNames[parent] || parent).toLowerCase() + "s").join("; ") +
-    ". The full platform models all ten groups across three seasons."
-  : "";
+      (M.groupNames[parent] || parent).toLowerCase() + "s").join("; ") + ".");
+  notes.push("<b>Source.</b> " + esc(M.attribution || ""));
+  $("fold-note").innerHTML = notes.join(" ");
 
-$("lg").innerHTML = '<option value="">Any league</option>' + M.leagues.map(l => `<option>${esc(l)}</option>`).join("");
-
-// Players bucketed by position group: every comparison stays inside one.
-const byGroup = {};
-P.forEach((p, i) => (byGroup[p.g] = byGroup[p.g] || []).push(i));
+  // Reset the selection into the new dataset.
+  F.lg = ""; $("lg").value = "";
+  const start = P.findIndex(p => p.n === "Declan Rice");
+  setSubject(start >= 0 ? start : 0);
+  const first = ranked()[0];
+  if (first){ match = first[0]; drawMatches(); drawCompare(); }
+}
 
 function cosine(a, b){
   let dot = 0, na = 0, nb = 0;
@@ -309,6 +339,8 @@ document.addEventListener("click", e => {
   const m = e.target.closest("[data-m]");
   if (m){ match = +m.dataset.m; drawMatches(); drawCompare();
     $("compare-panel").scrollIntoView({block:"nearest", behavior:"smooth"}); return; }
+  const d = e.target.closest("[data-ds]");
+  if (d){ loadDataset(d.dataset.ds); return; }
   const s = e.target.closest("#sortseg button");
   if (s){ sortMode = s.dataset.sort;
     document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b === s));
@@ -330,8 +362,5 @@ bind("mins","mins", t => +t.value);
 bind("xclub","xclub", t => t.checked);
 bind("xleague","xleague", t => t.checked);
 
-const start = P.findIndex(p => p.n === "Declan Rice");
-setSubject(start >= 0 ? start : 0);
-const first = ranked()[0];
-if (first){ match = first[0]; drawMatches(); drawCompare(); $("compare-panel").hidden = false; }
+loadDataset(dsKey);
 </script>

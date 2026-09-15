@@ -36,7 +36,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import (  # noqa: E402
-    DEFAULT_SOURCE, LOWER_IS_BETTER, METRIC_LABELS, PERCENT_METRICS, POSITION_GROUP_NAMES,
+    DATA_SOURCES, DEFAULT_SOURCE, LOWER_IS_BETTER, METRIC_LABELS, PERCENT_METRICS, POSITION_GROUP_NAMES,
     ROOT_DIR, categories_for,
 )
 from src.feature_engineering import metrics_for_percentiles  # noqa: E402
@@ -132,30 +132,71 @@ def export(platform, season: str) -> dict:
     }
 
 
+# What the public site ships. Three datasets rather than one, because they
+# answer different questions and no single source answers both: the Premier
+# League file is the only complete 2025/26 anywhere reachable, the six-league
+# file is the widest recent view, and the big-five file is by far the deepest -
+# 44 metrics and ten detailed positions against the others' four buckets.
+BUNDLE = [
+    ("premier_league", "2025-26", "Premier League 2025/26",
+     "The current season, complete. One league, and a summary feed: no "
+     "progressive passes, no duels, no pass completion."),
+    ("understat_big6", "2024-25", "Six leagues 2024/25",
+     "The widest recent view - big five plus Russia. xG, xA, xGChain and "
+     "xGBuildup only: no defending at all, and goalkeepers have no model."),
+    ("fbref_big5", "2021-22", "Big five 2021/22",
+     "The deepest by far - 44 metrics, ten specific positions, real market "
+     "values. Four seasons out of date."),
+]
+
+
+def build_one(source: str, season: str, minutes: int):
+    """Fit one dataset and return its export payload, or None if it is empty."""
+    features, report, used = build_features(source)
+    platform = build_platform(features, report, source=used,
+                              seasons=[season], min_minutes=minutes)
+    if platform.pool.empty:
+        return None
+    return export(platform, season)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    # Pinned rather than following DEFAULT_SOURCE. This page is a similarity
-    # demo, and the big-five source is much the better one for that: 44 varied
-    # metrics and ten detailed positions, where the six-league source has ~13
-    # correlated attacking metrics, four buckets and no goalkeeper model - which
-    # would push every match into the nineties and flatten the thing being
-    # demonstrated. Pass --source understat_big6 --season 2024-25 for recency.
-    parser.add_argument("--source", default="fbref_big5")
-    parser.add_argument("--season", default="2021-22",
-                        help="one season: every player appears once, which a demo wants")
+    parser.add_argument("--datasets", nargs="*", default=None, metavar="SOURCE:SEASON",
+                        help="override the bundle, e.g. fbref_big5:2020-21")
     parser.add_argument("--min-minutes", type=int, default=900)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()
 
-    features, report, used = build_features(args.source)
-    platform = build_platform(features, report, source=used,
-                              seasons=[args.season], min_minutes=args.min_minutes)
-    if platform.pool.empty:
-        print(f"no players in {args.season} for source {used}")
+    wanted = BUNDLE
+    if args.datasets:
+        wanted = []
+        for spec in args.datasets:
+            source, _, season = spec.partition(":")
+            label = f"{DATA_SOURCES[source].label} {season}" if source in DATA_SOURCES else spec
+            wanted.append((source, season, label, ""))
+
+    bundle, order = {}, []
+    for source, season, label, blurb in wanted:
+        print(f"building {source} {season} …")
+        payload = build_one(source, season, args.min_minutes)
+        if payload is None:
+            print(f"  skipped: no players in {season} for {source}")
+            continue
+        key = f"{source}:{season}"
+        payload["meta"]["label"] = label
+        payload["meta"]["blurb"] = blurb
+        payload["meta"]["attribution"] = DATA_SOURCES[source].attribution
+        bundle[key] = payload
+        order.append(key)
+        print(f"  {len(payload['players']):,} players")
+
+    if not bundle:
+        print("nothing built")
         return 1
 
-    data = export(platform, args.season)
+    data = {"datasets": bundle, "order": order}
     head = (TEMPLATE_DIR / "_head.html").read_text(encoding="utf-8")
     body = (TEMPLATE_DIR / "_body.html").read_text(encoding="utf-8")
     payload = "<script>window.__SCOUT__=" + json.dumps(data, separators=(",", ":")) + ";</script>"
@@ -171,8 +212,9 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(page, encoding="utf-8")
 
+    total = sum(len(d["players"]) for d in bundle.values())
     size = args.out.stat().st_size / 1e6
-    print(f"{len(data['players']):,} players, {args.season} -> {args.out} ({size:.2f} MB)")
+    print(f"\n{len(bundle)} datasets, {total:,} players -> {args.out} ({size:.2f} MB)")
     print("open it directly, or drop it on any static host - no server needed")
     return 0
 

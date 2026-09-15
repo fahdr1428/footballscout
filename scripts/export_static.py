@@ -103,12 +103,21 @@ def export(platform, season: str) -> dict:
             "a": _num(row.get("age")), "m": int(row["minutes"]),
             "h": _num(row.get("height_cm"), 0),
             "v": None if pd.isna(row.get("market_value_eur")) else int(row["market_value_eur"]),
+            # The fantasy price, where a source has that instead of a valuation.
+            # It is a popularity signal, not a fee, and the page labels it so.
+            "pr": _num(row.get("price_m"), 1),
             "ar": row.get("archetype"),
             "cv": [_num(categories.loc[index].get(f"cat_{c}"))
                    for c in (spec["c"] if spec else [])],
             "z": zrow,
             "d": display,
         })
+
+    # A metric can be listed for a position and still be empty in this dataset -
+    # the Premier League feed has an aerial-duel column with nothing in it. Those
+    # would offer a leaderboard that ranks nobody and a comparison row of dashes,
+    # so they are pruned here, per group, once the values are known.
+    _prune_empty_metrics(groups, players)
 
     return {
         "meta": {
@@ -158,6 +167,23 @@ def build_one(source: str, season: str, minutes: int):
     if platform.pool.empty:
         return None
     return export(platform, season)
+
+
+def _prune_empty_metrics(groups: dict, players: list) -> None:
+    """Drop display metrics that no player in their group actually has."""
+    for group, spec in groups.items():
+        members = [p for p in players if p["g"] == group]
+        if not members:
+            continue
+        keep = [
+            i for i in range(len(spec["d"]))
+            if any(p["d"][i][0] is not None for p in members if i < len(p["d"]))
+        ]
+        if len(keep) == len(spec["d"]):
+            continue
+        spec["d"] = [spec["d"][i] for i in keep]
+        for player in members:
+            player["d"] = [player["d"][i] for i in keep if i < len(player["d"])]
 
 
 def main() -> int:

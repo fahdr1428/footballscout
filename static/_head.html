@@ -120,7 +120,28 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   .mrow .meta{display:none}
 }
 
-/* comparison table */
+/* panel tools: share, CSV, the second search box */
+.tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.mini{border:1px solid var(--line-2);background:var(--raised);color:var(--ink-2);font:inherit;
+  font-size:12.5px;padding:5px 11px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.mini:hover{border-color:var(--accent);color:var(--accent)}
+.pick-sm{min-width:210px}
+.pick-sm input{padding:6px 10px;font-size:13px}
+
+/* leaderboard */
+#board-panel{margin-top:18px}
+.board-controls{grid-template-columns:repeat(3,minmax(0,1fr));display:grid;gap:10px}
+@media (max-width:640px){.board-controls{grid-template-columns:1fr}}
+.board{max-height:520px;overflow-y:auto}
+.brow{display:grid;grid-template-columns:26px minmax(0,1fr) auto 46px;gap:10px;align-items:center;
+  width:100%;padding:8px 14px;border:0;border-top:1px solid var(--line);background:none;
+  color:inherit;font:inherit;text-align:left;cursor:pointer}
+.brow:hover{background:var(--raised)}
+.brow .rk{color:var(--muted);font-size:12px;text-align:right}
+.brow .nm{font-family:"Saira Condensed",sans-serif;font-size:16px;font-weight:600;line-height:1.15}
+.brow .bval{font-size:14px;font-weight:600;text-align:right;white-space:nowrap}
+
+/* comparison table comparison table */
 #compare-panel{margin-top:18px}
 .seg{display:flex;gap:0;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
 .seg button{border:0;background:var(--raised);color:var(--ink-2);font:inherit;font-size:12.5px;

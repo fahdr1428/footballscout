@@ -29,8 +29,9 @@ The platform runs on any of three datasets, selected in the sidebar. All of them
 currently loaded is **{platform.spec.label}**.
 
 The real sources answer different questions. The **big five** dataset is the widest and deepest -
-five leagues, five seasons, 13,230 player-seasons, full match-data metrics, a true position and a
-market value in euros - but it ends in 2021/22. The **Premier League** feed is current, running to
+five leagues, nine seasons from 2017/18 to a live 2025/26, full match-data metrics, a true position
+and (through 2022/23) a market value in euros - but a chunk of its match-data detail stops at
+2022/23, when FBref changed data provider. The **Premier League** feed is current too, running to
 2025/26 with age, price and ownership, but it is a summary feed with no progressive passes or
 duels. The **StatsBomb** feed derives every metric from raw events, at the cost of the newest
 men's league season available being 2015/16. None is better; they are different instruments.
@@ -39,7 +40,7 @@ men's league season available being 2015/16. None is better; they are different 
 
 big6, big5, premier, market, real, simulated = st.tabs([
     "Six leagues 2014/15-2024/25 (real)",
-    "Big five 2017/18-2021/22 (real)",
+    "Big five 2017/18-2025/26 (real)",
     "Premier League 2016/17-2025/26 (real)",
     "Top six leagues (Transfermarkt)",
     "StatsBomb Open Data (real)",
@@ -54,8 +55,9 @@ mirrored as CSV in
 [vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated).
 **34,159 player-seasons, 10,541 players, eleven complete seasons** from 2014/15 to 2024/25.
 
-This is the source for anything recent - the only one here reaching 2022/23, 2023/24 and 2024/25 -
-and eleven seasons is enough to follow a career.
+This is the source for the **Russian Premier League**, which none of the others carry, and eleven
+complete seasons is enough to follow a career - the big five source now reaches further forward
+(a live 2025/26) but has fewer complete seasons behind it.
 
 #### What it measures unusually well
 
@@ -111,20 +113,29 @@ Rebuild it with `python scripts/fetch_understat.py` (about 57 MB, cached).
 with big5:
     st.markdown(
         """
-The **Premier League, La Liga, Serie A, Bundesliga and Ligue 1**, five seasons from 2017/18 to
-2021/22: **13,230 player-seasons, 5,309 players**. This is the default dataset, and the only one
-here that is simultaneously wide (five leagues), deep (full match-data metrics) and priced
-(a real market value in euros).
+The **Premier League, La Liga, Serie A, Bundesliga and Ligue 1**, nine seasons from 2017/18
+through a live, still-being-played 2025/26: **23,000+ player-seasons, 7,400+ players** as of the
+last build, and both numbers grow every time 2025/26 is refreshed. This is the default dataset,
+and the only one here that is simultaneously wide (five leagues), deep (full match-data metrics)
+and current.
 
-`src/fbref.py` builds it from three public files, all mirrored in
+`src/fbref.py` builds it from two generations of the same public mirror,
 [JaseZiv/worldfootballR_data](https://github.com/JaseZiv/worldfootballR_data), the data repository
 behind the `worldfootballR` R package:
 
 | File | What it gives |
 | --- | --- |
 | FBref season stats, eleven blocks per player | Standard, shooting, passing, pass types, shot- and goal-creating actions, defence, possession, playing time, miscellaneous, and two goalkeeping blocks. |
-| A curated FBref -> Transfermarkt mapping | 15,440 hand-checked URL pairs. |
-| Transfermarkt season squads | Market value for that season, a specific position, height, preferred foot, nationality, date of birth. |
+| A curated FBref -> Transfermarkt mapping | Hand-checked URL pairs, extended as new players debut. |
+| Transfermarkt season squads | Market value for that season, a specific position, height, preferred foot, nationality, date of birth - through 2022/23. |
+
+The repository itself was archived in September 2025 and no longer runs its own scrapers, but its
+**GitHub Release asset** is still refreshed by something outside the archived code, and reaches
+2025/26 live. Every block through 2022/23 is read from the frozen repository tree (the StatsBomb
+era); every block from 2022/23 onward is read from the release (the Opta era) and, where FBref
+renamed a column across the switch, the two are stitched onto one name rather than left as two
+half-populated columns. The Transfermarkt files were never extended past 2022/23 by either side,
+so position and market value stop there.
 
 #### Why the join matters
 
@@ -133,8 +144,9 @@ FBref records position as `DF`, `MF`, `FW` or `GK`. Transfermarkt records "Centr
 means the eight position groups are fixed by an independent source rather than inferred from the
 same statistics the models then read - which would be circular reasoning dressed up as a feature.
 
-**99.9%** of player-seasons match to Transfermarkt, **99.8%** carry a specific position, and
-**97.5%** a market value for that exact season.
+**98.5%** of player-seasons match to Transfermarkt and **98.3%** carry a specific position, across
+all nine seasons. **94.9%** of 2017/18-2022/23 player-seasons carry a market value for that exact
+season - the years the Transfermarkt mirror actually covers.
 
 #### How finely to group them is measured, not guessed
 
@@ -144,14 +156,25 @@ job. `scripts/position_separability.py` settles it: for each candidate pair it t
 cross-validated classifier to tell the two apart on that group's own model features, scored by
 **balanced accuracy**, so 0.50 is a coin flip whatever the class imbalance.
 
-| Pair | Balanced accuracy | Verdict |
-| --- | --- | --- |
-| Second striker vs attacking midfield | **0.79** | different jobs - own model |
-| Wide midfield vs winger | **0.77** | different jobs - own model |
-| Left-back vs right-back | 0.61 | the same job, mirrored - one model |
-| Left wing vs right wing | 0.59 | the same job, mirrored - one model |
-| *Centre-back vs defensive midfield (control)* | *0.96* | *sanity check* |
-| *Defensive vs attacking midfield (control)* | *0.98* | *sanity check* |
+| Pair | On 2017/18-2021/22 | On the current 2022/23-2024/25 pool | Verdict |
+| --- | --- | --- | --- |
+| Second striker vs attacking midfield | **0.81** | 0.69 | different jobs, historically - now borderline |
+| Wide midfield vs winger | **0.76** | 0.71 | different jobs, historically - now borderline |
+| Left-back vs right-back | 0.62 | 0.59 | the same job, mirrored - one model |
+| Left wing vs right wing | 0.60 | 0.54 | the same job, mirrored - one model |
+| *Centre-back vs defensive midfield (control)* | *0.96* | *0.93* | *sanity check* |
+| *Defensive vs attacking midfield (control)* | *0.98* | *0.94* | *sanity check* |
+
+The left column is the original evidence for splitting out second strikers and wide midfielders,
+measured on the seasons FBref's old provider covered in full. The right column is the same test
+run on the pool the app actually opens on today: still clearly above the 0.50 coin flip and well
+short of "the same job", but no longer the clean 0.79-0.81 it once was, because the October 2022
+provider switch (below) removed the shot- and goal-creating-action breakdown and the pressures
+columns that did much of the work distinguishing a box-crashing second striker from a deeper
+attacking midfielder. The controls stay comfortably separable either way, so the measurement
+itself is not broken - the newer evidence is just thinner. The groups stay split on the strength
+of the historical proof rather than being merged on a borderline reading; run the command yourself
+with `--seasons 2018 2019 2020 2021 2022` for the historical pool or with no arguments for today's.
 
 Hence ten groups: **GK, CB, FB, DM, CM, AM, SS, WM, W, FW**. Side of the pitch is carried as a
 **filter** instead - a club recruiting a left-back does not want right-backs on the shortlist,
@@ -163,37 +186,44 @@ crosses. Wide groups only - a left-footed centre-back is not inverted.
 
 A split-out group still has to clear a minimum sample **in the pool you selected**. One season
 holds about twenty second strikers, so they fall back to attacking midfield and the app says so;
-the three-season default holds sixty-three and they stand alone. That is why this source opens on
+the three-season default holds far more and they stand alone. That is why this source opens on
 three seasons.
 
 #### What it measures
 
 Beyond the usual counting stats, this source carries the things that separate players who look
-identical in a summary table: pressures by third of the pitch, tackles by third, touches by zone
-(own box, defensive third, middle third, attacking third, opposition box), carries and
-progressive carry distance, carries into the final third and into the box, passes by distance
-band, through balls and switches, shot-creating actions broken down by *how* they were created,
-and for goalkeepers post-shot xG, cross-stopping and sweeper actions outside the area.
+identical in a summary table: touches by zone (own box, defensive third, middle third, attacking
+third, opposition box), carries and progressive carry distance, carries into the final third and
+into the box, passes by distance band, through balls and switches, and for goalkeepers post-shot
+xG, cross-stopping and sweeper actions outside the area. Pressures by third of the pitch and shot-
+creating actions broken down by *how* they were created are the same story, but only for
+2017/18-2022/23 - see below.
 
 #### What it does not do
 
-- **It is not current.** It ends with 2021/22. FBref changed data provider from StatsBomb to Opta
-  in October 2022 and the upstream mirror was archived in September 2025. The 2022/23 snapshot
-  stops after roughly 13 rounds - a median of 498 minutes against ~1,250 in a whole season - so
-  pooling it with complete seasons would put every 2022/23 player at the bottom of every volume
-  metric for a reason that has nothing to do with the player. It is excluded by default. For the
-  current season, use the Premier League source.
-- **No contract data.** Transfermarkt records contract expiry as at the time the squad page was
-  read, so every one of Harry Kane's five seasons reads `2024-06-30`. Searching by contract status
-  is one of the main things a recruitment tool is used for, which is exactly why shipping a wrong
-  one would be worse than shipping none. The columns are dropped.
-- **Pressures do not exist after 2021/22** - Opta does not count them - and `xA` becomes `xAG`.
-  Columns a season cannot supply are reported unavailable for that season and never imputed.
+- **A chunk of the detail stops at 2022/23, not the dataset itself.** FBref changed data provider
+  from StatsBomb to Opta in October 2022, and the switch retroactively renamed or dropped columns
+  across the whole site, not just new seasons. Pressures (and the pressures-by-third breakdown),
+  the shot/goal-creating-action type split, and market value all end there with no successor; a
+  handful of zone-by-zone touch, tackle and carry columns thin out gradually into 2024/25. Every
+  one is reported as "not reliably measured" for the seasons it lost, on the Home page's data
+  quality report, rather than reading a fabricated zero or a cross-era guess into it.
+  `xA` (StatsBomb) and `xAG` (Opta) are the same idea from two providers and are coalesced onto
+  one `xa` column rather than left as two half-populated ones.
+- **2025/26 is live.** Its row count and every per-90 rate in it change between builds, and it is
+  excluded from the default three-season pool because almost no one has yet cleared the default
+  900-minute floor this early in the season - select it explicitly in the sidebar to see it.
+- **No contract data past 2022/23.** Transfermarkt records contract expiry as at the time the
+  squad page was read, so every one of Harry Kane's seasons through 2022/23 reads the same date,
+  and no season after it carries the column at all. Searching by contract status is one of the
+  main things a recruitment tool is used for, which is exactly why shipping a wrong one would be
+  worse than shipping none.
 - Players who moved mid-season are one row: totals summed, club and league of record taken from
   wherever they played the most minutes. A stat only one of their clubs measured is left missing
   rather than summed into an understatement.
 
-Rebuild it with `python scripts/fetch_fbref.py` (about 16 MB, cached, ~20 seconds).
+Rebuild it with `python scripts/fetch_fbref.py` (about 25 MB, cached, ~30 seconds); pass
+`--seasons 2018 2026` to include the live season.
 """
     )
 
@@ -386,12 +416,22 @@ st.markdown(
 | Goalkeeping columns for outfielders | Left as missing, never zero |
 | A column the source never supplies (age, height, PSxG) | **Not imputed at all** - reported as unavailable, and the features and controls that depend on it are switched off |
 | A counting stat a **season** never measured | Left missing for that season and zero-filled only in the seasons that do measure it. "Made no tackles" and "tackles were not counted" are different claims |
+| A counting stat measured for **most but not all** players in a season | Below 90% coverage, the whole season is treated the same as "never measured" for that column - real values are kept, gaps stay missing, nothing is zero-filled. A join or scrape gap should not read as a real defender's zero tackles |
 """
 )
 if platform.cleaning.unavailable:
     st.info(
         "Unavailable in the loaded dataset: "
         + ", ".join(f"`{c}`" for c in sorted(set(platform.cleaning.unavailable))),
+        icon="ℹ️",
+    )
+if platform.cleaning.partial_columns:
+    lines = [
+        f"`{column}` (thin in {', '.join(seasons)})"
+        for column, seasons in sorted(platform.cleaning.partial_columns.items())
+    ]
+    st.info(
+        "Supplied, but not reliably in every season: " + "; ".join(lines),
         icon="ℹ️",
     )
 

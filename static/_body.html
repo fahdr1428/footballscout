@@ -198,8 +198,15 @@ function loadDataset(key, opts = {}){
   notes.push("<b>Source.</b> " + esc(M.attribution || ""));
   $("fold-note").innerHTML = notes.join(" ");
 
-  // Reset the selection into the new dataset.
+  // Reset the selection into the new dataset. The minutes floor is not
+  // uniform across datasets - a live, in-progress season has to open on a
+  // much lower one than a completed season, or its own default view would
+  // show zero candidates.
   F.lg = ""; $("lg").value = "";
+  F.mins = M.minMinutes;
+  $("mins").min = M.minMinutes;
+  $("mins").value = M.minMinutes;
+  $("mins-v").textContent = M.minMinutes.toLocaleString();
   buildBoardControls();
 
   const wanted = opts.subject != null ? opts.subject : findByName("Declan Rice");

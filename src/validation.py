@@ -595,9 +595,18 @@ def build_validation_report(
     )
 
     parts += ["", "## Known limitations", ""]
+    if platform.is_real:
+        parts += [
+            f"- This pool is **{platform.spec.label}** - real players, real seasons. See the "
+            "caveats on the Home page and in `src/config.py` for exactly what this source does "
+            "and does not measure.",
+        ]
+    else:
+        parts += [
+            "- The bundled dataset is **simulated**. Absolute values are plausible but they are "
+            "not real players, and no conclusion about a real footballer can be drawn from them.",
+        ]
     parts += [
-        "- The bundled dataset is **simulated**. Absolute values are plausible but they are not "
-        "real players, and no conclusion about a real footballer can be drawn from them.",
         "- League strength coefficients are editable assumptions in `src/config.py`, not measured "
         "quantities. Every score that uses them says so.",
         "- One season of finishing (goals minus xG) is noisy and is treated as descriptive only.",

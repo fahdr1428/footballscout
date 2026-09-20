@@ -157,6 +157,21 @@ if platform.cleaning.unavailable_columns:
             "Left missing rather than zero-filled, and dropped from any model that needs them."
         )
         st.code(", ".join(platform.cleaning.unavailable_columns), language="text")
+if platform.cleaning.partial_columns:
+    with st.expander(
+        f"{len(platform.cleaning.partial_columns)} columns not reliably measured in every season"
+    ):
+        st.caption(
+            "Supplied in most seasons, but too thin in specific ones to trust - a scrape or join "
+            "gap, not the players making zero. Left missing there rather than zero-filled, so a "
+            "percentile reads \"-\" for the affected players in those seasons instead of a "
+            "fabricated rank."
+        )
+        rows = [
+            {"Column": column, "Thin in": ", ".join(seasons)}
+            for column, seasons in sorted(platform.cleaning.partial_columns.items())
+        ]
+        st.dataframe(pd.DataFrame(rows), hide_index=True, height=min(38 * len(rows) + 40, 400))
 if platform.unmodelled_players:
     st.warning(
         f"**{platform.unmodelled_players} players are in the pool but have no model behind them** - "

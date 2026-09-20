@@ -9,9 +9,9 @@ Four real datasets, switchable in the sidebar, plus a simulated one used to vali
 
 | Dataset | Coverage | What it is good for |
 | --- | --- | --- |
-| **Six leagues** (default, committed) | **Eleven seasons, 2014/15 → 2024/25** · big five + the Russian Premier League · **34,159 player-seasons, 10,541 players** | The longest, widest and most recent run here, and the only one carrying 2022/23 onwards. xG, npxG, xA plus **xGChain and xGBuildup**. Ages, heights, feet and **market values as at each season** joined on from Transfermarkt. **Measures no defending at all**, and groups players GK/DEF/MID/FWD. |
-| **Big five leagues** (committed) | **Five seasons, 2017/18 → 2021/22** · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **13,230 player-seasons, 5,309 players** | The widest and deepest, and the only one supporting all **ten position groups**. Full match-data metrics — pressures by third, carries into the box, post-shot xG — plus a **true position**, **side of the pitch** and a **real market value in euros**. Ends in 2021/22. |
-| **Premier League** (committed) | **Ten seasons, 2016/17 → the completed 2025/26** · 5,343 player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
+| **Six leagues** (default, committed) | **Eleven seasons, 2014/15 → 2024/25** · big five + the Russian Premier League · **34,159 player-seasons, 10,541 players** | The longest run and the only one carrying the Russian Premier League. xG, npxG, xA plus **xGChain and xGBuildup**. Ages, heights, feet and **market values as at each season** joined on from Transfermarkt. **Measures no defending at all**, and groups players GK/DEF/MID/FWD. |
+| **Big five leagues** (committed) | **Nine seasons, 2017/18 → a live 2025/26** · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **23,000+ player-seasons, 7,400+ players** | The widest and deepest, and the only one supporting all **ten position groups** or reaching the current, in-progress season. Full match-data metrics — carries into the box, post-shot xG, zone-by-zone touches — plus a **true position** and **side of the pitch**; pressures, shot/goal-creating-action detail and market value only through 2022/23 (FBref's provider switch). |
+| **Premier League** (committed) | **Ten seasons, 2016/17 → 2025/26** · 5,343+ player-seasons | Current squads, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
 | **StatsBomb Open Data** (committed) | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. The newest complete men's league season published openly is 2015/16. |
 | **Top six leagues** (Transfermarkt) | Big five + Liga Portugal, any season · **build it yourself** | **Real market values in euros**, true positions (centre-back, not "defender"), age, height, foot, nationality. Thin on performance: appearances, goals, assists, cards, minutes. |
 | **Simulated** (committed) | 14 leagues × 2 seasons | The only way to score an unsupervised model against known ground truth. |
@@ -95,9 +95,10 @@ mirrored as CSV in
 **34,159 player-seasons, 10,541 players, eleven complete seasons** — roughly 230–350 players past
 900 minutes in every league in every season.
 
-This is the source to use for anything recent: it is the only one here that reaches 2022/23,
-2023/24 and 2024/25. Eleven seasons is also enough to follow a career, so a player's 2016/17 and
-his 2024/25 sit in the same table.
+This is the source for the Russian Premier League, which none of the others carry. Eleven
+complete seasons is also enough to follow a career, so a player's 2016/17 and his 2024/25 sit in
+the same table - the big five source below now reaches further forward (a live 2025/26) but has
+fewer complete seasons behind it.
 
 **What it is unusually good at.** xG and npxG from a shot model, xA from the chance created, and
 — rarely in open data — **xGChain** and **xGBuildup**, which credit every player in a possession
@@ -137,50 +138,64 @@ complete 2025/26 for these leagues — for the Premier League alone, the FPL sou
 python scripts/fetch_understat.py     # ~57 MB, cached, about a minute
 ```
 
-### The big five leagues, 2017/18 → 2021/22 — the deepest
+### The big five leagues, 2017/18 → a live 2025/26 — the deepest
 
-The Premier League, La Liga, Serie A, Bundesliga and Ligue 1 — **13,230 player-seasons, 5,309
-players**, roughly 460–600 per league per season. `src/fbref.py` builds it from three public files,
-all mirrored in [JaseZiv/worldfootballR_data](https://github.com/JaseZiv/worldfootballR_data):
+The Premier League, La Liga, Serie A, Bundesliga and Ligue 1 — **23,000+ player-seasons, 7,400+
+players** as of the last build, and both numbers grow every time 2025/26 is refreshed.
+`src/fbref.py` builds it from two generations of the same public mirror,
+[JaseZiv/worldfootballR_data](https://github.com/JaseZiv/worldfootballR_data):
 
 | File | What it gives |
 | --- | --- |
 | FBref season stats, eleven blocks per player | Standard, shooting, passing, pass types, shot- and goal-creating actions, defence, possession, playing time, miscellaneous, two goalkeeping blocks. |
-| A curated FBref → Transfermarkt mapping | 15,440 hand-checked URL pairs. |
-| Transfermarkt season squads | Market value for that season, a specific position, height, preferred foot, nationality, date of birth. |
+| A curated FBref → Transfermarkt mapping | Hand-checked URL pairs, extended as new players debut. |
+| Transfermarkt season squads | Market value for that season, a specific position, height, preferred foot, nationality, date of birth — through 2022/23. |
+
+The source repository was archived in September 2025 and no longer runs its own scrapers, but its
+**GitHub Release asset** is still refreshed by something outside the archived code, and reaches
+2025/26 live. Every block through 2022/23 is read from the frozen repository tree (the StatsBomb
+era); every block from 2022/23 on is read from the release (the Opta era), with columns FBref
+renamed across the switch stitched onto one name. The Transfermarkt files were never extended past
+2022/23 by either side, so position and market value stop there.
 
 **Why the join is the point.** FBref records a position as `DF`, `MF`, `FW` or `GK`. Transfermarkt
 records "Centre-Back", "Left-Back", "Defensive Midfield", "Right Winger". Taking the position from
 Transfermarkt means the eight position groups are fixed by an **independent source**, not inferred
-from the same statistics the models then read. 99.9% of player-seasons match, 99.8% carry a
-specific position, 97.5% a market value for that exact season.
+from the same statistics the models then read. 98.5% of player-seasons match, 98.3% carry a
+specific position (across all nine seasons); 94.9% of 2017/18-2022/23 player-seasons carry a
+market value for that exact season - the years the mirror actually covers.
 
-It measures the things that separate players who look identical in a summary table: pressures by
-third of the pitch, tackles by third, touches by zone (own box → opposition box), carries and
-progressive carry distance, carries into the final third and into the area, passes by distance
-band, through balls and switches, shot-creating actions broken down by *how* they were created,
-and for goalkeepers post-shot xG, cross-stopping and sweeper actions outside the box.
+It measures the things that separate players who look identical in a summary table: touches by
+zone (own box → opposition box), carries and progressive carry distance, carries into the final
+third and into the area, passes by distance band, through balls and switches, and for goalkeepers
+post-shot xG, cross-stopping and sweeper actions outside the box. Pressures by third of the pitch
+and shot-creating actions broken down by *how* they were created are the same story, but only
+through 2022/23 - see below.
 
-Market values are real and move season by season — Messi runs €180m → €150m → €112m → €80m → €50m
-across these five seasons, which is what actually happened.
+Market values are real and move season by season through that season — Messi runs €180m → €150m →
+€112m → €80m → €50m across five of them, which is what actually happened.
 
-**Three things it does not do.**
+**What it does not do.**
 
-- **It is not current.** FBref changed data provider from StatsBomb to Opta in October 2022 and the
-  upstream mirror was archived in September 2025. The 2022/23 snapshot stops after about 13 rounds
-  — a median of 498 minutes against ~1,250 in a whole season — so pooling it with complete seasons
-  would put every 2022/23 player at the bottom of every volume metric for a reason that has nothing
-  to do with the player. It is excluded by default. For the current season, use the Premier League
-  source.
-- **No contract data.** Transfermarkt records contract expiry as at the time the page was read, so
-  every one of Harry Kane's five seasons reads `2024-06-30`. Searching by contract status is one of
-  the main things a recruitment tool is used for, which is exactly why a wrong one would be worse
-  than none. The columns are dropped rather than shown.
-- **Pressures stop after 2021/22** (Opta does not count them) and `xA` becomes `xAG`. Columns a
-  season cannot supply are reported unavailable for that season and never imputed.
+- **A chunk of the detail stops at 2022/23, not the dataset itself.** FBref changed data provider
+  from StatsBomb to Opta in October 2022, and the switch retroactively renamed or dropped columns
+  site-wide, not just for new seasons. Pressures, the shot/goal-creating-action type split, and
+  market value all end there with no successor; a handful of zone-by-zone touch, tackle and carry
+  columns thin out gradually into 2024/25. Every one is reported "not reliably measured" for the
+  seasons it lost rather than reading a fabricated zero or a cross-era guess into it. `xA`
+  (StatsBomb) and `xAG` (Opta) are the same idea from two providers and are coalesced onto one
+  `xa` column.
+- **2025/26 is live.** Its row count and every per-90 rate in it move between builds, and it is
+  excluded from the default three-season pool because almost no one has yet cleared the default
+  900-minute floor this early in the season - select it explicitly to see it.
+- **No contract data past 2022/23.** Transfermarkt records contract expiry as at the time the page
+  was read, so every one of Harry Kane's seasons through 2022/23 reads the same date, and no
+  season after it carries the column at all. Searching by contract status is one of the main
+  things a recruitment tool is used for, which is exactly why a wrong one would be worse than none.
 
 ```bash
-python scripts/fetch_fbref.py      # ~16 MB, cached, about 20 seconds
+python scripts/fetch_fbref.py                     # ~25 MB, cached, about 30 seconds; 2017/18-2024/25
+python scripts/fetch_fbref.py --seasons 2018 2026  # include the live 2025/26 season
 ```
 
 ### Premier League, 2016/17 → 2025/26 — the current one
@@ -364,19 +379,24 @@ candidate pair it trains a cross-validated classifier to tell the two apart on t
 model features, scored by **balanced accuracy**, so 0.50 is a coin flip whatever the class
 imbalance.
 
-| Pair | Balanced accuracy | Verdict |
-| --- | --- | --- |
-| Second striker vs attacking midfield | **0.79** | different jobs → own model |
-| Wide midfield vs winger | **0.77** | different jobs → own model |
-| Left-back vs right-back | 0.61 | the same job, mirrored → one model |
-| Left wing vs right wing | 0.59 | the same job, mirrored → one model |
-| *Centre-back vs defensive midfield (control)* | *0.96* | *sanity check* |
-| *Defensive vs attacking midfield (control)* | *0.98* | *sanity check* |
+| Pair | On 2017/18-2021/22 | On the current 2022/23-2024/25 pool | Verdict |
+| --- | --- | --- | --- |
+| Second striker vs attacking midfield | **0.81** | 0.69 | different jobs, historically → now borderline |
+| Wide midfield vs winger | **0.76** | 0.71 | different jobs, historically → now borderline |
+| Left-back vs right-back | 0.62 | 0.59 | the same job, mirrored → one model |
+| Left wing vs right wing | 0.60 | 0.54 | the same job, mirrored → one model |
+| *Centre-back vs defensive midfield (control)* | *0.96* | *0.93* | *sanity check* |
+| *Defensive vs attacking midfield (control)* | *0.98* | *0.94* | *sanity check* |
 
 So the groups are **GK · CB · FB · DM · CM · AM · SS · WM · W · FW**. Second strikers and wide
-midfielders get their own peer set because the data says they earn one. Left and right do not,
-because a classifier given a full-back's whole metric profile can barely beat a coin flip at
-guessing which touchline he plays on.
+midfielders got their own peer set because the fuller pre-2022/23 evidence said they earned one;
+FBref's October 2022 provider switch then removed the shot/goal-creating-action and pressures
+columns that did much of that work, so the same test on today's default pool reads a borderline
+0.69-0.71 - not a coin flip, but no longer the clean 0.81 it once was either. The groups stay
+split on the historical proof rather than being merged on a thinner reading; see the Methodology
+page for the full explanation. Left and right do not get separate groups either way, because a
+classifier given a full-back's whole metric profile can barely beat a coin flip at guessing which
+touchline he plays on.
 
 The table is reproduced on the Model Validation page against whatever pool is loaded, and the
 verdict column says so explicitly if the code and the evidence ever disagree.
@@ -782,8 +802,8 @@ own.
 
 ## Known limitations
 
-- **One of the datasets is simulated.** The rest are real — the big five leagues 2017/18 → 2021/22,
-  Premier League 2016/17 → 2025/26, StatsBomb Open Data and Transfermarkt — and the last is
+- **One of the datasets is simulated.** The rest are real — the big five leagues 2017/18 → a live
+  2025/26, Premier League 2016/17 → 2025/26, StatsBomb Open Data and Transfermarkt — and the last is
   invented players with plausible values,
   kept because it is the only pool with known ground truth to validate the models against. Every page
   names the dataset it is reading; no conclusion about a real footballer follows from the simulated one.

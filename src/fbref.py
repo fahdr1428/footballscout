@@ -2,23 +2,33 @@
 The big five European leagues, from FBref match data joined to Transfermarkt.
 
     Premier League - La Liga - Serie A - Bundesliga - Ligue 1
-    2017/18 -> 2022/23, ~16,000 player-seasons, ~5,700 players
+    2017/18 -> 2025/26 (in progress), ~21,400 complete player-seasons plus a growing 2025/26
 
 WHERE IT COMES FROM
 -------------------
-Three public files, all mirrored in `JaseZiv/worldfootballR_data` (the data
-repository behind the `worldfootballR` R package):
+Four public files, all published by `JaseZiv/worldfootballR_data` (the data
+repository behind the `worldfootballR` R package, whose code was archived in
+September 2025):
 
-* **FBref season stats**, eleven blocks per player - standard, shooting,
-  passing, pass types, goal- and shot-creating actions, defence, possession,
-  playing time, miscellaneous, and two goalkeeping blocks. This is Opta/
-  StatsBomb match data aggregated to a season, and it is the deepest openly
-  available statistical picture of these leagues.
+* **FBref season stats**, up to eleven blocks per player - standard,
+  shooting, passing, pass types, goal- and shot-creating actions, defence,
+  possession, playing time, miscellaneous, and two goalkeeping blocks. Most
+  of these are published as a **GitHub Release asset that keeps updating
+  after the archival** - the repository's own code stopped, but whatever
+  scheduled job refreshes that release evidently did not, and it is current
+  to within the last few days at the time of writing. The archived
+  repository's committed snapshot is used only for the two things the
+  release never carried: goal/shot-creating actions, and the older
+  StatsBomb-era column names for a handful of defensive and possession
+  metrics (see ERA_CUTOVER below).
 * **A curated FBref -> Transfermarkt player mapping**, 15,440 rows of
-  hand-checked URL pairs.
-* **Transfermarkt season squads**, which carry what FBref does not: a real
-  market value in euros for that season, a *specific* position, height,
-  preferred foot and nationality.
+  hand-checked URL pairs. Not part of the release, so it is a snapshot: it
+  still matches roughly 88% of players in the live 2025/26 season by identity
+  (players do not change FBref URLs), just not new debutants since it was
+  last refreshed.
+* **Transfermarkt season squads**, which carry a real market value in euros,
+  a *specific* position, height, preferred foot and nationality - current
+  through 2022/23, after which no further seasons were ever published.
 
 WHY THE JOIN MATTERS
 --------------------
@@ -26,26 +36,39 @@ FBref knows only DF / MF / FW / GK. Transfermarkt knows "Centre-Back",
 "Left-Back", "Defensive Midfield", "Right Winger". Taking the position from
 Transfermarkt means the eight position groups are set by an **independent
 source**, not inferred from the same statistics the models then read - which
-would be circular. 99.9% of player-seasons here carry a Transfermarkt position
-and 98.1% a market value for that exact season.
+would be circular.
 
 That combination is what makes this the closest thing here to a working
-recruitment database: real players, deep performance metrics, and a real
-valuation that moves season by season - Messi's runs 180 -> 150 -> 112 -> 80 ->
-50 million euro across the five seasons, which is what actually happened.
+recruitment database: real players, deep performance metrics, and - for the
+seasons Transfermarkt covers - a real valuation that moves season by season,
+Messi's running 180 -> 150 -> 112 -> 80 -> 50 million euro, which is what
+actually happened.
 
 WHAT IT DOES NOT HAVE
 ---------------------
-It stops at 2022/23. FBref changed data provider from StatsBomb to Opta in
-October 2022, and the upstream repository was archived in September 2025.
-Two consequences, both handled rather than hidden:
+FBref changed data provider from StatsBomb to Opta in October 2022, and
+several metrics simply stopped being published anywhere on the site - not
+just for new seasons, but retroactively, since the release reflects FBref's
+current display rather than an archived one. `ERA_CUTOVER` (season-end 2023)
+is where this module switches from the archived StatsBomb-era snapshot to the
+Opta-era release for the affected blocks, so the deep StatsBomb-only metrics
+- pressures, and the old dribble/carry-progression column names - stay
+available for 2017/18-2021/22 exactly as before, and are honestly reported
+unavailable from 2022/23 on rather than quietly dropped or approximated:
 
-* **Pressures disappear in 2022/23** - Opta does not count them. So do
-  progressive carries and miscontrols under their old definitions.
-* **xA becomes xAG** in 2022/23.
+* **Pressures never come back.** Opta does not publish anything equivalent,
+  in any season, on FBref's site today.
+* **xA becomes xAG** in 2022/23 (the same idea, a different provider) and the
+  two are combined into one `xa` column.
 * **No contract data.** See `attach_identity` - Transfermarkt's contract dates
   are a scrape-time snapshot and cannot be trusted per season, so they are
   dropped rather than shown.
+* **No market value from 2023/24 on** - Transfermarkt values stop where the
+  mapping does.
+* **2025/26 is in progress.** A handful of matches per team so far. It is
+  real, current data - not a placeholder - but pooling it with complete
+  seasons would rank every player in it by a fraction of a season's football.
+  It stays out of `default_seasons` and needs `--seasons` to select.
 
 Columns a season cannot supply are reported unavailable for that season and
 never imputed, so a model fitted on 2022/23 simply has fewer features than one
@@ -65,6 +88,14 @@ import pandas as pd
 
 REPO = "https://github.com/JaseZiv/worldfootballR_data"
 RAW_BASE = "https://raw.githubusercontent.com/JaseZiv/worldfootballR_data/master"
+# The archived repository's code stopped running, but this specific release
+# asset is still being refreshed by something outside the repository's own
+# CI - it currently reaches 2025/26. If it ever freezes, LAST_SEASON below is
+# the one place that needs moving back; nothing else assumes it keeps moving.
+RELEASE_BASE = (
+    "https://github.com/JaseZiv/worldfootballR_data/releases/download/"
+    "fb_big5_advanced_season_stats"
+)
 ATTRIBUTION = (
     "FBref season statistics and Transfermarkt squad records, mirrored by the "
     f"open-source worldfootballR_data repository ({REPO})."
@@ -72,14 +103,55 @@ ATTRIBUTION = (
 
 # Season_End_Year: 2018 is the 2017/18 season. The advanced blocks start there.
 #
-# 2022/23 is deliberately excluded. The upstream snapshot of it stops after
-# about 13 rounds (median 498 minutes against ~1,250 in a full season), and it
-# is also the season FBref switched provider, so it loses pressures and
-# progressive carries. Pooling a third of a season with five whole ones would
-# put every 2022/23 player at the bottom of every volume metric for a reason
-# that has nothing to do with the player. Set `seasons` explicitly to include it.
-FIRST_SEASON, LAST_SEASON = 2018, 2022
-PARTIAL_SEASONS = {2023}
+# 2025/26 is deliberately excluded from the default range - it is real,
+# current data, just a handful of matches deep at the time of writing, and
+# pooling it with complete seasons would rank every player in it by a
+# fraction of a season. Set `seasons` explicitly to include it.
+FIRST_SEASON, LAST_SEASON = 2018, 2025
+PARTIAL_SEASONS = {2026}
+
+# FBref switched its advanced-stats provider from StatsBomb to Opta partway
+# through the 2022/23 season, and the site's own display changed retroactively
+# for every season, not just new ones - the release asset (current-display)
+# uses Opta-era column names throughout, while the archived repository's
+# committed snapshot (frozen before the switch) uses the old StatsBomb-era
+# names. Seasons before this cutover are read from the archived snapshot, so
+# they keep metrics Opta never replaced (pressures, in particular); seasons
+# from it on are read from the release, which is the only place 2023/24
+# onward exists at all.
+ERA_CUTOVER = 2023
+# Blocks that have to be read from BOTH sources and stitched at the cutover,
+# rather than from whichever one covers a season - because the release does
+# not just add seasons, it drops or renames columns these blocks already
+# shipped from the archive. Two kinds of loss, handled the same way:
+#   - a straight rename ("Att_Vs" became "Att_Challenges") is coalesced back
+#     onto the old name via _merge_eras, so RENAMES only has to know one of
+#     them and the metric survives across the cutover unchanged;
+#   - a column with no successor ("Press_Pass", pressure-passing, simply is
+#     not in the release) is left to vanish at the cutover on its own -
+#     _merge_eras does not invent a replacement for it, so it is available
+#     for 2017/18-2021/22 exactly as already shipped, and honestly reported
+#     unavailable from ERA_CUTOVER on.
+# Every other block either matches exactly or only gained columns, so it is
+# read from whichever source actually covers a season and passed straight
+# through with no stitching.
+DUAL_ERA_BLOCKS = {"defense", "possession", "passing_types"}
+# Coalesced column pairs per dual-era block: (old name, new name) -> merged
+# onto the old name, old value preferred where both exist (they should not
+# overlap - the split is by season - but combine_first is the safe default).
+ERA_COALESCE: dict[str, list[tuple[str, str]]] = {
+    "defense": [
+        ("Att_Vs", "Att_Challenges"), ("Tkl_Vs", "Tkl_Challenges"),
+    ],
+    "possession": [
+        ("Att_Dribbles", "Att_Take"), ("Succ_Dribbles", "Succ_Take"),
+        ("Prog_Carries", "PrgC_Carries"), ("Prog_Receiving", "PrgR_Receiving"),
+    ],
+    "passing_types": [],   # only a straight loss (Press_Pass) - nothing to coalesce
+}
+# Published only in the archived snapshot; the release never carried it, so it
+# is unavailable from ERA_CUTOVER on rather than approximated from something else.
+ARCHIVE_ONLY_BLOCKS = {"gca"}
 
 STATS_DIR = "data/fb_big5_advanced_season_stats"
 PLAYER_BLOCKS = [
@@ -227,16 +299,23 @@ PLAYER_KEYS = ["Url", "Season_End_Year"]
 # Fetching
 # ---------------------------------------------------------------------------
 
-def download(path: str, cache: Path, retries: int = 4, backoff: float = 2.0) -> Path:
-    """Fetch one file from the mirror into `cache`, skipping if already there."""
-    target = cache / Path(path).name
+def download(url: str, cache: Path, name: str,
+            retries: int = 4, backoff: float = 2.0) -> Path:
+    """Fetch one file into `cache` under `name`, skipping if already there.
+
+    `name` rather than the URL's own basename, because a release download and
+    an archive download for the same block would otherwise collide on the
+    same filename (both are called e.g. big5_player_defense.rds at source).
+    """
+    target = cache / name
     if target.exists() and target.stat().st_size > 0:
         return target
     cache.mkdir(parents=True, exist_ok=True)
-    url = f"{RAW_BASE}/{path}"
     for attempt in range(retries):
         try:
-            with urllib.request.urlopen(url, timeout=120) as response:
+            # Release downloads are larger and go through a redirect to a
+            # signed storage URL; urllib follows it, just give it more room.
+            with urllib.request.urlopen(url, timeout=180) as response:
                 payload = response.read()
             target.write_bytes(payload)
             return target
@@ -248,16 +327,31 @@ def download(path: str, cache: Path, retries: int = 4, backoff: float = 2.0) -> 
 
 
 def fetch_all(cache: Path, progress=print) -> dict[str, Path]:
-    """Download every file the build needs. About 16 MB in total."""
-    wanted = {f"player_{b}": f"{STATS_DIR}/big5_player_{b}.rds" for b in PLAYER_BLOCKS}
-    wanted.update({f"team_{b}": f"{STATS_DIR}/big5_team_{b}.rds" for b in TEAM_BLOCKS})
-    wanted["mapping"] = MAPPING_PATH
-    wanted["values"] = VALUES_PATH
+    """Download every file the build needs. About 25 MB in total.
+
+    Most player blocks come from the release (fresh through 2025/26). The
+    dual-era blocks are fetched from *both* the release and the archive, so
+    build_dataset can stitch them at ERA_CUTOVER; ARCHIVE_ONLY_BLOCKS and the
+    Transfermarkt files are archive-only, since neither exists in the release.
+    """
+    wanted: dict[str, str] = {}
+    for block in PLAYER_BLOCKS:
+        if block in ARCHIVE_ONLY_BLOCKS:
+            wanted[f"player_{block}"] = f"{RAW_BASE}/{STATS_DIR}/big5_player_{block}.rds"
+        elif block in DUAL_ERA_BLOCKS:
+            wanted[f"player_{block}_archive"] = f"{RAW_BASE}/{STATS_DIR}/big5_player_{block}.rds"
+            wanted[f"player_{block}_release"] = f"{RELEASE_BASE}/big5_player_{block}.rds"
+        else:
+            wanted[f"player_{block}"] = f"{RELEASE_BASE}/big5_player_{block}.rds"
+    for block in TEAM_BLOCKS:
+        wanted[f"team_{block}"] = f"{RELEASE_BASE}/big5_team_{block}.rds"
+    wanted["mapping"] = f"{RAW_BASE}/{MAPPING_PATH}"
+    wanted["values"] = f"{RAW_BASE}/{VALUES_PATH}"
 
     paths = {}
-    for i, (name, path) in enumerate(wanted.items(), 1):
-        progress(f"  [{i:>2}/{len(wanted)}] {Path(path).name}")
-        paths[name] = download(path, cache)
+    for i, (name, url) in enumerate(wanted.items(), 1):
+        progress(f"  [{i:>2}/{len(wanted)}] {name}")
+        paths[name] = download(url, cache, f"{name}{Path(url).suffix}")
     return paths
 
 
@@ -434,11 +528,43 @@ def _team_possession(team_possession: pd.DataFrame, seasons: range) -> pd.DataFr
         (c for c in df.columns if c.startswith("Poss")), None)
     if column is None:
         return pd.DataFrame(columns=["team", "Season_End_Year", "team_possession"])
-    # FBref publishes a row per squad and a mirrored "vs " opponent row; keep the squad.
-    df = df[~df["Squad"].astype(str).str.startswith("vs ")]
+    # FBref publishes a mirrored "possession by this squad's opponents" row
+    # alongside each squad's own. The release marks it with a clean
+    # Team_or_Opponent column; the older archived snapshot instead prefixed
+    # the mirrored row's own Squad name with "vs " - both are handled so this
+    # keeps working whichever source a caller passes in.
+    if "Team_or_Opponent" in df.columns:
+        df = df[df["Team_or_Opponent"].astype(str).str.lower() == "team"]
+    else:
+        df = df[~df["Squad"].astype(str).str.startswith("vs ")]
     out = df[["Squad", "Season_End_Year", column]].rename(
         columns={"Squad": "team", column: "team_possession"})
     return out.drop_duplicates(["team", "Season_End_Year"])
+
+
+def _merge_eras(
+    archive: pd.DataFrame, release: pd.DataFrame, coalesce: list[tuple[str, str]],
+) -> pd.DataFrame:
+    """Stitch a dual-era block: the archive below ERA_CUTOVER, the release from it.
+
+    Each source is trusted only for the seasons it is authoritative for - the
+    archive is a frozen StatsBomb-era snapshot, so used past its cutover it
+    would either be missing seasons entirely or (for playing-time-style
+    columns that exist in both) silently stale relative to the release. After
+    concatenating, `coalesce` pairs of (old name, new name) are merged onto
+    the old name, so a single rename at the source (e.g. "Att_Vs" becoming
+    "Att_Challenges") does not fragment one metric into two columns that
+    RENAMES only half recognises.
+    """
+    old = archive[archive["Season_End_Year"].astype(int) < ERA_CUTOVER].copy()
+    new = release[release["Season_End_Year"].astype(int) >= ERA_CUTOVER].copy()
+    merged = pd.concat([old, new], ignore_index=True, sort=False)
+    for old_name, new_name in coalesce:
+        if old_name in merged.columns and new_name in merged.columns:
+            merged[old_name] = merged[old_name].combine_first(merged[new_name])
+        elif new_name in merged.columns:
+            merged[old_name] = merged[new_name]
+    return merged
 
 
 def build_dataset(cache: Path, seasons: range | None = None,
@@ -449,7 +575,14 @@ def build_dataset(cache: Path, seasons: range | None = None,
     paths = fetch_all(cache, progress=progress)
 
     progress("reading FBref blocks")
-    blocks = {name: read_rds(paths[f"player_{name}"]) for name in PLAYER_BLOCKS}
+    blocks: dict[str, pd.DataFrame] = {}
+    for block in PLAYER_BLOCKS:
+        if block in DUAL_ERA_BLOCKS:
+            archive = read_rds(paths[f"player_{block}_archive"])
+            release = read_rds(paths[f"player_{block}_release"])
+            blocks[block] = _merge_eras(archive, release, ERA_COALESCE.get(block, []))
+        else:
+            blocks[block] = read_rds(paths[f"player_{block}"])
 
     players = _identity(blocks["standard"], seasons)
     for block in PLAYER_BLOCKS:
@@ -458,13 +591,22 @@ def build_dataset(cache: Path, seasons: range | None = None,
         players = players.merge(tidy[new], on=KEYS, how="left")
 
     # xA (StatsBomb era) and xAG (Opta era) are the same idea from two providers.
-    passing = _raw_block(blocks["passing"], seasons, ["xA", "xAG"])
+    passing = _raw_block(blocks["passing"], seasons, ["xA", "xAG", "PrgP"])
     players = players.merge(passing, on=KEYS, how="left")
     players["xa"] = players["xA"].combine_first(players["xAG"])
     players["xa_definition"] = np.where(
         players["xA"].notna(), "xA (StatsBomb)",
         np.where(players["xAG"].notna(), "xAG (Opta)", None))
-    players = players.drop(columns=["xA", "xAG"])
+    # FBref relabelled progressive passes the same way mid-release: RENAMES
+    # already turned the old "Prog" header into `progressive_passes` above,
+    # which covers seasons through 2021/22; "PrgP" is the newer header for
+    # the same metric, populated from 2022/23, fetched raw here since RENAMES
+    # only recognises one name per column and would otherwise fragment one
+    # metric into two.
+    players["progressive_passes"] = players["progressive_passes"].combine_first(
+        players["PrgP"]
+    )
+    players = players.drop(columns=["xA", "xAG", "PrgP"])
 
     # The Opta era renamed two possession columns; take whichever season has one.
     possession = _raw_block(blocks["possession"], seasons,

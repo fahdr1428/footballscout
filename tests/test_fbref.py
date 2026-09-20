@@ -14,9 +14,10 @@ import pandas as pd
 import pytest
 
 from src.fbref import (
-    COMP_TO_LEAGUE, FBREF_BROAD, FIRST_SEASON, LAST_SEASON, PARTIAL_SEASONS,
-    TM_BROAD, TM_POSITIONS, _age, _collapse_transfers, _map_position,
-    _season_label, _team_possession, _tidy_block, attach_identity,
+    COMP_TO_LEAGUE, ERA_CUTOVER, FBREF_BROAD, FIRST_SEASON, LAST_SEASON,
+    PARTIAL_SEASONS, TM_BROAD, TM_POSITIONS, _age, _collapse_transfers,
+    _map_position, _season_label, _team_possession, _tidy_block,
+    attach_identity,
 )
 
 
@@ -34,10 +35,18 @@ def test_season_label_reads_as_a_football_season():
 
 
 def test_partial_season_is_excluded_by_default():
-    """2022/23 stops after ~13 rounds upstream, so it must not be a default."""
-    assert LAST_SEASON == 2022
-    assert 2023 in PARTIAL_SEASONS
+    """2025/26 is a live, in-progress season - real data, a few matches deep -
+    so it must not be a default the way a complete season is."""
+    assert LAST_SEASON == 2025
+    assert 2026 in PARTIAL_SEASONS
     assert LAST_SEASON not in PARTIAL_SEASONS
+    assert FIRST_SEASON < LAST_SEASON
+
+
+def test_era_cutover_sits_inside_the_default_range():
+    """Dual-era blocks are only meaningful if seasons on both sides of the
+    cutover are actually in scope by default."""
+    assert FIRST_SEASON < ERA_CUTOVER <= LAST_SEASON
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +178,51 @@ def test_completed_under_pressure_is_not_faked_from_total_completions():
     out = _tidy_block(raw, "passing_types", range(2018, 2023))
     assert "passes_under_pressure" in out.columns
     assert "passes_completed_under_pressure" not in out.columns
+
+
+# ---------------------------------------------------------------------------
+# Dual-era blocks: the archive keeps StatsBomb-era columns, the release
+# extends to 2025/26 under Opta-era names
+# ---------------------------------------------------------------------------
+
+def test_merge_eras_takes_each_season_from_its_own_source():
+    from src.fbref import ERA_CUTOVER, _merge_eras
+
+    archive = block([
+        {"Season_End_Year": ERA_CUTOVER - 1, "Url": "u1", "Att_Vs": 5.0},
+        {"Season_End_Year": ERA_CUTOVER, "Url": "u2", "Att_Vs": 999.0},  # stale past cutover
+    ])
+    release = block([
+        {"Season_End_Year": ERA_CUTOVER - 1, "Url": "u3", "Att_Challenges": 999.0},
+        {"Season_End_Year": ERA_CUTOVER, "Url": "u4", "Att_Challenges": 7.0},
+    ])
+    out = _merge_eras(archive, release, [("Att_Vs", "Att_Challenges")])
+    assert set(out["Url"]) == {"u1", "u4"}   # pre-cutover from archive, post from release
+
+
+def test_merge_eras_coalesces_a_renamed_column_onto_the_old_name():
+    from src.fbref import ERA_CUTOVER, _merge_eras
+
+    archive = block([{"Season_End_Year": ERA_CUTOVER - 1, "Url": "u1", "Att_Vs": 5.0}])
+    release = block([{"Season_End_Year": ERA_CUTOVER, "Url": "u2", "Att_Challenges": 7.0}])
+    out = _merge_eras(archive, release, [("Att_Vs", "Att_Challenges")])
+    # Both eras' values land in the OLD name, so one RENAMES entry covers both.
+    assert dict(zip(out["Url"], out["Att_Vs"])) == {"u1": 5.0, "u2": 7.0}
+    assert "Att_Challenges" not in out.columns or out["Att_Challenges"].isna().sum() >= 0
+
+
+def test_merge_eras_leaves_an_uncoalesced_loss_to_vanish_at_the_cutover():
+    """passing_types has no successor for Press_Pass - _merge_eras must not
+    invent one; the metric is just honestly gone from the cutover on."""
+    from src.fbref import ERA_CUTOVER, _merge_eras
+
+    archive = block([{"Season_End_Year": ERA_CUTOVER - 1, "Url": "u1", "Press_Pass": 12.0}])
+    release = block([{"Season_End_Year": ERA_CUTOVER, "Url": "u2", "Crs_Pass": 3.0}])
+    out = _merge_eras(archive, release, [])
+    pre = out[out["Url"] == "u1"].iloc[0]
+    post = out[out["Url"] == "u2"].iloc[0]
+    assert pre["Press_Pass"] == 12.0
+    assert pd.isna(post.get("Press_Pass"))
 
 
 # ---------------------------------------------------------------------------

@@ -16,10 +16,13 @@ not reachable from a sandboxed CI container or from Claude Code's cloud
 environment, where the egress proxy answers 403 to the CONNECT; run it on your
 own machine.
 
-In exchange it is the only path to the **current** season with full FBref depth:
-progressive passes and carries, shot- and goal-creating actions, defensive
-actions by third, touches by zone - the 44-metric set the bundled big-five
-dataset has for 2017/18-2021/22, but for 2024/25 and 2025/26 as they are played.
+The bundled big-five dataset now reaches a live 2025/26 too, via a GitHub
+Release asset (see `src/fbref.py`), but FBref's own October 2022 provider
+switch dropped pressures and the shot/goal-creating-action type breakdown
+from its site display for every season from 2022/23 on - not just from that
+mirror. This script is the fallback if that release asset ever stops being
+refreshed, and the place to check, on a machine that can reach fbref.com,
+whether a metric the release lost is still actually on the live pages.
 
 WHAT IT WRITES
 --------------

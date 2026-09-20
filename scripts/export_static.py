@@ -141,21 +141,29 @@ def export(platform, season: str) -> dict:
     }
 
 
-# What the public site ships. Three datasets rather than one, because they
+# What the public site ships. Four datasets rather than one, because they
 # answer different questions and no single source answers both: the Premier
-# League file is the only complete 2025/26 anywhere reachable, the six-league
-# file is the widest recent view, and the big-five file is by far the deepest -
-# 44 metrics and ten detailed positions against the others' four buckets.
+# League file is a complete current season, the six-league file is the
+# widest recent view, the big-five file is by far the deepest - 44 metrics
+# and ten detailed positions against the others' four buckets - and the
+# fourth is that same depth on the live, still-being-played season, which
+# is why it carries its own, lower minutes floor: a live season a few
+# matches deep will never clear the 900-minute bar the completed ones do.
 BUNDLE = [
     ("premier_league", "2025-26", "Premier League 2025/26",
-     "The current season, complete. One league, and a summary feed: no "
-     "progressive passes, no duels, no pass completion."),
+     "The current season. One league, and a summary feed: no "
+     "progressive passes, no duels, no pass completion.", None),
     ("understat_big6", "2024-25", "Six leagues 2024/25",
      "The widest recent view - big five plus Russia. xG, xA, xGChain and "
-     "xGBuildup only: no defending at all, and goalkeepers have no model."),
-    ("fbref_big5", "2021-22", "Big five 2021/22",
-     "The deepest by far - 44 metrics, ten specific positions, real market "
-     "values. Four seasons out of date."),
+     "xGBuildup only: no defending at all, and goalkeepers have no model.", None),
+    ("fbref_big5", "2024-25", "Big five 2024/25",
+     "The deepest by far - 44 metrics, ten specific positions - though "
+     "pressures, shot/goal-creating-action detail and market value stopped "
+     "in 2022/23 when FBref changed data provider.", None),
+    ("fbref_big5", "2025-26", "Big five 2025/26 (live)",
+     "The same depth, on the season being played right now. Early: totals "
+     "are a handful of matches, not a season, and a low-sample metric is "
+     "noisier than the same metric in May.", 180),
 ]
 
 
@@ -201,12 +209,13 @@ def main() -> int:
         for spec in args.datasets:
             source, _, season = spec.partition(":")
             label = f"{DATA_SOURCES[source].label} {season}" if source in DATA_SOURCES else spec
-            wanted.append((source, season, label, ""))
+            wanted.append((source, season, label, "", None))
 
     bundle, order = {}, []
-    for source, season, label, blurb in wanted:
-        print(f"building {source} {season} …")
-        payload = build_one(source, season, args.min_minutes)
+    for source, season, label, blurb, minutes_override in wanted:
+        minutes = args.min_minutes if minutes_override is None else minutes_override
+        print(f"building {source} {season} (min {minutes} minutes) …")
+        payload = build_one(source, season, minutes)
         if payload is None:
             print(f"  skipped: no players in {season} for {source}")
             continue

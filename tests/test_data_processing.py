@@ -66,11 +66,17 @@ def test_cleaning_is_idempotent(cleaned):
     assert report.invalid_minutes == 0
 
 
-def test_a_stat_a_season_never_measured_stays_missing(cleaned):
-    """Zero-filling an unmeasured metric would claim the player never did it."""
+def test_a_stat_missing_in_one_season_is_partial_not_unavailable(cleaned):
+    """Zero-filling an unmeasured metric would claim the player never did it.
+
+    Blanking exactly one season out of several is the case a real source hits
+    often - a metric it starts (or stops) counting partway through its run.
+    That is "not reliable in 2016-17", not "this source does not have
+    tackles": the other seasons still do, so it belongs in `partial`, not the
+    flat `unavailable` list that means every season lacks it.
+    """
     clean, report = cleaned
     frame = clean.copy()
-    # Blank one metric for a single season, as a summary feed that added it later.
     season = sorted(frame["season"].unique())[0]
     frame.loc[frame["season"] == season, "tackles"] = np.nan
     cleaned_again, again = clean_players(frame)
@@ -78,4 +84,61 @@ def test_a_stat_a_season_never_measured_stays_missing(cleaned):
     kept = cleaned_again[cleaned_again["season"] != season]
     assert blanked["tackles"].isna().all()          # left missing in that season
     assert kept["tackles"].notna().all()            # still measured in the others
+    assert "tackles" not in again.unavailable_columns
+    assert again.partial_columns.get("tackles") == [season]
+
+
+def test_a_stat_missing_in_every_season_is_unavailable(cleaned):
+    """The flat `unavailable` list is for a column no season measures at all."""
+    clean, report = cleaned
+    frame = clean.copy()
+    frame["tackles"] = np.nan
+    _, again = clean_players(frame)
     assert "tackles" in again.unavailable_columns
+    assert "tackles" not in again.partial_columns
+
+
+def test_an_optional_metric_missing_a_whole_season_is_partial_not_imputed(cleaned):
+    """A provider switch must not get papered over by a cross-era median.
+
+    `pressures` is imputed from a positional per-90 median when a player is
+    missing it - real behaviour for scattered gaps. But FBref's Opta cutover
+    blanked it for entire seasons at once; imputing those from the surviving
+    seasons' median would hand every player that season a fabricated
+    pressures count instead of reporting the loss.
+    """
+    clean, report = cleaned
+    frame = clean.copy()
+    season = sorted(frame["season"].unique())[0]
+    frame.loc[frame["season"] == season, "pressures"] = np.nan
+    cleaned_again, again = clean_players(frame)
+    blanked = cleaned_again[cleaned_again["season"] == season]
+    kept = cleaned_again[cleaned_again["season"] != season]
+    assert blanked["pressures"].isna().all()         # left missing, not imputed
+    assert kept["pressures"].notna().all()            # still measured in the others
+    assert "pressures" not in again.unavailable_columns
+    assert again.partial_columns.get("pressures") == [season]
+
+
+def test_a_stat_below_the_coverage_floor_is_partial_not_zero_filled(cleaned):
+    """~75% coverage in a season is a scrape or join gap, not real zeros.
+
+    The old rule only caught a column once it was *entirely* null for a
+    season; this is the case that motivated raising the bar - most players
+    measured, some genuinely not, and the gap must not read as a fabricated
+    zero for the ones who are missing.
+    """
+    clean, report = cleaned
+    frame = clean.copy()
+    season = sorted(frame["season"].unique())[0]
+    rows = frame.index[frame["season"] == season]
+    # Blank three-quarters of that season's rows for one metric - well under
+    # the 90% floor, well above zero.
+    gap = rows[: int(len(rows) * 0.75)]
+    frame.loc[gap, "tackles"] = np.nan
+    _, again = clean_players(frame)
+    assert again.partial_columns.get("tackles") == [season]
+    kept = frame.loc[rows.difference(gap)]
+    # The players who WERE measured keep their real values - nothing about
+    # the season being flagged partial should touch rows that have data.
+    assert kept["tackles"].notna().all()

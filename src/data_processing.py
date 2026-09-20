@@ -53,6 +53,13 @@ CONSISTENCY_PAIRS = [
     ("carries_into_final_third", "progressive_carries"),
 ]
 
+# A count column has to be measured for at least this share of a season's
+# players before its gaps are read as "this did not happen" and zero-filled.
+# Below it, the gaps are more likely a scrape or join hole than genuine zeros,
+# and are left missing instead - see the fillna(0) loop below for the case
+# that motivated this floor.
+SEASON_COVERAGE_FLOOR = 0.90
+
 # Advanced metrics that are genuinely optional in real feeds.
 OPTIONAL_METRICS = [
     "xa", "xg", "npxg", "gk_psxg", "sca", "gca", "pressures", "pressures_successful",
@@ -75,6 +82,13 @@ class CleaningReport:
     consistency_fixes: int = 0
     imputed: dict[str, int] = field(default_factory=dict)
     unavailable: list[str] = field(default_factory=list)
+    # Columns that ARE supplied, just not reliably enough in specific seasons
+    # to zero-fill their gaps - column -> the season labels below the floor.
+    # Kept separate from `unavailable` (never supplied, any season) because
+    # "not supplied" and "not supplied for 2024-25" are different claims, and
+    # a source with eight good seasons and one thin one should not be reported
+    # as though it lacked the metric altogether.
+    partial: dict[str, list[str]] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
     source: str = ""
 
@@ -98,11 +112,20 @@ class CleaningReport:
                 ("Columns this source does not supply (left missing, never zero-filled)",
                  f"{len(unavailable):,}")
             )
+        if self.partial:
+            rows.append(
+                ("Columns unreliable in specific seasons (left missing there, not zero-filled)",
+                 f"{len(self.partial):,}")
+            )
         return rows
 
     @property
     def unavailable_columns(self) -> list[str]:
         return sorted(set(self.unavailable))
+
+    @property
+    def partial_columns(self) -> dict[str, list[str]]:
+        return {column: sorted(set(seasons)) for column, seasons in self.partial.items()}
 
 
 # --------------------------------------------------------------------------
@@ -311,20 +334,50 @@ def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
     # Goalkeeping columns only apply to goalkeepers; they stay NaN for
     # outfielders so that "no value" is never confused with "zero".
     gk_mask = df["position_group"].eq("GK")
+    # Same per-season coverage floor as the counting stats below, applied to
+    # imputation rather than zero-fill. A *global* median would paper over a
+    # provider switch exactly like FBref's Opta cutover, which took
+    # "pressures" from ~99% covered to a flat 0% for three straight seasons:
+    # imputing those seasons from the pre-cutover median would hand every
+    # 2022/23-on player a fabricated pressures count that reads as real data.
+    # Only gaps in a season that clears the floor get the per-90
+    # positional-median treatment, computed from that reliable data alone; a
+    # season with no real signal is left missing and reported as partial (or
+    # unavailable if no season ever clears the floor), never guessed at from
+    # a different era.
+    seasons = df["season"] if "season" in df.columns else pd.Series("all", index=df.index)
+    season_groups = df.groupby(seasons, observed=True).groups
     for column in OPTIONAL_METRICS:
         if column not in df.columns:
             continue
         applicable = gk_mask if column.startswith("gk_") else pd.Series(True, index=df.index)
-        gaps = applicable & df[column].isna()
-        if not gaps.any():
-            continue
-        if df.loc[applicable, column].isna().all():
+        reliable_scope: list[pd.Index] = []
+        thin_seasons = []
+        for season, block in season_groups.items():
+            rows = df.index.intersection(block)
+            scope = rows[applicable.loc[rows]]
+            if len(scope) == 0:
+                continue
+            if df.loc[scope, column].notna().mean() >= SEASON_COVERAGE_FLOOR:
+                reliable_scope.append(scope)
+            else:
+                thin_seasons.append(str(season))
+        if not reliable_scope:
+            # Not reliably measured in any season - genuinely unsupplied.
             report.unavailable.append(column)
             continue
-        per90 = df[column] / df["minutes"] * 90
-        median_per90 = per90.groupby(df["position_group"]).transform("median").fillna(0.0)
-        df.loc[gaps, column] = (median_per90 * df["minutes"] / 90)[gaps]
-        report.imputed[column] = int(gaps.sum())
+        reliable_index = reliable_scope[0].append(reliable_scope[1:])
+        if thin_seasons:
+            report.partial.setdefault(column, []).extend(thin_seasons)
+        gaps = reliable_index[df.loc[reliable_index, column].isna()]
+        if len(gaps) == 0:
+            continue
+        per90 = df.loc[reliable_index, column] / df.loc[reliable_index, "minutes"] * 90
+        median_per90 = per90.groupby(
+            df.loc[reliable_index, "position_group"]
+        ).transform("median").fillna(0.0)
+        df.loc[gaps, column] = (median_per90 * df.loc[reliable_index, "minutes"] / 90).loc[gaps]
+        report.imputed[column] = int(len(gaps))
 
     # Remaining counting stats are genuinely zero-or-absent events - except any
     # column the source does not publish at all, which stays missing so the
@@ -336,18 +389,52 @@ def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
     # began counting tackles in 2025/26 - so the test is applied season by
     # season: a column absent for a whole season stays missing there, and is
     # zero-filled in the seasons that do measure it.
-    seasons = df["season"] if "season" in df.columns else pd.Series("all", index=df.index)
+    # A season/column combination can be mostly measured and still not fully -
+    # FBref's defense, possession and misc blocks cover only ~75% of players in
+    # 2024/25 (they stop being scraped part-way through, well before the whole
+    # column goes empty in 2025/26). The old rule only caught a column once it
+    # was *entirely* null for a season, so that 75% would have zero-filled the
+    # other quarter: a real defender reading as zero tackles for a whole season
+    # because his row happened to miss one block's join, not because he made
+    # none. A coverage floor catches that case while still zero-filling the
+    # ordinary ~95% baseline noise every source carries.
+    #
+    # Two passes: first measure every (column, season) pair, then decide what
+    # to report. A column below the floor in every season is genuinely
+    # unavailable; one below the floor in only some seasons is available, just
+    # not everywhere - reported separately so a source with eight good
+    # seasons and one thin one is never described as lacking the metric.
+    # (`seasons`/`season_groups` were already computed above, for the same
+    # floor applied to OPTIONAL_METRICS imputation.)
     for column in count_cols:
         applicable = gk_mask if column.startswith("gk_") else pd.Series(True, index=df.index)
-        for season, block in df.groupby(seasons, observed=True).groups.items():
+        coverage_by_season: dict[str, tuple[pd.Index, float]] = {}
+        for season, block in season_groups.items():
             rows = df.index.intersection(block)
             scope = rows[applicable.loc[rows]]
             if len(scope) == 0:
                 continue
-            if df.loc[scope, column].isna().all():
-                report.unavailable.append(column)
-            else:
-                df.loc[scope, column] = df.loc[scope, column].fillna(0)
+            coverage_by_season[str(season)] = (
+                scope, df.loc[scope, column].notna().mean()
+            )
+        if not coverage_by_season:
+            continue
+
+        reliable = {s: sc for s, (sc, cov) in coverage_by_season.items()
+                   if cov >= SEASON_COVERAGE_FLOOR}
+        if not reliable:
+            # Not reliably measured in any season - genuinely unsupplied,
+            # whether that means a hard 0% or scattered noise below the floor
+            # everywhere. Real values, if any, are left in place; nothing is
+            # zero-filled.
+            report.unavailable.append(column)
+            continue
+
+        thin_seasons = sorted(s for s in coverage_by_season if s not in reliable)
+        if thin_seasons:
+            report.partial.setdefault(column, []).extend(thin_seasons)
+        for scope in reliable.values():
+            df.loc[scope, column] = df.loc[scope, column].fillna(0)
     # Goalkeeping columns never apply to outfielders.
     df.loc[~gk_mask, [c for c in count_cols if c.startswith("gk_")]] = np.nan
 

@@ -243,6 +243,8 @@ def sidebar_filters(default_minutes: int | None = None) -> ScoutingPlatform:
                 f"{DATA_SOURCES[platform.source].label} instead.",
                 icon="⚠️",
             )
+        for message in pool_consistency_warnings(platform, seasons):
+            st.warning(message, icon="⚠️")
         spec = platform.spec
         tone = "good" if platform.is_real else "warn"
         st.markdown(
@@ -279,6 +281,48 @@ AGE_MISSING_NOTE = (
     "Age is not published in this dataset, so age filters, the age-upside score component "
     "and the age columns are switched off."
 )
+
+
+def pool_consistency_warnings(platform, seasons) -> list[str]:
+    """Say so when the selected seasons do not measure the same things.
+
+    Every percentile and similarity is computed across the whole pool, so a
+    pool whose seasons disagree about what was counted compares players on
+    different evidence: a season with no defending block has its gaps filled
+    with the pool median inside the models.
+    """
+    chosen = set(seasons)
+    if len(chosen) < 2:
+        return []
+    messages = []
+    mixed = sorted(
+        column for column, thin in platform.cleaning.partial_columns.items()
+        if 0 < len(set(thin) & chosen) < len(chosen)
+    )
+    if mixed:
+        thin_seasons = sorted({s for c in mixed for s in platform.cleaning.partial_columns[c]} & chosen)
+        shown = ", ".join(METRIC_LABELS.get(c, c).lower() for c in mixed[:5])
+        more = f" and {len(mixed) - 5} more" if len(mixed) > 5 else ""
+        messages.append(
+            f"**These seasons do not measure the same things.** {shown}{more} are missing in "
+            f"{', '.join(thin_seasons)} but present in the others, so players from "
+            f"{'that season' if len(thin_seasons) == 1 else 'those seasons'} are compared on "
+            "the pool median for them. Pick seasons that measure the same columns for a clean "
+            "comparison - the data quality report on the Home page lists them."
+        )
+    if platform.source == "fbref_big5":
+        from .fbref import ERA_CUTOVER, _season_label
+
+        cutover = _season_label(ERA_CUTOVER)
+        if any(s < cutover for s in chosen) and any(s >= cutover for s in chosen):
+            messages.append(
+                f"**This pool straddles FBref's change of data provider** ({cutover}). "
+                "StatsBomb and Opta define interceptions and carries differently enough - a "
+                "median of 1.45 against 0.80 interceptions per 90 - that the older seasons "
+                "would sit at the top of those rankings for a reason that has nothing to do "
+                "with the players."
+            )
+    return messages
 
 
 def age_slider(platform, label: str = "Age", default=(15.0, 40.0), key: str | None = None):

@@ -16,7 +16,7 @@ import pytest
 from src.fbref import (
     COMP_TO_LEAGUE, ERA_CUTOVER, FBREF_BROAD, FIRST_SEASON, LAST_SEASON,
     PARTIAL_SEASONS, TM_BROAD, TM_POSITIONS, _age, _carry_identity, _collapse_transfers,
-    _map_position, _season_label, _team_possession, _tidy_block,
+    _drop_stale_seasons, _map_position, _season_label, _team_possession, _tidy_block,
     attach_identity,
 )
 
@@ -359,3 +359,26 @@ def test_every_competition_maps_to_a_known_league():
 
     for league in COMP_TO_LEAGUE.values():
         assert league in LEAGUE_STRENGTH
+
+
+def test_a_block_frozen_part_way_through_a_season_is_dropped_for_it():
+    """Defence froze eight rounds into 2024/25 while minutes kept going: eight
+    rounds of tackles over a season of minutes read five times too low. A
+    block that does not cover a season in full must not be used for it."""
+    standard = block([
+        {"Url": "u1", "Squad": "A", "Season_End_Year": 2024, "Mins_Per_90_Playing": 30.0},
+        {"Url": "u2", "Squad": "A", "Season_End_Year": 2024, "Mins_Per_90_Playing": 20.0},
+        {"Url": "u1", "Squad": "A", "Season_End_Year": 2025, "Mins_Per_90_Playing": 30.0},
+        {"Url": "u2", "Squad": "A", "Season_End_Year": 2025, "Mins_Per_90_Playing": 20.0},
+    ])
+    defense = block([
+        {"Url": "u1", "Squad": "A", "Season_End_Year": 2024, "Mins_Per_90": 30.0, "Tkl_Tackles": 45},
+        {"Url": "u2", "Squad": "A", "Season_End_Year": 2024, "Mins_Per_90": 20.0, "Tkl_Tackles": 30},
+        {"Url": "u1", "Squad": "A", "Season_End_Year": 2025, "Mins_Per_90": 7.0, "Tkl_Tackles": 10},
+        {"Url": "u2", "Squad": "A", "Season_End_Year": 2025, "Mins_Per_90": 4.0, "Tkl_Tackles": 6},
+    ])
+    stale: dict = {}
+    kept = _drop_stale_seasons(defense, standard, "defense", stale)
+    assert set(kept["Season_End_Year"]) == {2024}
+    assert list(stale["defense"]) == ["2024-25"]
+    assert stale["defense"]["2024-25"] == pytest.approx(11 / 50, abs=0.01)

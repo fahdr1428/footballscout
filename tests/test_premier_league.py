@@ -7,7 +7,8 @@ import pandas as pd
 import pytest
 
 from src.premier_league import (
-    ELEMENT_TYPE_TO_GROUP, UNDERSTAT_TO_DETAIL, normalise_name, season_start_year,
+    ELEMENT_TYPE_TO_GROUP, UNDERSTAT_COVERAGE_FLOOR, UNDERSTAT_TO_DETAIL, normalise_name,
+    season_start_year, understat_coverage,
 )
 
 
@@ -70,3 +71,17 @@ def test_minutes_with_no_appearances_are_not_invented(tmp_path):
         season / "merged_gw.csv", index=False
     )
     assert appearances_from_gameweeks(tmp_path, "2025-26").empty
+
+
+def test_a_season_understat_stopped_early_is_detected():
+    """The 2024/25 Understat logs end on 6 April 2025 while FPL minutes run to
+    May: shots over a partial season divided by a full season's minutes would
+    understate every per-90 by the missing share."""
+    data = pd.DataFrame({
+        "season_year": [2023, 2023, 2024, 2024],
+        "minutes": [3000.0, 1500.0, 3371.0, 1800.0],
+        "us_minutes": [3000.0, 1490.0, 2766.0, 1480.0],
+    })
+    coverage = understat_coverage(data)
+    assert coverage[2023] >= UNDERSTAT_COVERAGE_FLOOR
+    assert coverage[2024] < UNDERSTAT_COVERAGE_FLOOR

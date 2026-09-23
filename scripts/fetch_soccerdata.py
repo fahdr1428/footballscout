@@ -16,13 +16,12 @@ not reachable from a sandboxed CI container or from Claude Code's cloud
 environment, where the egress proxy answers 403 to the CONNECT; run it on your
 own machine.
 
-The bundled big-five dataset now reaches a live 2025/26 too, via a GitHub
-Release asset (see `src/fbref.py`), but FBref's own October 2022 provider
-switch dropped pressures and the shot/goal-creating-action type breakdown
-from its site display for every season from 2022/23 on - not just from that
-mirror. This script is the fallback if that release asset ever stops being
-refreshed, and the place to check, on a machine that can reach fbref.com,
-whether a metric the release lost is still actually on the live pages.
+It is the only path to the **current** season with full FBref depth. The
+bundled big-five dataset reads a mirror that froze in stages - defending,
+possession and goalkeeping in October 2024, shooting and passing in September
+2025 - so its latest season with every block is 2023/24. Pressures and the
+shot/goal-creating-action type breakdown are gone from FBref's own display for
+every season from 2022/23 on, so this script cannot bring those back either.
 
 WHAT IT WRITES
 --------------

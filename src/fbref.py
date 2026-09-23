@@ -2,7 +2,7 @@
 The big five European leagues, from FBref match data joined to Transfermarkt.
 
     Premier League - La Liga - Serie A - Bundesliga - Ligue 1
-    2017/18 -> 2025/26 (in progress), ~21,400 complete player-seasons plus a growing 2025/26
+    2017/18 -> 2024/25, ~21,400 player-seasons, plus 2025/26's opening weeks
 
 WHERE IT COMES FROM
 -------------------
@@ -13,17 +13,21 @@ September 2025):
 * **FBref season stats**, up to eleven blocks per player - standard,
   shooting, passing, pass types, goal- and shot-creating actions, defence,
   possession, playing time, miscellaneous, and two goalkeeping blocks. Most
-  of these are published as a **GitHub Release asset that keeps updating
-  after the archival** - the repository's own code stopped, but whatever
-  scheduled job refreshes that release evidently did not, and it is current
-  to within the last few days at the time of writing. The archived
-  repository's committed snapshot is used only for the two things the
-  release never carried: goal/shot-creating actions, and the older
-  StatsBomb-era column names for a handful of defensive and possession
-  metrics (see ERA_CUTOVER below).
+  of these are published as a **GitHub Release asset**, which reaches
+  further than the repository's committed snapshot - but it is frozen too,
+  and not on one date. Standard, shooting, passing, pass types and playing
+  time were last written on 18 September 2025 (all of 2024/25, about five
+  rounds of 2025/26); defence, possession, misc, both goalkeeping blocks
+  and the team blocks on 17 October 2024 (all of 2023/24, eight rounds of
+  2024/25). `_drop_stale_seasons` detects that from the data and drops any
+  season a block does not cover in full. The archived repository's
+  committed snapshot is used only for the two things the release never
+  carried: goal/shot-creating actions, and the older StatsBomb-era column
+  names for a handful of defensive and possession metrics (see
+  ERA_CUTOVER below).
 * **A curated FBref -> Transfermarkt player mapping**, 15,440 rows of
   hand-checked URL pairs. Not part of the release, so it is a snapshot: it
-  still matches roughly 88% of players in the live 2025/26 season by identity
+  still matches roughly 88% of players in 2025/26's opening weeks by identity
   (players do not change FBref URLs), just not new debutants since it was
   last refreshed.
 * **Transfermarkt season squads**, which carry a real market value in euros,
@@ -65,14 +69,19 @@ unavailable from 2022/23 on rather than quietly dropped or approximated:
   dropped rather than shown.
 * **No market value from 2023/24 on** - Transfermarkt values stop where the
   mapping does.
-* **2025/26 is in progress.** A handful of matches per team so far. It is
-  real, current data - not a placeholder - but pooling it with complete
-  seasons would rank every player in it by a fraction of a season's football.
-  It stays out of `default_seasons` and needs `--seasons` to select.
+* **2025/26 is a fragment.** The mirror stopped about five rounds in, on 18
+  September 2025, and the season has since finished without it. Real data,
+  but a few matches per player - pooling it with complete seasons would rank
+  everyone in it on a fraction of a season. It stays out of
+  `default_seasons` and needs `--seasons` to select.
+* **2024/25 is thinner than the seasons before it.** The blocks that froze
+  in October 2024 are dropped for it outright, so it has shooting, passing,
+  pass types and playing time, but no defending, possession, misc or
+  goalkeeping block. The most recent season with every block is 2023/24.
 
 Columns a season cannot supply are reported unavailable for that season and
 never imputed, so a model fitted on 2022/23 simply has fewer features than one
-fitted on 2021/22. For the current season, use the Premier League source.
+fitted on 2021/22. For a complete 2025/26, use the Premier League source.
 """
 
 from __future__ import annotations
@@ -88,10 +97,9 @@ import pandas as pd
 
 REPO = "https://github.com/JaseZiv/worldfootballR_data"
 RAW_BASE = "https://raw.githubusercontent.com/JaseZiv/worldfootballR_data/master"
-# The archived repository's code stopped running, but this specific release
-# asset is still being refreshed by something outside the repository's own
-# CI - it currently reaches 2025/26. If it ever freezes, LAST_SEASON below is
-# the one place that needs moving back; nothing else assumes it keeps moving.
+# The release asset reaches further than the archived repository's committed
+# snapshot, but it stopped too - see STALE_BLOCK_RATIO for why "the release
+# has 2024/25" is not the same as "every block has all of 2024/25".
 RELEASE_BASE = (
     "https://github.com/JaseZiv/worldfootballR_data/releases/download/"
     "fb_big5_advanced_season_stats"
@@ -103,10 +111,10 @@ ATTRIBUTION = (
 
 # Season_End_Year: 2018 is the 2017/18 season. The advanced blocks start there.
 #
-# 2025/26 is deliberately excluded from the default range - it is real,
-# current data, just a handful of matches deep at the time of writing, and
-# pooling it with complete seasons would rank every player in it by a
-# fraction of a season. Set `seasons` explicitly to include it.
+# 2025/26 is deliberately excluded from the default range - it is real data,
+# but the mirror stopped about five rounds in, and pooling it with complete
+# seasons would rank every player in it by a fraction of a season. Set
+# `seasons` explicitly to include it.
 FIRST_SEASON, LAST_SEASON = 2018, 2025
 PARTIAL_SEASONS = {2026}
 
@@ -576,6 +584,81 @@ def _team_possession(team_possession: pd.DataFrame, seasons: range) -> pd.DataFr
     return out.drop_duplicates(["team", "Season_End_Year"])
 
 
+# The mirror's blocks did not all stop on the same day. Shooting, passing and
+# the standard block (which carries minutes) ran to September 2025; defence,
+# possession, misc, both goalkeeping blocks and the team blocks stopped on 17
+# October 2024, eight rounds into 2024/25. Joined naively, a 2024/25 row paired
+# eight rounds of tackles with a whole season of minutes, so every such per-90
+# read five to six times too low - a defender making 1.5 tackles a game showed
+# 0.27. The archive's 2022/23 snapshot has the same problem for the goal- and
+# shot-creation block (a third of the season).
+#
+# Rather than hard-coding those dates, each block is checked against the
+# standard block using the minutes it carries itself: a block whose playing
+# time for a season falls materially short of the standard block's is stale for
+# that season and is dropped for it, whole. What remains is a season measured
+# in full or not at all - never a fraction dressed as a rate. If the mirror is
+# ever refreshed, the check passes and the season comes back on its own.
+STALE_BLOCK_RATIO = 0.95
+BLOCK_MINUTES = {"standard": "Mins_Per_90_Playing", "playing_time": "Mins_Per_90_Playing.Time"}
+
+
+def _block_coverage(block: pd.DataFrame, standard: pd.DataFrame, minutes: str) -> pd.Series:
+    """Per season: the block's playing time over the standard block's, same players."""
+    keys = ["Url", "Squad", "Season_End_Year"]
+    ref = standard[keys + ["Mins_Per_90_Playing"]].copy()
+    other = block[keys + [minutes]].drop_duplicates(keys).copy()
+    for frame in (ref, other):
+        frame["Season_End_Year"] = frame["Season_End_Year"].astype(int)
+    ref["_ref"] = pd.to_numeric(ref.pop("Mins_Per_90_Playing"), errors="coerce")
+    other["_own"] = pd.to_numeric(other.pop(minutes), errors="coerce")
+    both = ref.merge(other, on=keys, how="inner")
+    sums = both.groupby("Season_End_Year")[["_own", "_ref"]].sum()
+    return (sums["_own"] / sums["_ref"].where(sums["_ref"] > 0)).dropna()
+
+
+def _drop_stale_seasons(block: pd.DataFrame, standard: pd.DataFrame, name: str,
+                        stale: dict) -> pd.DataFrame:
+    """Remove every season this block does not cover in full; record which."""
+    minutes = BLOCK_MINUTES.get(name, "Mins_Per_90")
+    if minutes not in block.columns or name == "standard":
+        return block
+    coverage = _block_coverage(block, standard, minutes)
+    bad = coverage[coverage < STALE_BLOCK_RATIO]
+    if bad.empty:
+        return block
+    stale[name] = {_season_label(int(s)): round(float(r), 3) for s, r in bad.items()}
+    return block[~block["Season_End_Year"].astype(int).isin(bad.index)]
+
+
+def _drop_stale_team_seasons(team: pd.DataFrame, standard: pd.DataFrame,
+                             stale: dict) -> pd.DataFrame:
+    """The same test for a team block: its matches against its players' minutes.
+
+    Eleven players are on the pitch, so a squad's summed player 90s divided by
+    eleven is how many matches it has played in the standard block.
+    """
+    if "Mins_Per_90" not in team.columns:
+        return team
+    own = team.copy()
+    own["Season_End_Year"] = own["Season_End_Year"].astype(int)
+    if "Team_or_Opponent" in own.columns:
+        own = own[own["Team_or_Opponent"].astype(str).str.lower() == "team"]
+    else:
+        own = own[~own["Squad"].astype(str).str.startswith("vs ")]
+    played = own.groupby("Season_End_Year")["Mins_Per_90"].apply(
+        lambda s: pd.to_numeric(s, errors="coerce").sum())
+    ref = standard.assign(Season_End_Year=standard["Season_End_Year"].astype(int))
+    implied = ref.groupby("Season_End_Year")["Mins_Per_90_Playing"].apply(
+        lambda s: pd.to_numeric(s, errors="coerce").sum()) / 11
+    ratio = (played / implied.reindex(played.index)).dropna()
+    bad = ratio[ratio < STALE_BLOCK_RATIO]
+    if bad.empty:
+        return team
+    stale["team_possession"] = {_season_label(int(s)): round(float(r), 3) for s, r in bad.items()}
+    return team[~team["Season_End_Year"].astype(int).isin(bad.index)]
+
+
 def _merge_eras(
     archive: pd.DataFrame, release: pd.DataFrame, coalesce: list[tuple[str, str]],
 ) -> pd.DataFrame:
@@ -617,6 +700,14 @@ def build_dataset(cache: Path, seasons: range | None = None,
             blocks[block] = _merge_eras(archive, release, ERA_COALESCE.get(block, []))
         else:
             blocks[block] = read_rds(paths[f"player_{block}"])
+
+    progress("checking every block covers each season in full")
+    stale: dict[str, dict[str, float]] = {}
+    for block in PLAYER_BLOCKS:
+        blocks[block] = _drop_stale_seasons(blocks[block], blocks["standard"], block, stale)
+    for name, seasons_lost in stale.items():
+        progress(f"  {name}: dropped " + ", ".join(
+            f"{s} ({r:.0%} of the season)" for s, r in seasons_lost.items()))
 
     players = _identity(blocks["standard"], seasons)
     for block in PLAYER_BLOCKS:
@@ -666,7 +757,9 @@ def build_dataset(cache: Path, seasons: range | None = None,
     players["player_id"] = players["Url"].str.extract(r"/players/([0-9a-f]+)/")[0]
     players["gender"] = "male"
 
-    team_possession = _team_possession(read_rds(paths["team_possession"]), seasons)
+    team_raw = _drop_stale_team_seasons(read_rds(paths["team_possession"]),
+                                        blocks["standard"], stale)
+    team_possession = _team_possession(team_raw, seasons)
     players = players.merge(team_possession, on=["team", "Season_End_Year"], how="left")
 
     players = players.drop(columns=["Url", "UrlTmarkt", "Season_End_Year",
@@ -681,6 +774,7 @@ def build_dataset(cache: Path, seasons: range | None = None,
     players = players[ordered + rest].sort_values(
         ["season", "league", "team", "player"]).reset_index(drop=True)
 
+    coverage["stale_blocks"] = stale
     coverage["player_seasons"] = len(players)
     coverage["players"] = int(players["player_id"].nunique())
     return players, coverage

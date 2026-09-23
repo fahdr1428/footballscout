@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-Build the big-five-leagues dataset (2017/18 - 2024/25, plus an opt-in live
-2025/26) from public season data.
+Build the big-five-leagues dataset (2017/18 - 2024/25, plus an opt-in 2025/26
+fragment) from public season data.
 
-    python scripts/fetch_fbref.py                     # download + build, 2017/18-2024/25
-    python scripts/fetch_fbref.py --cache /tmp/fbref  # reuse a download
+    python scripts/fetch_fbref.py                      # download + build, 2017/18-2024/25
+    python scripts/fetch_fbref.py --cache /tmp/fbref   # reuse a download
     python scripts/fetch_fbref.py --seasons 2020 2021 2022
-    python scripts/fetch_fbref.py --seasons 2018 2026  # include the live season
+    python scripts/fetch_fbref.py --seasons 2018 2026  # add 2025/26's first ~5 rounds
 
 Sources, all mirrored by https://github.com/JaseZiv/worldfootballR_data: FBref
-season statistics (eleven blocks per player, read from the archived
-repository tree for 2017/18-2022/23 and from that project's still-refreshed
-GitHub Release for 2022/23 onward), a curated FBref -> Transfermarkt player
-mapping, and Transfermarkt season squad records for the market value,
-position, height, foot and nationality (through 2022/23 only).
+season statistics (eleven blocks per player, from the repository's committed
+files for the StatsBomb era and its GitHub Release asset for 2022/23 on), a
+curated FBref -> Transfermarkt player mapping, and Transfermarkt season squad
+records for market value, position, height, foot and nationality (through
+2022/23 only).
+
+The mirror froze in stages - some blocks in October 2024, the rest in
+September 2025 - so the build checks every block's own minutes against the
+standard block's and drops any season a block does not cover in full. The
+blocks it drops are printed.
 
 About 25 MB is downloaded once and cached, so re-runs are fast.
 """

@@ -280,6 +280,16 @@ def load_understat(repo: Path) -> pd.DataFrame:
     return frame
 
 
+UNDERSTAT_COVERAGE_FLOOR = 0.95
+
+
+def understat_coverage(data: pd.DataFrame) -> dict[int, float]:
+    """Per season: Understat's minutes over FPL's, for the players matched in both."""
+    matched = data[data["us_minutes"].notna() & (data["minutes"] > 0)]
+    sums = matched.groupby("season_year")[["us_minutes", "minutes"]].sum()
+    return (sums["us_minutes"] / sums["minutes"]).round(3).to_dict()
+
+
 # --------------------------------------------------------------------------
 # Assembly
 # --------------------------------------------------------------------------
@@ -346,6 +356,20 @@ def build_dataset(
             f"  Understat matched on {matched[played].mean():.0%} of player-seasons "
             f"above 900 minutes ({matched.mean():.0%} of all registered players)"
         )
+        # The Understat logs were captured part-way through some seasons - the
+        # 2024/25 files stop on 6 April 2025, seven gameweeks short - while FPL
+        # minutes run to the last day. Dividing a partial season's shots by a
+        # whole season's minutes understates every Understat per-90 by the
+        # missing share, so a season whose Understat minutes fall short of
+        # FPL's is not used for Understat's numbers at all. FPL's own xG and xA,
+        # where the season has them, fill in; the rest is honestly missing.
+        for season_year, ratio in understat_coverage(data).items():
+            if ratio >= UNDERSTAT_COVERAGE_FLOOR:
+                continue
+            stats = [c for c in data.columns if c.startswith("us_")]
+            data.loc[data["season_year"] == season_year, stats] = np.nan
+            progress(f"  {season_year}-{str(season_year + 1)[-2:]}: Understat covers only "
+                     f"{ratio:.0%} of the season's minutes - its numbers are not used")
         for target in list(UNDERSTAT_DIRECT.values()) + ["xa", "xg"]:
             column = f"us_{target}"
             if column not in data.columns:

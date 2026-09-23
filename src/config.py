@@ -48,12 +48,14 @@ VALIDATION_REPORT = MODELS_DIR / "validation_report.md"
 # Ten groups, and the split between them is measured rather than assumed.
 # `scripts/position_separability.py` trains a cross-validated classifier to tell
 # each candidate pair apart on their own model features, scored by balanced
-# accuracy so 0.50 is a coin flip whatever the class imbalance. Two splits earn
-# their place - a second striker is not an attacking midfielder (0.81) and a
-# wide midfielder is not a winger (0.76) - against controls at 0.96 and 0.98.
-# Two do not: left-back against right-back reads 0.62 and left against right
-# wing 0.60, because they are the same job mirrored. So side is carried as a
-# filter (see FLANKS) instead of halving those peer groups for no information.
+# accuracy so 0.50 is a coin flip whatever the class imbalance. On FBref's
+# 2017/18-2021/22 seasons a second striker is not an attacking midfielder
+# (0.79) and a wide midfielder is borderline against a winger (0.74), against
+# controls at 0.95 and 0.97; on the thinner Opta-era data both pairs read
+# borderline (0.72, 0.69) - weaker evidence, not a reversal. Left-back against
+# right-back reads 0.58-0.62 and left against right wing 0.59, because they are
+# the same job mirrored. So side is carried as a filter (see FLANKS) instead of
+# halving those peer groups for no information.
 DETAILED_GROUPS = ["GK", "CB", "FB", "DM", "CM", "AM", "SS", "WM", "W", "FW"]
 BUCKET_GROUPS = ["GK", "DEF", "MID", "FWD"]
 POSITION_GROUPS = DETAILED_GROUPS + ["DEF", "MID", "FWD"]
@@ -1118,75 +1120,81 @@ DATA_SOURCES: dict[str, DataSource] = {
     ),
     "fbref_big5": DataSource(
         key="fbref_big5",
-        label="Big five leagues 2017/18-2025/26 (FBref + Transfermarkt)",
+        label="Big five leagues 2017/18-2024/25 (FBref + Transfermarkt)",
         path=FBREF_BIG5_CSV,
         kind="real",
         summary=(
-            "23,000+ player-seasons and 7,400+ players across the Premier League, La Liga, "
-            "Serie A, Bundesliga and Ligue 1, with full match-data metrics, a true position "
-            "and (through 2022/23) a market value in euros. The deepest and widest dataset "
-            "here, the only one that supports all ten position groups, and the only one that "
-            "reaches into a live, still-in-progress 2025/26 season."
+            "21,400 player-seasons and 7,200 players across the Premier League, La Liga, "
+            "Serie A, Bundesliga and Ligue 1, 2017/18 to 2024/25, with full match-data "
+            "metrics and a true position - plus the opening five rounds of 2025/26. The "
+            "deepest and widest dataset here, and the only one that supports all ten "
+            "position groups."
         ),
         attribution=(
             "FBref season statistics and Transfermarkt squad records, mirrored by the "
             "open-source worldfootballR_data repository "
-            "(https://github.com/JaseZiv/worldfootballR_data) and, from 2022/23 onward, by "
-            "that project's own GitHub Release asset, which is still refreshed after the "
-            "source repository itself was archived."
+            "(https://github.com/JaseZiv/worldfootballR_data), through its committed files "
+            "and its GitHub Release asset."
         ),
         caveats=(
-            "**Positions come from Transfermarkt, not from the statistics.** 98.3% of "
+            "**Positions come from Transfermarkt, not from the statistics.** 98% of "
             "player-seasons carry a specific position - centre-back, left-back, defensive "
             "midfield - taken from an independent source and joined through a curated "
             "URL mapping, so grouping players by position is not circular.",
-            "**Ten position groups, kept on historical evidence that current data can no "
-            "longer fully reproduce.** On the 2017/18-2021/22 seasons, a classifier tells a "
-            "second striker from an attacking midfielder at 0.81 balanced accuracy and a wide "
-            "midfielder from a winger at 0.76 - comfortably different jobs. FBref's October "
-            "2022 change of data provider dropped the shot- and goal-creating-action breakdown "
-            "and the pressures-by-pitch-third columns that drove much of that separation; "
-            "measured on the three seasons this source opens on (2022/23-2024/25), the same "
-            "two pairs read a **borderline** 0.69 and 0.71 - not the coin flip that would argue "
-            "for merging them, but no longer a clean proof either. Left-back against right-back "
-            "and left wing against right wing stay near 0.50-0.60 throughout, so side remains a "
-            "**filter** rather than a separate group. Run it yourself with "
-            "`python scripts/position_separability.py --seasons 2018 2019 2020 2021 2022` "
-            "against the historical evidence, or with no arguments against the current pool.",
-            "**Market values are real but stop at 2022/23.** 94.9% of player-seasons in "
+            "**Opens on 2022/23 and 2023/24 - the latest seasons with every block complete.** "
+            "The mirror froze on two dates: shooting, passing and minutes ran to September "
+            "2025, but defending, possession, misc and goalkeeping stopped eight rounds into "
+            "2024/25. A season a block does not cover in full is dropped for that block rather "
+            "than divided by a full season's minutes, so 2024/25 has shooting and passing but "
+            "no defending or goalkeeping, and pooling it would put imputed defending into a "
+            "third of every similarity score. Select it on its own to read what it has.",
+            "**Ten position groups, on evidence that has weakened.** Over 2017/18-2021/22 a "
+            "classifier tells a second striker from an attacking midfielder at 0.79 balanced "
+            "accuracy - different jobs - and a wide midfielder from a winger at 0.74, just "
+            "under the 0.75 bar. FBref's October 2022 change of data provider removed the shot- "
+            "and goal-creating-action and pressures columns that did much of that work; on "
+            "2022/23-2023/24 the same pairs read 0.72 and 0.69, borderline rather than a coin "
+            "flip. The groups stay split; in a pool too small to rank second strikers against "
+            "each other they fold into attacking midfield and the app says so. Left-back "
+            "against right-back and left wing against right wing read 0.58-0.62 throughout, "
+            "so side is a **filter**, not a group. Run it yourself with "
+            "`python scripts/position_separability.py --seasons 2017-18 2018-19 2019-20 "
+            "2020-21 2021-22`.",
+            "**Market values are real but stop at 2022/23.** 95% of player-seasons in "
             "2017/18-2022/23 carry one (Messi runs 180 -> 150 -> 112 -> 80 -> 50 million euro "
-            "across five of them). The Transfermarkt mirror this source reads was archived in "
-            "September 2025 without ever being extended past that season, so 2023/24 onward "
-            "has none - 'undervalued' only means anything on seasons through 2022/23.",
+            "across five of them). The Transfermarkt mirror this source reads was never "
+            "extended past that season, so 2023/24 onward has none.",
+            "**Age, foot and height outlive the valuations.** They describe the person, so "
+            "a value recorded in any of a player's seasons is carried to his others; age "
+            "otherwise comes from his birth year. Nothing is filled with a positional average.",
             "**No contract data.** Transfermarkt records contract expiry as at the time the "
-            "page was read, so every one of Harry Kane's seasons through 2022/23 reads the "
-            "same date. A contract filter is exactly what a recruitment tool gets used for, "
-            "which is why a wrong one is worse than none - the columns are dropped rather "
-            "than shown.",
-            "**FBref's provider switch cost more than the taxonomy evidence.** Pressures, the "
-            "shot/goal-creating-action type breakdown, and several zone-by-zone touch, tackle "
-            "and carry splits stop at 2022/23 with no successor; the app reports each one as "
-            "'not reliably measured' for the seasons it lost rather than reading a real zero "
-            "into it. See the data quality report on the Home page for the full list.",
-            "**2025/26 is live and growing.** It updates as the season is played, so its row "
-            "count and every per-90 rate in it move between builds. It is excluded from the "
-            "default three-season pool because almost no one has yet cleared the default "
-            "900-minute floor - select it explicitly in the sidebar to see it.",
+            "page was read, so every one of Harry Kane's seasons reads the same date. A "
+            "contract filter is exactly what a recruitment tool gets used for, which is why a "
+            "wrong one is worse than none - the columns are dropped rather than shown.",
+            "**FBref's provider switch cost more than the taxonomy evidence.** Pressures and "
+            "the shot/goal-creating-action breakdown stop at 2021/22 with no successor; the "
+            "app reports each as 'not reliably measured' for the seasons it lost rather than "
+            "reading a zero into it. See the data quality report on the Home page.",
+            "**2025/26 is a fragment.** The mirror stopped on 18 September 2025, about five "
+            "rounds in, and never resumed. Real data, but a few matches per player: select it "
+            "explicitly and lower the minutes floor to read it. For a complete 2025/26, use "
+            "the Premier League source.",
             "Players who moved mid-season are one row: totals summed, club and league of "
             "record taken from wherever they played the most minutes.",
         ),
         missing=("npxg_open_play", "npxg_set_piece", "passes_completed_under_pressure",
                  "xg_chain", "xg_buildup", "influence", "creativity", "threat", "bps", "ict",
                  "xgc", "cbi", "defensive_contribution", "clean_sheets"),
-        # Three seasons, not one. A single season leaves only ~20 second
-        # strikers and ~20 wide midfielders in the pool - too few to rank
-        # against, so both would fold back into attacking midfield and the
-        # wingers. Three gives every one of the ten groups its own peer set and
-        # a much bigger pool, which is also how a scout reads recent form. The
-        # most recent three COMPLETE seasons - 2025/26 is real and selectable,
-        # but this early in the season almost nothing clears the default
-        # 900-minute floor, so defaulting to it would just show an empty pool.
-        default_seasons=("2022-23", "2023-24", "2024-25"),
+        # The two most recent seasons measured in full by every block, on one
+        # data provider. 2024/25 lost its defending and goalkeeping blocks
+        # (frozen eight rounds in), so adding it would put imputed defending
+        # into a third of every peer set; anything before 2022/23 is StatsBomb
+        # data, whose interceptions and carries are defined differently enough
+        # (median 1.45 vs 0.80 per 90) that pooling across the switch would
+        # rank the older season first on them. Two seasons are too few second
+        # strikers to rank against each other, so they fold into attacking
+        # midfield - reported as such - rather than the pool being padded.
+        default_seasons=("2022-23", "2023-24"),
         taxonomy="detailed",
     ),
     "premier_league": DataSource(
@@ -1212,8 +1220,10 @@ DATA_SOURCES: dict[str, DataSource] = {
             "statistics the models then read would be circular.",
             "Tackles, recoveries and clearances-blocks-interceptions exist only from 2025/26, "
             "when the game began scoring them. Shots, key passes and xGChain come from Understat "
-            "and stop after 2024/25. Select one season in the sidebar to model on everything "
-            "that season carries.",
+            "and stop after 2023/24: the mirror's 2024/25 logs end on 6 April 2025, seven "
+            "gameweeks short, so that season uses FPL's own xG and xA and carries no shots "
+            "rather than a partial season divided by a full one. Select one season in the "
+            "sidebar to model on everything that season carries.",
             "**Price is the fantasy game's own valuation**, set by its operator and moved by "
             "transfers in and out. It is a popularity and perceived-value signal, not a transfer "
             "fee or a wage.",

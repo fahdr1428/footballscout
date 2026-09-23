@@ -137,6 +137,14 @@ renamed a column across the switch, the two are stitched onto one name rather th
 half-populated columns. The Transfermarkt files were never extended past 2022/23 by either side,
 so position and market value stop there.
 
+**Age, height and foot do not stop there**, because they describe the person rather than the
+season: a date of birth, preferred foot or (adult) height recorded in any of a player's seasons is
+carried to his others, nearest season first and never from another player. Where Transfermarkt
+never saw a player at all, age comes from FBref's birth year - right to within six months - and
+height and foot are left unknown rather than filled with a positional average. FBref's own `Age`
+column is not used: it reads "25" in some seasons and "25-081" (years-days) in others, which once
+left two whole seasons with no real ages at all.
+
 #### Why the join matters
 
 FBref records position as `DF`, `MF`, `FW` or `GK`. Transfermarkt records "Centre-Back",
@@ -410,9 +418,10 @@ st.markdown(
 | Duplicate player-season | Keep the row with the most minutes |
 | Minutes ≤ 0 or > 3,420 | **Row dropped** - a bad minutes value corrupts every per-90 rate |
 | Negative counting stat | Row dropped |
-| Height outside 150-215 cm, age outside 15-45 | Set to missing, then imputed with the positional median |
+| Height outside 150-215 cm, age outside 15-45 | Set to missing - and left missing |
+| A player with no recorded age or height | **Never imputed.** Age and height describe a person, not a season, and no model reads them; a positional median would only put a made-up 26.3 into an age filter or a made-up height on a profile. An untouched age range keeps him; a narrowed one (say, under 23) leaves him out, because his age cannot be confirmed |
 | Successes > attempts | Clipped to the attempts |
-| Missing advanced metric (xA, xG, PSxG, SCA...) | Imputed at the positional median **per 90**, rescaled to that player's minutes |
+| Missing advanced metric (xA, xG, PSxG, SCA...) | Imputed at the positional median **per 90**, rescaled to that player's minutes - but only inside a season that measured the metric for at least 90% of its players, with the median taken from those seasons alone. A season that lost the metric outright (pressures after FBref's 2022 provider switch) stays missing rather than inheriting another era's average |
 | Goalkeeping columns for outfielders | Left as missing, never zero |
 | A column the source never supplies (age, height, PSxG) | **Not imputed at all** - reported as unavailable, and the features and controls that depend on it are switched off |
 | A counting stat a **season** never measured | Left missing for that season and zero-filled only in the seasons that do measure it. "Made no tackles" and "tackles were not counted" are different claims |
@@ -600,13 +609,18 @@ fit = Σ_c (weight_c ÷ 100) × category_percentile_c
 ```
 
 A fit of 78 means: weighted across the things you said matter, this player sits at the 78th
-percentile of his positional peers.
+percentile of his positional peers. A category his season did not measure at all counts as the
+50th percentile - deliberately neutral. Dropping it instead would rank him only on the categories
+he does have, so a player with no defending data could top a shortlist you weighted towards
+defending.
 
 **Hidden gem score** - the weighted mean of five 0-100 components: performance (weighted
 positional percentiles), age upside (100 at 19, 0 at 27), low exposure (inverse league-strength
 coefficient), statistical uniqueness (percentile of mean distance to the 15 nearest peers) and
-sample size (minutes ÷ 1,800, capped). **It is not a valuation** - there is no fee, wage or
-contract data in this dataset, so nothing here can say a player is cheap.
+sample size (minutes ÷ 1,800, capped). The mean is taken per player over the components he
+actually has: a player with no recorded age is scored on the other four rather than as though he
+had earned zero for age. **It is not a valuation** - there is no fee, wage or contract data in
+this dataset, so nothing here can say a player is cheap.
 """
 )
 

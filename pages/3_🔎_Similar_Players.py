@@ -9,7 +9,7 @@ from src.config import LEAGUE_STRENGTH, LEAGUE_TIER
 from src.pipeline import format_metric
 from src.similarity import explanation_sentences
 from src.ui import (
-    add_to_watchlist, age_slider, chart, eyebrow, note, page_setup, player_header,
+    add_to_watchlist, age_mask, age_slider, chart, eyebrow, note, page_setup, player_header,
     player_selector, sidebar_filters, similarity_table, watchlist_sidebar,
 )
 from src.visualisation import contribution_chart, radar_chart
@@ -74,7 +74,7 @@ with filters[2]:
 
 candidates = pd.Series(True, index=pool.index)
 if max_age is not None:
-    candidates &= pool["age"].between(*max_age)
+    candidates &= age_mask(pool["age"], max_age)
 candidates &= pool["minutes"] >= min_minutes
 if lower_leagues_only:
     reference_strength = LEAGUE_STRENGTH.get(row["league"], 1.0)
@@ -136,7 +136,7 @@ if other is not None:
     with header[0]:
         st.metric("Similarity", f"{similarity:.1f}%")
     with header[1]:
-        if platform.has_age:
+        if platform.has_age and pd.notna(row["age"]) and pd.notna(other_row["age"]):
             st.metric("Age gap", f"{other_row['age'] - row['age']:+.1f} years")
         else:
             st.metric("Minutes", f"{other_row['minutes']:,.0f}", f"{other_row['minutes'] - row['minutes']:+,.0f}")

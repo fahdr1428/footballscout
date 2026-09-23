@@ -312,24 +312,31 @@ def clean_players(df: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
     report.consistency_fixes = fixes
 
     # 7. Imputation --------------------------------------------------------
-    # Physical attributes: positional median. Rate-like season totals: the
-    # positional median *per 90*, rescaled to the player's own minutes.
+    # Age and height are never imputed. They are facts about a person, not
+    # measurements of a season, and no model reads them as a feature - they
+    # only feed filters, the hidden-gem age term and the "younger version of"
+    # search, which is exactly where a positional median does damage: it
+    # would tell an age filter that an unknown player is 26.3, or put
+    # "183 cm" on a profile as if someone had measured him. Unknown stays
+    # unknown, and every consumer treats it as such.
     for column in ["height_cm", "age"]:
         if column not in df.columns:
             continue
         if df[column].isna().all():
             # The source cannot supply this at all (StatsBomb publishes no birth
-            # dates). Leave it missing rather than inventing a value; the app
-            # switches off the features that depend on it.
+            # dates); the app switches off the features that depend on it.
             report.unavailable.append(column)
             continue
-        if df[column].isna().any():
-            missing = int(df[column].isna().sum())
-            df[column] = df.groupby("position_group")[column].transform(
-                lambda s: s.fillna(s.median())
+        missing = int(df[column].isna().sum())
+        if missing:
+            report.notes.append(
+                f"{missing:,} player-seasons have no recorded {column.replace('_cm', '')} "
+                "and are left without one rather than given a positional average; an "
+                "age or height filter excludes them instead of guessing."
             )
-            df[column] = df[column].fillna(df[column].median())
-            report.imputed[column] = missing
+
+    # Rate-like season totals: the positional median *per 90*, rescaled to the
+    # player's own minutes, within seasons that measured them (below).
 
     # Goalkeeping columns only apply to goalkeepers; they stay NaN for
     # outfielders so that "no value" is never confused with "zero".
@@ -538,6 +545,37 @@ def filter_pool(
     if position_groups:
         pool = pool[pool["position_group"].isin(position_groups)]
     if age_range and "age" in pool.columns and pool["age"].notna().any():
-        low, high = age_range
-        pool = pool[pool["age"].between(low, high)]
+        pool = pool[age_mask(pool["age"], age_range)]
     return pool.reset_index(drop=True)
+
+
+class AgeRange(tuple):
+    """An (low, high) age range that knows whether it actually narrows anything.
+
+    Still a plain tuple to every caller that unpacks it; the flag only matters
+    to `age_mask`.
+    """
+
+    active: bool
+
+    def __new__(cls, low: float, high: float, active: bool = True):
+        obj = super().__new__(cls, (low, high))
+        obj.active = active
+        return obj
+
+
+def age_mask(ages: pd.Series, age_range) -> pd.Series:
+    """Rows whose age is inside the range.
+
+    A player with no recorded age can never be *confirmed* to be inside a
+    narrowed range, so he is left out of "under 23" - but while the range is
+    untouched it filters nothing, and nobody should vanish from a list just
+    because a source did not publish his birth date. A plain tuple counts as
+    narrowed; an `AgeRange` says for itself.
+    """
+    if age_range is None:
+        return pd.Series(True, index=ages.index)
+    inside = ages.between(*age_range)
+    if getattr(age_range, "active", True):
+        return inside
+    return inside | ages.isna()

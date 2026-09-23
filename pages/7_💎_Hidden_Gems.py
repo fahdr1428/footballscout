@@ -10,7 +10,7 @@ from src.recruitment import (
     DEFAULT_GEM_WEIGHTS, GEM_AGE_CEILING, GEM_AGE_FLOOR, GEM_MINUTES_FULL, hidden_gem_scores,
 )
 from src.reporting import generate_report
-from src.ui import age_slider, chart, default_axis, eyebrow, note, page_setup, sidebar_filters, tiles
+from src.ui import age_mask, age_slider, chart, default_axis, eyebrow, note, page_setup, sidebar_filters, tiles
 from src.visualisation import component_bar, radar_chart, scatter
 
 page_setup("Hidden Gems", "💎")
@@ -97,7 +97,7 @@ scores = hidden_gem_scores(
 candidates = pool.join(scores)
 candidates = candidates[candidates["minutes"] >= min_minutes]
 if age_range is not None:
-    candidates = candidates[candidates["age"].between(*age_range)]
+    candidates = candidates[age_mask(candidates["age"], age_range)]
 if groups:
     candidates = candidates[candidates["position_group"].isin(groups)]
 if max_tier == "Level 2 and below":

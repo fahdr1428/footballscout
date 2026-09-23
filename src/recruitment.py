@@ -29,6 +29,7 @@ import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 
 from .config import DEFAULT_WEIGHTS, LEAGUE_STRENGTH, METRIC_LABELS
+from .data_processing import age_mask
 
 OPERATORS = {
     ">=": lambda s, v: s >= v,
@@ -95,7 +96,7 @@ def apply_brief(pool: pd.DataFrame, brief: RecruitmentBrief) -> pd.Series:
     """Boolean mask of players who satisfy every hard filter in the brief."""
     mask = pool["position_group"].eq(brief.position_group) & pool["minutes"].ge(brief.min_minutes)
     if "age" in pool.columns and pool["age"].notna().any():
-        mask &= pool["age"].between(*brief.age_range)
+        mask &= age_mask(pool["age"], brief.age_range)
     if brief.leagues:
         mask &= pool["league"].isin(brief.leagues)
     if brief.seasons:
@@ -346,14 +347,18 @@ def hidden_gem_scores(
         columns["Value for money"] = value_for_money(performance, pool["price_m"])
 
     components = pd.DataFrame(columns)
-    total = sum(weights.get(c, 0) for c in components.columns)
-    if total <= 0:
-        total = 1.0
-    weighted = pd.DataFrame(
-        {c: components[c] * weights.get(c, 0) / total for c in components.columns}
-    )
+    # Renormalise per player, over the components *he* has. A column-level
+    # renormalisation is not enough once a component is missing for some
+    # players only - an unknown age, a player with no valuation - because
+    # summing past the gap and dividing by the full weight total scores that
+    # player as though he had earned zero on it, which is a penalty for a
+    # hole in the data rather than anything about him.
+    w = pd.Series({c: float(weights.get(c, 0)) for c in components.columns})
+    present = components.notna()
+    weighted_sum = components.fillna(0).mul(w, axis=1).sum(axis=1)
+    weight_used = present.mul(w, axis=1).sum(axis=1)
     out = components.round(1)
-    out["hidden_gem_score"] = weighted.sum(axis=1).round(1)
+    out["hidden_gem_score"] = (weighted_sum / weight_used.where(weight_used > 0)).round(1)
     return out
 
 

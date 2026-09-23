@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.clustering import choose_k, elbow_k
 from src.recruitment import (
@@ -183,6 +184,35 @@ def test_platform_reports_what_its_source_cannot_supply(features, cleaned):
     )
     assert "Age upside" not in scores.columns
     assert scores["hidden_gem_score"].dropna().between(0, 100).all()
+
+
+def test_a_player_with_no_recorded_age_is_not_scored_as_if_he_were_old(platform):
+    """Missing is not zero.
+
+    Summing past a missing component and dividing by the full weight total
+    scores a player with no recorded age as though he had earned nothing on
+    age upside - a penalty for a hole in the data. The score must renormalise
+    over the components each player actually has.
+    """
+    from src.recruitment import hidden_gem_scores
+
+    z = {g: m.z for g, m in platform.models.items()}
+    base = hidden_gem_scores(platform.pool, platform.categories, z)
+    pool = platform.pool.copy()
+    target = pool.index[0]
+    pool.loc[target, "age"] = np.nan
+    blanked = hidden_gem_scores(pool, platform.categories, z)
+
+    assert pd.isna(blanked.loc[target, "Age upside"])
+    row = blanked.loc[target]
+    others = [c for c in blanked.columns
+              if c not in {"hidden_gem_score", "Age upside"} and pd.notna(row[c])]
+    from src.recruitment import DEFAULT_GEM_WEIGHTS as W
+    expected = sum(row[c] * W.get(c, 0) for c in others) / sum(W.get(c, 0) for c in others)
+    assert blanked.loc[target, "hidden_gem_score"] == pytest.approx(expected, abs=0.1)
+    # Everyone else is untouched.
+    rest = pool.index.drop(target)
+    assert (blanked.loc[rest, "hidden_gem_score"] == base.loc[rest, "hidden_gem_score"]).all()
 
 
 def test_features_missing_for_a_position_are_dropped_not_imputed(features, cleaned):

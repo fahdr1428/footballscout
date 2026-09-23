@@ -228,11 +228,12 @@ if index is not None:
     if same_league_only:
         candidates &= pool["league"] == league
     if platform.has_age:
-        age_cap = st.slider(
-            "Maximum age", float(pool["age"].min()), float(pool["age"].max()),
-            float(pool["age"].max()), 0.5,
-        )
-        candidates &= pool["age"] <= age_cap
+        oldest = float(pool["age"].max())
+        age_cap = st.slider("Maximum age", float(pool["age"].min()), oldest, oldest, 0.5)
+        # At the top of the range the cap filters nothing, so a player with no
+        # recorded age stays in; below it, only a confirmed age can pass.
+        if age_cap < oldest:
+            candidates &= pool["age"] <= age_cap
 
     results = platform.replacements(
         index, n=int(count), similarity_weight=similarity_weight, candidate_mask=candidates

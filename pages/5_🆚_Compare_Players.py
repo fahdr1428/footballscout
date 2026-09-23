@@ -69,7 +69,7 @@ st.markdown("## Basic information")
 def _profile_fields(index, row) -> list[tuple[str, str]]:
     fields = []
     if platform.has_age:
-        fields.append(("Age", f"{row['age']:.1f}"))
+        fields.append(("Age", f"{row['age']:.1f}" if pd.notna(row["age"]) else "not recorded"))
     if "nationality" in row.index and pd.notna(row.get("nationality")):
         fields.append(("Nationality", str(row["nationality"])))
     fields += [

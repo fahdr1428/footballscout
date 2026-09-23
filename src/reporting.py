@@ -145,7 +145,8 @@ def generate_report(
         _table(
             [
                 ["Name", str(row["player"])],
-                *([["Age", f"{row['age']:.1f}"]] if platform.has_age else []),
+                *([["Age", f"{row['age']:.1f}" if pd.notna(row["age"]) else "not recorded"]]
+                  if platform.has_age else []),
                 *([["Nationality", str(row["nationality"])]]
                   if "nationality" in row.index and pd.notna(row.get("nationality")) else []),
                 ["Position", f"{row['position']} ({POSITION_GROUP_NAMES[group]})"],
@@ -221,7 +222,7 @@ def generate_report(
                     [
                         f"{r['player']}",
                         f"{r['similarity']:.0f}%",
-                        f"{r['age']:.1f}",
+                        f"{r['age']:.1f}" if pd.notna(r["age"]) else "-",
                         str(r["team"]),
                         str(r["league"]),
                         f"{r['minutes']:,.0f}",

@@ -142,3 +142,36 @@ def test_a_stat_below_the_coverage_floor_is_partial_not_zero_filled(cleaned):
     # The players who WERE measured keep their real values - nothing about
     # the season being flagged partial should touch rows that have data.
     assert kept["tackles"].notna().all()
+
+
+def test_age_and_height_are_never_invented(cleaned):
+    """A positional median is not anybody's age.
+
+    Age and height are facts about a person, not measurements of a season, and
+    no model reads them - they feed filters and the hidden-gem age term, which
+    is exactly where a made-up 26.3 does damage. Unknown must stay unknown.
+    """
+    clean, _ = cleaned
+    frame = clean.copy()
+    blank = frame.index[:25]
+    frame.loc[blank, ["age", "height_cm"]] = np.nan
+    again, report = clean_players(frame)
+    keys = frame.loc[blank, ["player_id", "season"]]
+    hit = again.merge(keys, on=["player_id", "season"])
+    assert len(hit) == len(keys)
+    assert hit["age"].isna().all() and hit["height_cm"].isna().all()
+    assert "age" not in report.imputed and "height_cm" not in report.imputed
+
+
+def test_an_unknown_age_passes_an_untouched_range_but_not_a_narrowed_one():
+    """Nobody should vanish from a list because a source omitted a birth date,
+    and nobody should be shortlisted as under-23 without one."""
+    from src.data_processing import AgeRange, age_mask
+
+    ages = pd.Series([19.0, 30.0, np.nan])
+    untouched = AgeRange(15.0, 40.0, active=False)
+    narrowed = AgeRange(15.0, 23.0, active=True)
+    assert age_mask(ages, untouched).tolist() == [True, True, True]
+    assert age_mask(ages, narrowed).tolist() == [True, False, False]
+    # A plain tuple is an explicit request, so it counts as narrowed.
+    assert age_mask(ages, (15.0, 40.0)).tolist() == [True, True, False]

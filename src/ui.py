@@ -23,6 +23,7 @@ from .config import (
     POSITION_GROUPS,
     THEME,
 )
+from .data_processing import AgeRange, age_mask
 from .pipeline import ScoutingPlatform, build_features, build_platform, format_metric
 
 SOURCE_HELP = (
@@ -287,13 +288,16 @@ def age_slider(platform, label: str = "Age", default=(15.0, 40.0), key: str | No
     low = float(np.floor(platform.pool["age"].min()))
     high = float(np.ceil(platform.pool["age"].max()))
     default = (max(default[0], low), min(default[1], high))
-    return st.slider(label, low, high, default, 0.5, key=key)
+    chosen = st.slider(label, low, high, default, 0.5, key=key)
+    # Untouched, the range filters nothing - including players the source
+    # published no age for. Narrowed, it can only keep ages it can confirm.
+    return AgeRange(chosen[0], chosen[1], active=chosen[0] > low or chosen[1] < high)
 
 
 def apply_age(pool: pd.DataFrame, age_range) -> pd.DataFrame:
     if age_range is None or "age" not in pool.columns:
         return pool
-    return pool[pool["age"].between(*age_range)]
+    return pool[age_mask(pool["age"], age_range)]
 
 
 def age_columns(platform, frame: pd.DataFrame, source: pd.DataFrame) -> pd.DataFrame:

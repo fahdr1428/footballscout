@@ -15,7 +15,7 @@ import pytest
 
 from src.fbref import (
     COMP_TO_LEAGUE, ERA_CUTOVER, FBREF_BROAD, FIRST_SEASON, LAST_SEASON,
-    PARTIAL_SEASONS, TM_BROAD, TM_POSITIONS, _age, _collapse_transfers,
+    PARTIAL_SEASONS, TM_BROAD, TM_POSITIONS, _age, _carry_identity, _collapse_transfers,
     _map_position, _season_label, _team_possession, _tidy_block,
     attach_identity,
 )
@@ -294,14 +294,54 @@ def test_contract_columns_are_dropped_because_they_are_a_scrape_time_snapshot():
 # Odds and ends
 # ---------------------------------------------------------------------------
 
-def test_age_prefers_date_of_birth_and_falls_back_to_fbref():
+def test_age_prefers_date_of_birth_and_falls_back_to_birth_year():
     players = block([
-        {"Season_End_Year": 2019, "date_of_birth": "1994-01-01", "fbref_age": 40},
-        {"Season_End_Year": 2019, "date_of_birth": None, "fbref_age": 31},
+        {"Season_End_Year": 2019, "date_of_birth": "1994-01-01", "born": 1990},
+        {"Season_End_Year": 2019, "date_of_birth": None, "born": 1988},
     ])
     ages = _age(players)
-    assert ages.iloc[0] == pytest.approx(25.0, abs=0.05)
-    assert ages.iloc[1] == pytest.approx(31.0)
+    assert ages.iloc[0] == pytest.approx(25.0, abs=0.05)   # DOB wins over born
+    assert ages.iloc[1] == pytest.approx(30.5)              # 2019 - 1988 - 0.5
+
+
+def test_age_does_not_depend_on_fbrefs_shifting_age_format():
+    """FBref's Age reads "25" one season and "25-081" the next.
+
+    Parsing it numerically turned every "25-081" into nothing, which is how
+    two whole seasons once shipped without a real age. The birth year is
+    present in every season in one format, so age comes from that instead.
+    """
+    players = block([
+        {"Season_End_Year": 2024, "date_of_birth": None, "born": 1999,
+         "fbref_age": "25-081"},
+        {"Season_End_Year": 2025, "date_of_birth": None, "born": 1999,
+         "fbref_age": "25"},
+    ])
+    ages = _age(players)
+    assert ages.notna().all()
+    assert ages.iloc[0] == pytest.approx(24.5)
+    assert ages.iloc[1] == pytest.approx(25.5)
+
+
+def test_identity_is_carried_across_a_players_own_seasons_only():
+    """Transfermarkt stops at 2022/23; a player's birth date does not."""
+    players = block([
+        {"Url": "/players/aaa/", "Season_End_Year": 2022, "date_of_birth": "1999-05-01",
+         "height_cm": 180.0, "foot": "left", "nationality": "Spain"},
+        {"Url": "/players/aaa/", "Season_End_Year": 2024, "date_of_birth": None,
+         "height_cm": None, "foot": None, "nationality": None},
+        # Only seen after Transfermarkt stopped: must stay unknown, never
+        # borrow from somebody else.
+        {"Url": "/players/bbb/", "Season_End_Year": 2024, "date_of_birth": None,
+         "height_cm": None, "foot": None, "nationality": None},
+    ])
+    out = _carry_identity(players).set_index(["Url", "Season_End_Year"])
+    later = out.loc[("/players/aaa/", 2024)]
+    assert later["date_of_birth"] == "1999-05-01"
+    assert later["height_cm"] == 180.0
+    assert later["foot"] == "left"
+    stranger = out.loc[("/players/bbb/", 2024)]
+    assert pd.isna(stranger["date_of_birth"]) and pd.isna(stranger["height_cm"])
 
 
 def test_team_possession_ignores_the_mirrored_opponent_rows():

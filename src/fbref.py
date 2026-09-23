@@ -511,12 +511,46 @@ def attach_identity(players: pd.DataFrame, mapping: pd.DataFrame,
     return players.drop(columns=["_height_m", "TmPos", "tm_season_position"]), coverage
 
 
+# Attributes of a person rather than of a season. Transfermarkt stops at
+# 2022/23, but a player's date of birth, preferred foot and nationality do not
+# change after it (and an adult's height does not either), so a value recorded
+# in any of his seasons is the right value for all of them.
+INVARIANT_IDENTITY = ["date_of_birth", "height_cm", "foot", "nationality"]
+
+
+def _carry_identity(players: pd.DataFrame) -> pd.DataFrame:
+    """Fill a player's invariant attributes from his other seasons.
+
+    Nearest season first in each direction - forward from the last season
+    that recorded one, then back from the first - so nothing is ever taken
+    from a different player, and a player Transfermarkt never saw keeps none.
+    """
+    players = players.sort_values(["Url", "Season_End_Year"]).copy()
+    present = [c for c in INVARIANT_IDENTITY if c in players.columns]
+    by_player = players.groupby("Url", sort=False)[present]
+    players[present] = by_player.ffill().combine_first(by_player.bfill())
+    return players
+
+
 def _age(players: pd.DataFrame) -> pd.Series:
-    """Age at 1 January of the season's second half, from date of birth."""
+    """Age at 1 January of the season's second half.
+
+    Exact from a Transfermarkt date of birth where there is one. Otherwise
+    from FBref's birth year, which is present for ~100% of players in every
+    season: someone born in year B is between SEY-B-1 and SEY-B on 1 January
+    of season-end year SEY, so SEY-B-0.5 is right to within six months.
+
+    FBref's own `Age` column is deliberately not used. It reads "25" in some
+    seasons and "25-081" (years-days) in others, at a reference date that
+    also moves - the second form parses to nothing, which is how 2023/24 and
+    2025/26 once shipped with no real ages at all.
+    """
     dob = pd.to_datetime(players["date_of_birth"], errors="coerce")
-    reference = pd.to_datetime(players["Season_End_Year"].astype(str) + "-01-01")
-    age = (reference - dob).dt.days / 365.25
-    return age.fillna(pd.to_numeric(players["fbref_age"], errors="coerce"))
+    season_end = players["Season_End_Year"].astype(int)
+    reference = pd.to_datetime(season_end.astype(str) + "-01-01")
+    exact = (reference - dob).dt.days / 365.25
+    born = pd.to_numeric(players["born"], errors="coerce")
+    return exact.fillna(season_end - born - 0.5)
 
 
 def _team_possession(team_possession: pd.DataFrame, seasons: range) -> pd.DataFrame:
@@ -624,6 +658,7 @@ def build_dataset(cache: Path, seasons: range | None = None,
     mapping = pd.read_csv(paths["mapping"], encoding="latin-1")
     values = read_rds(paths["values"])
     players, coverage = attach_identity(players, mapping, values)
+    players = _carry_identity(players)
 
     players["age"] = _age(players)
     players["season"] = players["Season_End_Year"].map(_season_label)

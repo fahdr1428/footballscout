@@ -56,7 +56,8 @@ tiles(
         ("Clubs", f"{selection['team'].nunique():,}", f"{selection['league'].nunique()} leagues"),
         ("Median age", f"{selection['age'].median():.1f}", "years"),
         ("Median minutes", f"{selection['minutes'].median():,.0f}", "per season"),
-        ("U-23 share", f"{(selection['age'] < 23).mean():.0%}", "of the selection"),
+        # Over players with a recorded age: an unknown age is not "not under 23".
+        ("U-23 share", f"{(selection['age'].dropna() < 23).mean():.0%}", "of those with an age"),
     ]
 )
 

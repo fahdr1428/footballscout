@@ -120,11 +120,18 @@ def add_derived_metrics(df: pd.DataFrame) -> pd.DataFrame:
     # the app says so wherever it is shown.
     df["np_goals_minus_npxg_per90"] = ((df["np_goals"] - df["npxg"]) / exposure).round(3)
     df["aerials_contested_per90"] = (df["_aerials_total"] / exposure).round(3)
+    # A composite exists only when every part was measured. A plain row sum
+    # skips missing parts, so a season that never counted tackles read as
+    # "0.00 defensive actions" - a fabricated zero with a 50th percentile - and
+    # one that counted progressive passes but not carries read as a player who
+    # never carried the ball. `min_count` makes a missing part a missing total.
     df["defensive_actions_per90"] = (
-        df[DEFENSIVE_ACTION_PARTS].sum(axis=1) / exposure
+        df[DEFENSIVE_ACTION_PARTS].sum(axis=1, min_count=len(DEFENSIVE_ACTION_PARTS))
+        / exposure
     ).round(3)
     df["progressive_actions_per90"] = (
-        df[PROGRESSIVE_ACTION_PARTS].sum(axis=1) / exposure
+        df[PROGRESSIVE_ACTION_PARTS].sum(axis=1, min_count=len(PROGRESSIVE_ACTION_PARTS))
+        / exposure
     ).round(3)
 
     # How much of a player's passing happens with an opponent closing him down -

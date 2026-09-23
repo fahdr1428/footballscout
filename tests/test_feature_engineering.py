@@ -103,3 +103,21 @@ def test_pass_completion_falls_under_pressure(features):
     pool = features[features["passes_under_pressure"] >= 100]
     assert len(pool) > 50
     assert pool["pass_pct_under_pressure"].mean() < pool["pass_pct"].mean()
+
+
+def test_a_composite_with_an_unmeasured_part_is_missing_not_zero(cleaned):
+    """A row sum skips missing parts, so an unmeasured season read "0.00 defensive
+    actions" at the 50th percentile. A composite needs every one of its parts."""
+    from src.feature_engineering import build_features
+
+    clean, _ = cleaned
+    frame = clean.copy()
+    blank_all = frame.index[:10]          # nothing counted
+    blank_one = frame.index[10:20]        # carries not counted, passes are
+    frame.loc[blank_all, ["tackles", "interceptions", "blocks", "clearances"]] = np.nan
+    frame.loc[blank_one, "progressive_carries"] = np.nan
+    out = build_features(frame)
+    assert out.loc[blank_all, "defensive_actions_per90"].isna().all()
+    assert out.loc[blank_one, "progressive_actions_per90"].isna().all()
+    measured = out.index[20:]
+    assert out.loc[measured, "defensive_actions_per90"].notna().all()

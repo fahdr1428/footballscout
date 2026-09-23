@@ -1,466 +1,811 @@
 <div class="wrap">
-<header>
+<header class="top">
   <div>
     <div class="eyebrow" id="hero-eyebrow">&nbsp;</div>
     <h1>Who Plays Like Him</h1>
-    <p class="sub">Pick a player. Every other player in his position group is ranked by how
-    closely his statistical profile matches &mdash; then filtered down to the ones you could
-    actually sign. Similarity is nearest-neighbour in a standardised, position-specific feature
-    space, and every match opens a metric-by-metric account of <em>why</em>.</p>
+    <p class="sub">Pick a player and every other player in his position is ranked by how closely his
+    statistical profile matches - weighted by what you care about, filtered to who you could
+    actually sign. Or describe the player you want and search for him, or rank a whole league on
+    one metric. Every number opens up to show its arithmetic.</p>
   </div>
-  <div class="facts">
-    <div class="fact"><b id="f-players">&mdash;</b><span>Players</span></div>
-    <div class="fact"><b id="f-leagues">&mdash;</b><span>Leagues</span></div>
-    <div class="fact"><b id="f-metrics">&mdash;</b><span>Metrics compared</span></div>
-    <div class="fact"><b id="f-groups">&mdash;</b><span>Position models</span></div>
+  <div class="head-side">
+    <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
+      <span aria-hidden="true">&#9680;</span><span id="theme-l">Dark</span></button>
+    <div class="facts">
+      <div class="fact"><b id="f-players">&mdash;</b><span>Players</span></div>
+      <div class="fact"><b id="f-leagues">&mdash;</b><span>Leagues</span></div>
+      <div class="fact"><b id="f-metrics">&mdash;</b><span>Metrics</span></div>
+      <div class="fact"><b id="f-groups">&mdash;</b><span>Position models</span></div>
+    </div>
   </div>
 </header>
 
-<section class="panel datasets">
-  <div class="ds-head">
-    <span class="eyebrow">Dataset</span>
-    <div class="seg" id="dsseg" role="group" aria-label="Choose a dataset"></div>
+<section class="panel dsbar" aria-label="Dataset">
+  <div class="ds-row">
+    <span class="eyebrow">Data</span>
+    <div class="seg" id="srcseg" role="group" aria-label="Choose a data source"></div>
+    <label class="season" for="season"><span class="eyebrow">Season</span>
+      <select id="season"></select></label>
+    <span class="status" id="ds-status" role="status" aria-live="polite"></span>
   </div>
   <p class="ds-blurb" id="ds-blurb"></p>
+  <details class="lacks" id="ds-lacks" hidden><summary id="ds-lacks-s"></summary><p id="ds-lacks-p"></p></details>
 </section>
 
-<section class="panel subject-bar">
-  <div class="pick">
-    <label for="q">Compare from</label>
-    <input type="search" id="q" placeholder="Type a name or club &mdash; Rice, Atalanta&hellip;" autocomplete="off">
-    <div id="picker" class="picker" hidden></div>
-  </div>
-  <div id="subject-line" class="subject-line"></div>
-</section>
+<nav class="tabs" role="tablist" aria-label="What to do">
+  <button role="tab" id="tab-similar" data-mode="similar" aria-selected="true" aria-controls="view-similar">Similar<span class="long"> players</span></button>
+  <button role="tab" id="tab-search" data-mode="search" aria-selected="false" aria-controls="view-search"><span class="long">Profile </span>Search</button>
+  <button role="tab" id="tab-board" data-mode="board" aria-selected="false" aria-controls="view-board">Leaderboard</button>
+</nav>
 
-<div class="cols">
-  <section class="panel">
-    <div class="panel-h"><h3>Attribute profile</h3><span class="eyebrow" id="peer-note">&mdash;</span></div>
-    <div id="radar" style="padding:6px 4px 12px"></div>
-    <div class="note" id="radar-note"></div>
-  </section>
-
-  <div style="display:grid;gap:18px;min-width:0">
-    <section class="panel">
-      <div class="panel-h"><h3>Narrow the matches</h3><span class="eyebrow" id="hits">&mdash;</span></div>
+<div class="layout">
+  <aside class="panel filters-panel" aria-label="Filters">
+    <details id="filters-box" open>
+      <summary><h3>Filters <span class="count-pill" id="fcount" hidden></span></h3>
+        <span class="chev" aria-hidden="true">&#9662;</span></summary>
       <div class="filters">
-        <div class="two">
-          <div class="field"><label for="lg">League</label><select id="lg"></select></div>
-          <div class="field"><label for="side">Side</label><select id="side">
-            <option value="">Any</option><option>Left</option><option>Right</option><option>Central</option>
-          </select></div>
-        </div>
-        <div class="two">
-          <div class="field">
-            <label for="age">Max age &mdash; <span class="mono" id="age-v">40+</span></label>
-            <input type="range" id="age" min="17" max="40" value="40" step="1">
-          </div>
-          <div class="field">
-            <label for="val">Max value &mdash; <span class="mono" id="val-v">any</span></label>
-            <input type="range" id="val" min="0" max="180" value="180" step="5">
+        <div class="field" id="f-lg"><span class="lbl">Leagues</span>
+          <div class="chips" id="lgchips" role="group" aria-label="Leagues"></div></div>
+        <div class="field"><label for="side">Side of the pitch</label><select id="side">
+          <option value="">Any</option><option>Left</option><option>Right</option><option>Central</option>
+        </select></div>
+        <div class="field" id="f-age">
+          <span class="lbl">Age &mdash; <span class="mono" id="age-v">any</span></span>
+          <div class="two">
+            <input type="range" id="amin" min="16" max="40" value="16" step="1" aria-label="Minimum age">
+            <input type="range" id="amax" min="16" max="40" value="40" step="1" aria-label="Maximum age">
           </div>
         </div>
+        <div class="field" id="f-val">
+          <label for="val"><span id="val-l">Max value</span> &mdash; <span class="mono" id="val-v">any</span></label>
+          <input type="range" id="val">
+        </div>
+        <div class="field" id="f-h">
+          <label for="hmin">Min height &mdash; <span class="mono" id="h-v">any</span></label>
+          <input type="range" id="hmin" min="160" max="200" value="160" step="1">
+        </div>
+        <div class="field" id="f-foot"><label for="foot">Preferred foot</label><select id="foot">
+          <option value="">Any</option><option value="left">Left</option><option value="right">Right</option>
+          <option value="both">Both</option></select></div>
         <div class="field">
           <label for="mins">Minimum minutes &mdash; <span class="mono" id="mins-v">900</span></label>
-          <input type="range" id="mins" min="900" max="3400" value="900" step="100">
+          <input type="range" id="mins" min="900" max="3400" value="900" step="90">
         </div>
-        <div class="checks">
+        <div class="field" id="f-excl">
           <label class="chk"><input type="checkbox" id="xclub"> Exclude his own club</label>
           <label class="chk"><input type="checkbox" id="xleague"> Exclude his own league</label>
         </div>
+        <p class="fnote" id="fnote"></p>
+        <div><button class="mini" id="freset" type="button">Reset filters</button></div>
       </div>
-    </section>
+    </details>
+  </aside>
 
-    <section class="panel">
-      <div class="panel-h"><h3>Most similar players</h3>
-        <div class="tools">
-          <button class="mini" id="copycsv" type="button">Copy as CSV</button>
-          <button class="mini" id="sharebtn" type="button">Copy link</button>
+  <main>
+    <!-- ================= similar players ================= -->
+    <div class="stack" id="view-similar" role="tabpanel" aria-labelledby="tab-similar">
+      <section class="panel subject">
+        <div class="pick">
+          <label for="q">Compare from</label>
+          <input type="search" id="q" placeholder="Name or club &mdash; Rice, Atalanta&hellip;" autocomplete="off"
+            aria-controls="picker">
+          <div id="picker" class="picker" hidden></div>
         </div>
+        <div id="subject-line"></div>
+      </section>
+
+      <div class="cols2">
+        <section class="panel">
+          <div class="panel-h"><h3>Attribute profile</h3><span class="eyebrow" id="peer-note">&mdash;</span></div>
+          <div id="radar" style="padding:6px 4px 4px"></div>
+          <div class="legend" id="radar-legend"></div>
+          <p class="note" id="radar-note"></p>
+        </section>
+        <section class="panel" id="weights-panel">
+          <div class="panel-h"><h3>What matters</h3>
+            <div class="tools"><span class="eyebrow" id="w-state">Equal weights</span>
+              <button class="mini" id="wreset" type="button">Reset</button></div></div>
+          <div class="weights" id="weights"></div>
+          <p class="note">Slide a category up and the metrics in it count for more in every
+          similarity below; slide it to zero and they are ignored. Each metric is scaled by the
+          average weight of the categories it sits in - the same arithmetic as the full app.</p>
+        </section>
       </div>
-      <div class="matches" id="matches"></div>
-    </section>
-  </div>
+
+      <section class="panel">
+        <div class="panel-h"><h3>Most similar <span class="eyebrow" id="hits">&mdash;</span></h3>
+          <div class="tools">
+            <div class="seg" id="listsort" role="group" aria-label="Sort matches">
+              <button data-sort="sim" class="on">Similarity</button><button data-sort="age">Age</button>
+              <button data-sort="val">Value</button><button data-sort="min">Minutes</button>
+            </div>
+            <button class="mini" id="copycsv" type="button">Copy CSV</button>
+            <button class="mini" id="sharebtn" type="button">Copy link</button>
+          </div>
+        </div>
+        <div class="list" id="matches"></div>
+      </section>
+
+      <section class="panel" id="compare-panel" hidden>
+        <div class="panel-h">
+          <h3 id="compare-title">Side by side</h3>
+          <div class="tools">
+            <div class="pick" style="min-width:210px">
+              <input type="search" id="q2" placeholder="Compare with anyone&hellip;" autocomplete="off"
+                aria-label="Compare with another player">
+              <div id="picker2" class="picker" hidden></div>
+            </div>
+            <div class="seg" id="sortseg" role="group" aria-label="Sort metrics">
+              <button data-sort="gap" class="on">Biggest gaps</button>
+              <button data-sort="near">Most alike</button>
+              <button data-sort="pct">By percentile</button>
+            </div>
+          </div>
+        </div>
+        <div id="compare"></div>
+      </section>
+
+      <section class="panel" id="career-panel" hidden>
+        <div class="panel-h"><h3 id="career-title">Career</h3>
+          <button class="mini" id="career-close" type="button">Close</button></div>
+        <div id="career"></div>
+      </section>
+    </div>
+
+    <!-- ================= profile search ================= -->
+    <div class="stack" id="view-search" role="tabpanel" aria-labelledby="tab-search" hidden>
+      <section class="panel">
+        <div class="panel-h"><h3>Describe the player you want</h3>
+          <span class="eyebrow">Every condition is a percentile against his position</span></div>
+        <div class="builder">
+          <div class="field"><label for="sgroup">Position</label><select id="sgroup"></select></div>
+          <div id="criteria" class="stack" style="gap:10px"></div>
+          <div class="tools">
+            <button class="mini" id="addcrit" type="button">+ Add a condition</button>
+            <button class="mini" id="clearcrit" type="button">Clear</button>
+          </div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-h"><h3>Players who fit <span class="eyebrow" id="res-hits">&mdash;</span></h3>
+          <button class="mini" id="rescsv" type="button">Copy CSV</button></div>
+        <div class="list" id="results"></div>
+        <p class="note">Ranked by the average of his percentiles on the conditions above. A player
+        whose season did not measure a metric cannot meet a condition on it, so he is left out
+        rather than assumed to pass.</p>
+      </section>
+    </div>
+
+    <!-- ================= leaderboard ================= -->
+    <div class="stack" id="view-board" role="tabpanel" aria-labelledby="tab-board" hidden>
+      <section class="panel">
+        <div class="panel-h"><h3>Leaderboard <span class="eyebrow" id="board-hits">&mdash;</span></h3>
+          <span class="eyebrow">Rank the pool on one metric</span></div>
+        <div class="filters" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+          <div class="field"><label for="bgroup">Position</label><select id="bgroup"></select></div>
+          <div class="field"><label for="bmetric">Metric</label><select id="bmetric"></select></div>
+          <div class="field"><label for="bdir">Order</label><select id="bdir">
+            <option value="desc">Highest first</option><option value="asc">Lowest first</option></select></div>
+        </div>
+        <div class="list" id="board"></div>
+        <p class="note">Percentiles are against his own position, so a defender and a forward are
+        never ranked on the same scale. Click a row to make him the subject of Similar players.</p>
+      </section>
+    </div>
+  </main>
 </div>
 
-<section class="panel" id="compare-panel" hidden>
-  <div class="panel-h">
-    <h3 id="compare-title">Side by side</h3>
-    <div class="tools">
-      <div class="pick pick-sm">
-        <input type="search" id="q2" placeholder="Compare with anyone&hellip;" autocomplete="off">
-        <div id="picker2" class="picker" hidden></div>
-      </div>
-      <div class="seg" id="sortseg" role="group" aria-label="Sort metrics">
-        <button data-sort="gap" class="on">Biggest gaps</button>
-        <button data-sort="near">Most alike</button>
-        <button data-sort="pct">By percentile</button>
-      </div>
-    </div>
-  </div>
-  <div id="compare"></div>
-  <div class="note">Percentiles are against players in the same position group in this pool.
-  Where a metric is one a scout wants <em>low</em> &mdash; errors, miscontrols, fouls &mdash;
-  the percentile is already flipped, so a high number is always good.</div>
-</section>
-
-<section class="panel" id="board-panel">
-  <div class="panel-h">
-    <h3>Leaderboard</h3>
-    <span class="eyebrow">Rank the whole dataset on one metric</span>
-  </div>
-  <div class="filters board-controls">
-    <div class="field"><label for="bmetric">Metric</label><select id="bmetric"></select></div>
-    <div class="field"><label for="bgroup">Position</label><select id="bgroup"></select></div>
-    <div class="field"><label for="bdir">Order</label><select id="bdir">
-      <option value="desc">Highest first</option><option value="asc">Lowest first</option>
-    </select></div>
-  </div>
-  <div class="board" id="board"></div>
-  <div class="note">Click any row to make that player the subject above. Percentiles are against
-  his own position group, so a defender and a forward are never ranked on the same scale &mdash;
-  which is why the position filter matters here.</div>
-</section>
-
 <footer>
-  <div><b>Where the data comes from.</b> FBref match statistics joined to Transfermarkt squad
-  records through a curated 15,440-row player mapping, both mirrored by
-  <a href="https://github.com/JaseZiv/worldfootballR_data">worldfootballR_data</a>. Positions are
-  Transfermarkt's, taken from an independent source rather than inferred from the same statistics
-  the models read &mdash; so grouping players by position is not circular.</div>
-  <div><b>How similarity is calculated.</b> Each player is a vector of his position group's
-  metrics, standardised so every metric counts equally, and similarity is the cosine between two
-  such vectors &times;&nbsp;100. Nothing is hand-tuned: a 90% match means the two profiles point
-  in nearly the same direction across all of them. Comparisons only ever happen inside a position
-  group, because a centre-back and a winger share no meaningful axis.</div>
-  <div><b>What the money means.</b> A figure in euros is Transfermarkt's market value estimate
-  for that season - not a fee anybody paid, and partly informed by the same public data shown
-  here. A figure in pounds marked with an asterisk is the <em>fantasy game's</em> price, which is
-  what the Premier League dataset carries instead: a popularity and perceived-value signal set by
-  the game's operator, not a valuation at all.</div>
-  <div><b>Sharing a view.</b> The address bar tracks the dataset, the player and the comparison,
-  so <b>Copy link</b> hands someone the exact screen you are looking at. <b>Copy as CSV</b> puts
-  the current shortlist on the clipboard, filters and all.</div>
+  <div><b>How similarity is calculated.</b> Each player is a vector of his position's metrics,
+  standardised so every metric counts equally, and similarity is the cosine between two such vectors
+  &times;&nbsp;100. A 90% match means the two profiles point in nearly the same direction across all
+  of them. Comparisons only happen inside a position, because a centre-back and a winger share no
+  meaningful axis.</div>
+  <div><b>What the money means.</b> A figure in euros is Transfermarkt's market value estimate for
+  that season - not a fee anybody paid. A figure in pounds with an asterisk is the <em>fantasy
+  game's</em> price, a popularity signal set by its operator, not a valuation at all.</div>
+  <div><b>What is not guessed.</b> A season that did not measure something shows a dash, not a zero
+  and not an average: no invented ages, heights or tackles. Each season lists what it lacks above.</div>
+  <div><b>Sharing a view.</b> The address bar tracks the dataset, the player, the comparison and the
+  tab, so <b>Copy link</b> hands someone the exact screen you are looking at.</div>
   <div id="fold-note"></div>
-  <div>A static extract of a larger Streamlit platform, which adds recruitment search, squad
-  analysis, archetype maps and a model-validation suite across five seasons and ten position
-  groups.</div>
+  <div>A static extract of a larger Streamlit platform, which adds recruitment briefs, squad
+  analysis, archetype maps and a model-validation suite.</div>
 </footer>
 </div>
 
 <script>
+"use strict";
 const BUNDLE = window.__SCOUT__;
 const $ = id => document.getElementById(id);
-let P, M, G, PCT, LOWER, byGroup, dsKey = BUNDLE.order[0];
+const CACHE = Object.assign({}, BUNDLE.inline);
 
-const eur = v => v == null ? "—"
-  : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7 ? 0 : 1) + "m"
+// ---- state ---------------------------------------------------------------
+let D, P, M, G, PCT, LOWER, byGroup, byId, dsKey;
+let mode = "similar", loadToken = 0;
+let subject = 0, match = null, sortMode = "gap", listSort = "sim";
+let listLimit = 25, resLimit = 25, boardLimit = 25;
+const F = {lgs: new Set(), side: "", amin: 16, amax: 40, val: null, hmin: 160, foot: "",
+           mins: 900, xclub: false, xleague: false};
+let W = {};                  // category name -> weight multiplier
+let criteria = [];           // [{metric, min}]
+let searchGroup = null, careerOpen = false, searchCleared = false;
+
+// ---- formatting ----------------------------------------------------------
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const eur = v => v == null ? "—" : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7 ? 0 : 1) + "m"
   : "€" + Math.round(v/1e3) + "k";
-// Where a source has no valuation but does have the fantasy game's price, show
-// that instead of a dash — labelled, because it is popularity, not a fee.
 const worth = p => p.v != null ? eur(p.v) : (p.pr != null ? "£" + p.pr.toFixed(1) + "m*" : "—");
 const band = p => p == null ? 3 : p >= 80 ? 5 : p >= 60 ? 4 : p >= 40 ? 3 : p >= 20 ? 2 : 1;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const fmt = (key, v) => v == null ? "—"
-  : PCT.has(key) ? v.toFixed(1) + "%"
-  : Math.abs(v) >= 100 ? Math.round(v).toLocaleString()
-  : v.toFixed(2);
+const chip = p => `<span class="chip c${band(p)}">${p == null ? "—" : p}</span>`;
+const fmt = (key, v) => v == null ? "—" : PCT.has(key) ? v.toFixed(1) + "%"
+  : Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
+const label = k => (M.labels && M.labels[k]) || k;
+const gname = g => (M.groupNames[g] || g);
+const seasonLabel = s => s.replace("-", "/");
 
-$("dsseg").innerHTML = BUNDLE.order.map(k =>
-  `<button data-ds="${k}">${esc(BUNDLE.datasets[k].meta.label)}</button>`).join("");
+// ---- catalogue & loading ---------------------------------------------------
+const sourceOf = key => key.split(":")[0];
+const seasonOf = key => key.split(":")[1];
+function entryFor(key){
+  const src = BUNDLE.catalog.find(c => c.key === sourceOf(key));
+  const e = src && src.seasons.find(s => s.season === seasonOf(key));
+  return e ? {src, e} : null;
+}
+async function getDataset(key){
+  if (CACHE[key]) return CACHE[key];
+  const hit = entryFor(key);
+  if (!hit) throw new Error("unknown dataset " + key);
+  const res = await fetch(hit.e.file);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return (CACHE[key] = await res.json());
+}
+function status(text, err){ $("ds-status").textContent = text || ""; $("ds-status").classList.toggle("err", !!err); }
 
-function loadDataset(key, opts = {}){
-  dsKey = key;
-  const D = BUNDLE.datasets[key];
-  P = D.players; M = D.meta; G = M.groups;
-  PCT = new Set(M.pct); LOWER = new Set(M.lower);
-
-  // Every comparison stays inside one position group, so index them once.
-  byGroup = {};
-  P.forEach((p, i) => (byGroup[p.g] = byGroup[p.g] || []).push(i));
-
-  document.querySelectorAll("#dsseg button").forEach(b =>
-    b.classList.toggle("on", b.dataset.ds === key));
-  $("ds-blurb").textContent = M.blurb || "";
-  $("hero-eyebrow").textContent = M.label;
-  $("f-players").textContent = P.length.toLocaleString();
-  $("f-leagues").textContent = M.leagues.length;
-  $("f-groups").textContent = Object.keys(M.groupNames).length;
-  $("f-metrics").textContent = Math.max(...Object.values(G).map(g => g.d.length));
-  $("lg").innerHTML = '<option value="">Any league</option>'
-    + M.leagues.map(l => `<option>${esc(l)}</option>`).join("");
-
-  const notes = [];
-  const folded = Object.entries(M.collapsed || {});
-  if (folded.length) notes.push("<b>Two groups are folded in on one season.</b> " + folded.map(([g, parent]) =>
-      "there were too few " + (M.groupNames[g] || g).toLowerCase() + "s to rank against, so they are compared against " +
-      (M.groupNames[parent] || parent).toLowerCase() + "s").join("; ") + ".");
-  notes.push("<b>Source.</b> " + esc(M.attribution || ""));
-  $("fold-note").innerHTML = notes.join(" ");
-
-  // Reset the selection into the new dataset. The minutes floor is not
-  // uniform across datasets - a live, in-progress season has to open on a
-  // much lower one than a completed season, or its own default view would
-  // show zero candidates.
-  F.lg = ""; $("lg").value = "";
-  F.mins = M.minMinutes;
-  $("mins").min = M.minMinutes;
-  $("mins").value = M.minMinutes;
-  $("mins-v").textContent = M.minMinutes.toLocaleString();
-  buildBoardControls();
-
-  const wanted = opts.subject != null ? opts.subject : findByName("Declan Rice");
-  setSubject(wanted >= 0 ? wanted : 0);
-  const asked = opts.match != null ? opts.match : -1;
-  const first = ranked()[0];
-  if (asked >= 0){ match = asked; }
-  else if (first){ match = first[0]; }
-  drawMatches(); drawCompare(); drawBoard(); writeHash();
+async function loadDataset(key, opts = {}){
+  const token = ++loadToken;
+  const hit = entryFor(key);
+  status(CACHE[key] ? "" : `Loading ${hit ? hit.src.name + " " + seasonLabel(hit.e.season) : key}…`);
+  let payload;
+  try { payload = await getDataset(key); }
+  catch (e) {
+    if (token !== loadToken) return;
+    status(location.protocol === "file:"
+      ? "Only the first season is built into this file - open the site from a web server to load the others."
+      : "Could not load that season (" + e.message + ").", true);
+    renderDatasetBar();
+    return;
+  }
+  if (token !== loadToken) return;
+  const keepId = opts.id || (P && P[subject] ? P[subject].id : null);
+  const keepName = opts.name || (P && P[subject] ? P[subject].n : null);
+  setData(key, payload);
+  let s = -1;
+  if (keepId && byId.has(keepId)) s = byId.get(keepId);
+  if (s < 0 && keepName) s = findByName(keepName);
+  if (s < 0) s = findByName("Declan Rice");
+  if (s < 0) s = defaultSubject();
+  selectSubject(s, {keepMatch: false, matchName: opts.match});
+  status("");
 }
 
-function cosine(a, b){
+function setData(key, payload){
+  dsKey = key; D = payload; P = D.players; M = D.meta; G = M.groups;
+  PCT = new Set(M.pct); LOWER = new Set(M.lower);
+  byGroup = {}; byId = new Map();
+  P.forEach((p, i) => { (byGroup[p.g] = byGroup[p.g] || []).push(i); byId.set(p.id, i); });
+  listLimit = resLimit = boardLimit = 25;
+  renderDatasetBar();
+  setupFilters();
+  if (!G[searchGroup]) searchGroup = null;
+  criteria = criteria.filter(c => searchGroup && G[searchGroup].d.includes(c.metric));
+}
+
+function renderDatasetBar(){
+  const src = sourceOf(dsKey || BUNDLE.default), season = seasonOf(dsKey || BUNDLE.default);
+  $("srcseg").innerHTML = BUNDLE.catalog.map(c =>
+    `<button type="button" data-src="${c.key}" class="${c.key === src ? "on" : ""}"
+      aria-pressed="${c.key === src}">${esc(c.name)}<span class="via">${esc(c.via)}</span></button>`).join("");
+  const cat = BUNDLE.catalog.find(c => c.key === src);
+  $("season").innerHTML = cat.seasons.slice().reverse().map(s =>
+    `<option value="${s.season}"${s.season === season ? " selected" : ""}>${seasonLabel(s.season)}</option>`).join("");
+  if (!M) return;
+  $("hero-eyebrow").textContent = M.label;
+  $("ds-blurb").textContent = cat.blurb;
+  const lacks = M.lacks || [];
+  $("ds-lacks").hidden = !lacks.length;
+  if (lacks.length){
+    $("ds-lacks-s").textContent = `This season does not measure ${lacks.length} metric${lacks.length > 1 ? "s" : ""} the source has elsewhere`;
+    $("ds-lacks-p").textContent = lacks.join(" · ") + ". They are left out of this season's models and "
+      + "shown as dashes - never as zeros or averages.";
+  }
+  $("f-players").textContent = P.length.toLocaleString();
+  $("f-leagues").textContent = M.leagues.length;
+  $("f-groups").textContent = Object.keys(G).length;
+  $("f-metrics").textContent = Math.max(0, ...Object.values(G).map(g => g.d.length));
+  const notes = [];
+  const folded = Object.entries(M.collapsed || {});
+  if (folded.length) notes.push("<b>Folded groups.</b> " + folded.map(([g, parent]) =>
+    `too few ${esc(gname(g).toLowerCase())}s to rank against each other, so they are compared with ${
+      esc(gname(parent).toLowerCase())}s`).join("; ") + ".");
+  const unmod = Object.entries(M.unmodelled || {});
+  if (unmod.length) notes.push("<b>Not modelled this season:</b> " + unmod.map(([g, n]) =>
+    `${n} ${esc(gname(g).toLowerCase())}${n > 1 ? "s" : ""}`).join(", ") +
+    " - too few players or measured metrics to compare them on. They are listed but not ranked.");
+  notes.push("<b>Source.</b> " + esc(M.attribution || ""));
+  $("fold-note").innerHTML = notes.join(" ");
+}
+
+// ---- filters ---------------------------------------------------------------
+const VAL_ANY = 181;
+function setupFilters(){
+  const has = M.has || {};
+  for (const l of [...F.lgs]) if (!M.leagues.includes(l)) F.lgs.delete(l);
+  $("f-lg").hidden = M.leagues.length < 2;
+  $("lgchips").innerHTML = M.leagues.map(l =>
+    `<button type="button" class="chip-btn" data-lg="${esc(l)}" aria-pressed="${F.lgs.has(l)}">${esc(l)}</button>`).join("");
+  $("f-age").hidden = !has.age;
+  $("f-h").hidden = !has.height;
+  $("f-foot").hidden = !has.foot;
+  if (!has.height) F.hmin = 160;
+  if (!has.foot) F.foot = "";
+  // Market value in euros where the season has it, the fantasy price where it
+  // has that instead, and no slider at all where it has neither.
+  const val = $("val");
+  $("f-val").hidden = !(has.value || has.price);
+  if (has.value){ val.min = 0; val.max = VAL_ANY; val.step = 1; $("val-l").textContent = "Max market value"; }
+  else if (has.price){ val.min = 3.5; val.max = 15.5; val.step = 0.5; $("val-l").textContent = "Max FPL price"; }
+  F.val = null; val.value = val.max;
+  const most = Math.max(...P.map(p => p.m));
+  $("mins").min = M.minMinutes; $("mins").max = Math.max(M.minMinutes + 90, Math.ceil(most / 90) * 90);
+  F.mins = Math.max(M.minMinutes, Math.min(F.mins, +$("mins").max));
+  syncFilterInputs();
+}
+function syncFilterInputs(){
+  $("side").value = F.side; $("foot").value = F.foot;
+  $("amin").value = F.amin; $("amax").value = F.amax; $("hmin").value = F.hmin;
+  $("mins").value = F.mins; $("xclub").checked = F.xclub; $("xleague").checked = F.xleague;
+  document.querySelectorAll("#lgchips [data-lg]").forEach(b => b.setAttribute("aria-pressed", F.lgs.has(b.dataset.lg)));
+  $("age-v").textContent = ageActive() ? `${F.amin}–${F.amax >= 40 ? "40+" : F.amax}` : "any";
+  $("h-v").textContent = F.hmin > 160 ? F.hmin + " cm+" : "any";
+  $("mins-v").textContent = F.mins.toLocaleString();
+  const priced = !(M.has || {}).value && (M.has || {}).price;
+  $("val-v").textContent = F.val == null ? "any" : priced ? "£" + F.val.toFixed(1) + "m" : "€" + F.val + "m";
+  $("f-excl").hidden = mode !== "similar";
+  const n = activeFilterCount();
+  $("fcount").hidden = !n; $("fcount").textContent = n;
+  const notes = [];
+  if (ageActive() || F.hmin > 160 || F.foot)
+    notes.push("Players with no recorded age, height or foot are left out while those filters are set - they cannot be confirmed to fit.");
+  if (F.val != null) notes.push("Players with no recorded value stay in: no price is not evidence of an unaffordable one.");
+  $("fnote").textContent = notes.join(" ");
+}
+const ageActive = () => F.amin > 16 || F.amax < 40;
+function activeFilterCount(){
+  return F.lgs.size + (F.side ? 1 : 0) + (ageActive() ? 1 : 0) + (F.val != null ? 1 : 0) +
+    (F.hmin > 160 ? 1 : 0) + (F.foot ? 1 : 0) + (F.mins > M.minMinutes ? 1 : 0) +
+    (mode === "similar" ? (F.xclub ? 1 : 0) + (F.xleague ? 1 : 0) : 0);
+}
+function passes(o, forSimilar){
+  if (F.lgs.size && !F.lgs.has(o.l)) return false;
+  if (F.side && o.fl !== F.side) return false;
+  if (ageActive() && (o.a == null || o.a < F.amin || (F.amax < 40 && o.a > F.amax))) return false;
+  if (F.hmin > 160 && (o.h == null || o.h < F.hmin)) return false;
+  if (F.foot && o.ft !== F.foot) return false;
+  if (F.val != null){
+    if ((M.has || {}).value){ if (o.v != null && o.v > F.val * 1e6) return false; }
+    else if (o.pr != null && o.pr > F.val) return false;
+  }
+  if (o.m < F.mins) return false;
+  if (forSimilar){
+    const s = P[subject];
+    if (F.xclub && o.t === s.t) return false;
+    if (F.xleague && o.l === s.l) return false;
+  }
+  return true;
+}
+
+// ---- similarity -----------------------------------------------------------
+// The engine scales every component by sqrt(weight) before the cosine, so the
+// page does the same: a metric's weight is the mean weight of its categories.
+function weightScale(group){
+  const spec = G[group]; if (!spec) return null;
+  let changed = false;
+  const scale = spec.w.map(cats => {
+    if (!cats.length) return 1;
+    const m = cats.reduce((t, c) => t + (W[spec.c[c]] ?? 1), 0) / cats.length;
+    if (m !== 1) changed = true;
+    return Math.sqrt(m);
+  });
+  return changed ? scale : null;
+}
+function cosine(a, b, s){
   let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++){ dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  for (let i = 0; i < a.length; i++){
+    const k = s ? s[i] * s[i] : 1;
+    dot += a[i]*b[i]*k; na += a[i]*a[i]*k; nb += b[i]*b[i]*k;
+  }
   const d = Math.sqrt(na) * Math.sqrt(nb);
   return d > 0 ? dot/d : 0;
 }
-
-let subject = 0, match = null, sortMode = "gap";
-const F = {lg:"", side:"", age:40, val:181, mins:900, xclub:false, xleague:false};
-
+const pctSim = (a, b, s) => Math.max(0, Math.min(100, cosine(a, b, s) * 100));
 function ranked(){
-  const s = P[subject], out = [];
+  const s = P[subject];
+  if (!s || !G[s.g] || !s.z.length) return [];
+  const scale = weightScale(s.g), out = [];
   for (const i of (byGroup[s.g] || [])){
     if (i === subject) continue;
     const o = P[i];
-    if (F.lg && o.l !== F.lg) continue;
-    if (F.side && o.fl !== F.side) continue;
-    if (o.a != null && o.a > F.age) continue;
-    if (F.val <= 180 && o.v != null && o.v > F.val*1e6) continue;
-    if (o.m < F.mins) continue;
-    if (F.xclub && o.t === s.t) continue;
-    if (F.xleague && o.l === s.l) continue;
-    out.push([i, Math.max(0, Math.min(100, cosine(s.z, o.z)*100))]);
+    if (!o.z.length || !passes(o, true)) continue;
+    out.push([i, pctSim(s.z, o.z, scale)]);
   }
-  out.sort((a, b) => b[1] - a[1]);
-  return out;
+  return out.sort((a, b) => b[1] - a[1]);
+}
+function sortedMatches(rows){
+  const by = {
+    age: (a, b) => (P[a[0]].a ?? 99) - (P[b[0]].a ?? 99),
+    val: (a, b) => ((P[a[0]].v ?? P[a[0]].pr ?? Infinity) - (P[b[0]].v ?? P[b[0]].pr ?? Infinity)),
+    min: (a, b) => P[b[0]].m - P[a[0]].m,
+  }[listSort];
+  return by ? rows.slice().sort(by) : rows;
 }
 
-function radar(group, vals){
-  const names = (G[group] || {}).c || [];
-  const N = names.length; if (!N) return "";
-  const W = 320, C = W/2, R = 88;
-  const pt = (i, r) => { const a = -Math.PI/2 + i*2*Math.PI/N;
-    return [C + r*Math.cos(a), C + r*Math.sin(a)]; };
-  const rings = [25,50,75,100].map(v =>
-    `<polygon points="${names.map((_,i)=>pt(i,R*v/100).join(",")).join(" ")}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join("");
-  const spokes = names.map((_,i)=>{ const [x,y]=pt(i,R);
-    return `<line x1="${C}" y1="${C}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`; }).join("");
-  const shape = names.map((_,i)=>pt(i, R*Math.max(0,Math.min(100, vals[i] ?? 0))/100).join(",")).join(" ");
-  const dots = names.map((_,i)=>{ const [x,y]=pt(i, R*Math.max(0,Math.min(100, vals[i] ?? 0))/100);
-    return `<circle cx="${x}" cy="${y}" r="3" fill="var(--accent)"/>`; }).join("");
-  const labels = names.map((n,i)=>{ const [x,y]=pt(i,R+22);
-    const anchor = x < C-6 ? "end" : x > C+6 ? "start" : "middle";
-    const v = vals[i] == null ? "—" : Math.round(vals[i]);
-    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="11"
-      fill="var(--muted)" font-family="IBM Plex Sans,sans-serif">${esc(n)}<tspan
-      font-family="IBM Plex Mono,monospace" fill="var(--ink-2)" font-weight="600"> ${v}</tspan></text>`; }).join("");
-  return `<svg viewBox="-92 -16 ${W+184} ${W+32}" role="img" aria-label="Category percentile profile">
-    ${rings}${spokes}<polygon points="${shape}" fill="var(--accent)" fill-opacity="0.16"
-    stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${dots}${labels}</svg>`;
+// ---- subject ---------------------------------------------------------------
+function findByName(name){
+  if (!name) return -1;
+  const t = name.toLowerCase();
+  return P.findIndex(p => p.n.toLowerCase() === t);
+}
+function defaultSubject(){
+  const biggest = Object.keys(G).sort((a, b) => (byGroup[b] || []).length - (byGroup[a] || []).length)[0];
+  const pool = (byGroup[biggest] || []).slice().sort((a, b) => P[b].m - P[a].m);
+  return pool.length ? pool[0] : 0;
+}
+function selectSubject(i, {keepMatch = false, matchName = null} = {}){
+  subject = i; sortMode = "gap"; listLimit = 25;
+  document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b.dataset.sort === "gap"));
+  $("q").value = ""; $("picker").hidden = true;
+  if (!keepMatch){
+    match = null;
+    const m = matchName ? findByName(matchName) : -1;
+    if (m >= 0 && m !== subject) match = m;
+    else { const first = ranked()[0]; if (first) match = first[0]; }
+  }
+  if (!searchGroup || !G[searchGroup]) searchGroup = G[P[subject].g] ? P[subject].g : Object.keys(G)[0];
+  careerOpen = false; $("career-panel").hidden = true;
+  drawAll();
 }
 
-const badge = (txt, cls="") => txt ? `<span class="badge ${cls}">${esc(txt)}</span>` : "";
-
+const badge = (txt, cls = "") => txt ? `<span class="badge ${cls}">${esc(txt)}</span>` : "";
 function drawSubject(){
-  const p = P[subject], gname = M.groupNames[p.g] || p.g;
+  const p = P[subject];
+  const others = (p.os || []);
   $("subject-line").innerHTML = `
-    <div class="who-name"><span class="eyebrow">${esc(gname)} &middot; ${esc(M.season)}</span>
+    <div class="who"><span class="eyebrow">${esc(gname(p.g))} &middot; ${esc(seasonLabel(M.season))}</span>
       <h2>${esc(p.n)}</h2></div>
     <div class="badges">
       ${badge(p.ar, "arch")}${badge(p.p, "key")}${badge(p.t)}${badge(p.l)}
       ${badge(p.a != null ? "Age " + p.a.toFixed(1) : "")}${badge(p.h ? p.h + " cm" : "")}
-      ${badge(p.ft ? p.ft[0].toUpperCase()+p.ft.slice(1) + "-footed" : "")}
-      ${badge(p.fs ? p.fs + " on the " + (p.fl||"").toLowerCase() : "")}
-      ${badge(p.v != null ? eur(p.v) : "", "key")}${badge(p.m.toLocaleString() + " min")}
-    </div>`;
-  $("radar").innerHTML = radar(p.g, p.cv);
-  $("peer-note").textContent = (M.counts[p.g] || 0) + " peers";
-  $("radar-note").textContent =
-    `Each spoke is the mean percentile of a basket of per-90 metrics, against ${gname.toLowerCase()}s in this pool. `
-    + `Similarity below is computed on ${(G[p.g]||{f:[]}).f.length} individual metrics, not on these eight averages.`;
+      ${badge(p.ft ? p.ft[0].toUpperCase() + p.ft.slice(1) + "-footed" : "")}
+      ${badge(p.fs ? p.fs + " on the " + (p.fl || "").toLowerCase() : "")}
+      ${p.v != null ? badge(eur(p.v), "key") : p.pr != null ? badge("£" + p.pr.toFixed(1) + "m FPL price") : ""}
+      ${badge(p.m.toLocaleString() + " min")}
+    </div>
+    ${others.length ? `<div class="seasons-line"><span class="eyebrow">Also in</span>${others.map(s =>
+      `<button type="button" class="chip-btn" data-goseason="${s}">${seasonLabel(s)}</button>`).join("")}
+      <button type="button" class="mini" id="career-btn">Career across ${others.length + 1} seasons</button></div>` : ""}`;
 }
 
+// ---- radar ---------------------------------------------------------------
+function radar(names, series){
+  const N = names.length; if (!N) return "";
+  const Wd = 320, C = Wd/2, R = 88;
+  const pt = (i, r) => { const a = -Math.PI/2 + i*2*Math.PI/N; return [C + r*Math.cos(a), C + r*Math.sin(a)]; };
+  const clamp = v => Math.max(0, Math.min(100, v ?? 0));
+  const rings = [25,50,75,100].map(v =>
+    `<polygon points="${names.map((_,i) => pt(i, R*v/100).join(",")).join(" ")}" fill="none" stroke="var(--line)"/>`).join("");
+  const spokes = names.map((_,i) => { const [x,y] = pt(i,R);
+    return `<line x1="${C}" y1="${C}" x2="${x}" y2="${y}" stroke="var(--line)"/>`; }).join("");
+  const shapes = series.map(s => {
+    const pts = names.map((_,i) => pt(i, R*clamp(s.vals[i])/100).join(",")).join(" ");
+    const dots = names.map((_,i) => { const [x,y] = pt(i, R*clamp(s.vals[i])/100);
+      return s.vals[i] == null ? "" : `<circle cx="${x}" cy="${y}" r="3" fill="${s.color}"/>`; }).join("");
+    return `<polygon points="${pts}" fill="${s.color}" fill-opacity="0.13" stroke="${s.color}"
+      stroke-width="2" stroke-linejoin="round"${s.dash ? ' stroke-dasharray="5 4"' : ""}/>${dots}`;
+  }).join("");
+  const labels = names.map((n,i) => { const [x,y] = pt(i, R+22);
+    const anchor = x < C-6 ? "end" : x > C+6 ? "start" : "middle";
+    const nums = series.map(s => `<tspan font-family="IBM Plex Mono,monospace" font-weight="600" fill="${s.color}"> ${
+      s.vals[i] == null ? "—" : Math.round(s.vals[i])}</tspan>`).join("");
+    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="11"
+      fill="var(--muted)" font-family="IBM Plex Sans,sans-serif">${esc(n)}${nums}</text>`; }).join("");
+  return `<svg viewBox="-96 -16 ${Wd+192} ${Wd+32}" role="img" aria-label="Category percentile profile">
+    ${rings}${spokes}${shapes}${labels}</svg>`;
+}
+function drawRadar(){
+  const p = P[subject], spec = G[p.g];
+  if (!spec){ $("radar").innerHTML = `<div class="empty">No model for ${esc(gname(p.g).toLowerCase())}s this season.</div>`;
+    $("radar-legend").innerHTML = ""; $("radar-note").textContent = ""; $("peer-note").textContent = ""; return; }
+  const series = [{vals: p.cv, color: "var(--accent)"}];
+  const o = match != null ? P[match] : null;
+  const same = o && o.g === p.g;
+  if (same) series.push({vals: o.cv, color: "var(--second)", dash: true});
+  $("radar").innerHTML = radar(spec.c, series);
+  $("radar-legend").innerHTML = `<span><i style="background:var(--accent)"></i>${esc(p.n)}</span>` +
+    (same ? `<span><i style="background:var(--second)"></i>${esc(o.n)}</span>` : "");
+  $("peer-note").textContent = (M.counts[p.g] || 0) + " peers";
+  $("radar-note").textContent = `Each spoke is the mean percentile of a basket of per-90 metrics, against `
+    + `${gname(p.g).toLowerCase()}s this season. Similarity is computed on ${spec.f.length} individual metrics, not on these averages.`;
+}
+
+// ---- weights ---------------------------------------------------------------
+function drawWeights(){
+  const p = P[subject], spec = G[p.g];
+  $("weights-panel").hidden = !spec;
+  if (!spec) return;
+  const used = spec.c.map((c, i) => ({c, n: spec.w.filter(cats => cats.includes(i)).length})).filter(x => x.n);
+  const steps = [0, 0.5, 1, 1.5, 2, 2.5, 3];
+  $("weights").innerHTML = used.map(({c, n}) => {
+    const v = W[c] ?? 1;
+    return `<div class="wrow${v === 0 ? " off" : ""}"><span class="wl" title="${n} metric${n > 1 ? "s" : ""}">${esc(c)}</span>
+      <input type="range" min="0" max="6" step="1" value="${steps.indexOf(v)}" data-cat="${esc(c)}"
+        aria-label="Weight on ${esc(c)}"><span class="wv mono">${v === 0 ? "off" : v + "×"}</span></div>`;
+  }).join("");
+  const loose = spec.w.filter(cats => !cats.length).length;
+  const custom = used.some(({c}) => (W[c] ?? 1) !== 1);
+  $("w-state").textContent = custom ? "Custom weights" : "Equal weights";
+  if (loose) $("weights").insertAdjacentHTML("beforeend",
+    `<p class="fnote">${loose} of the ${spec.f.length} metrics sit in no category and always count once.</p>`);
+}
+
+// ---- matches ---------------------------------------------------------------
 function drawMatches(){
-  const rows = ranked();
+  const s = P[subject];
+  if (!G[s.g] || !s.z.length){
+    $("hits").textContent = "";
+    $("matches").innerHTML = `<div class="empty">${esc(gname(s.g))}s have no model this season, so there is
+      nothing to rank ${esc(s.n)} against. Pick another player or season.</div>`;
+    return;
+  }
+  const has = M.has || {};
+  document.querySelector('#listsort [data-sort="val"]').hidden = !(has.value || has.price);
+  document.querySelector('#listsort [data-sort="age"]').hidden = !has.age;
+  const rows = sortedMatches(ranked());
   $("hits").textContent = rows.length.toLocaleString() + " candidates";
-  const top = rows.slice(0, 40);
-  if (!top.length){ $("matches").innerHTML = `<div class="empty">No player in this position group clears those filters. Loosen one.</div>`; return; }
+  if (!rows.length){ $("matches").innerHTML = `<div class="empty">No ${esc(gname(s.g).toLowerCase())} clears those filters. Loosen one.</div>`; return; }
+  const top = rows.slice(0, listLimit), priced = has.value || has.price;
   $("matches").innerHTML = top.map(([i, sc], n) => {
     const o = P[i];
-    return `<button class="mrow" data-m="${i}" aria-current="${i === match}">
+    return `<button type="button" class="row" data-m="${i}" aria-current="${i === match}">
       <span class="rk mono">${n+1}</span>
-      <span class="who"><span class="nm">${esc(o.n)}</span><br>
-        <span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span></span>
-      <span class="meta mono">${o.a != null ? o.a.toFixed(1) : "—"}<br>${worth(o)}</span>
+      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span></span>
+      <span class="meta mono">${o.a != null ? o.a.toFixed(1) : "—"}${priced ? "<br>" + worth(o) : ""}</span>
       <span class="score"><span class="tr"><span class="fl" style="width:${sc}%"></span></span>
-        <span class="pc mono">${sc.toFixed(1)}%</span></span>
-    </button>`;
-  }).join("");
+        <span class="pc mono">${sc.toFixed(1)}%</span></span></button>`;
+  }).join("") + (rows.length > listLimit
+    ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
 }
 
-// A player's metrics keyed by name rather than by slot, so two players from
-// different position groups - whose `d` lists are different lengths and in a
-// different order - can still be put side by side.
+// ---- comparison ------------------------------------------------------------
 function cells(p){
   const spec = G[p.g], out = {};
-  if (!spec) return out;
-  spec.d.forEach((key, i) => { out[key] = p.d[i] || [null, null]; });
+  if (spec) spec.d.forEach((key, i) => { out[key] = p.d[i] || [null, null]; });
   return out;
 }
-
 function drawCompare(){
   const panel = $("compare-panel");
   if (match == null){ panel.hidden = true; return; }
   panel.hidden = false;
   const a = P[subject], b = P[match], spec = G[a.g];
-  const sameGroup = a.g === b.g && spec;
-  const sim = sameGroup ? Math.max(0, Math.min(100, cosine(a.z, b.z)*100)) : null;
-  $("compare-title").textContent = sameGroup
-    ? `${a.n} vs ${b.n} — ${sim.toFixed(1)}% alike`
-    : `${a.n} vs ${b.n}`;
-
-  // Per-feature contribution to the distance between the two, exactly as the
-  // Streamlit app explains it: the standardised gap on each model metric. Only
-  // defined inside one position group - a winger and a centre-back share no axis.
+  const same = a.g === b.g && spec && a.z.length && b.z.length;
+  const scale = same ? weightScale(a.g) : null;
+  const sim = same ? pctSim(a.z, b.z, scale) : null;
+  $("compare-title").textContent = same ? `${a.n} vs ${b.n} — ${sim.toFixed(1)}% alike` : `${a.n} vs ${b.n}`;
   const zgap = {};
-  if (sameGroup) spec.f.forEach((key, i) => { zgap[key] = Math.abs((a.z[i] ?? 0) - (b.z[i] ?? 0)); });
-
+  if (same) spec.f.forEach((key, i) => { zgap[key] = Math.abs((a.z[i] ?? 0) - (b.z[i] ?? 0)) * (scale ? scale[i] : 1); });
   const ca = cells(a), cb = cells(b);
-  const keys = [...new Set([...Object.keys(ca), ...Object.keys(cb)])];
-  let rows = keys.map(key => ({
-    key, label: M.labels[key] || key,
-    av: ca[key] ? ca[key][0] : null, ap: ca[key] ? ca[key][1] : null,
+  let rows = [...new Set([...Object.keys(ca), ...Object.keys(cb)])].map(key => ({
+    key, av: ca[key] ? ca[key][0] : null, ap: ca[key] ? ca[key][1] : null,
     bv: cb[key] ? cb[key][0] : null, bp: cb[key] ? cb[key][1] : null,
     gap: zgap[key], modelled: key in zgap,
   })).filter(r => r.av != null || r.bv != null);
-
   const widest = Math.max(0.001, ...rows.map(r => r.gap ?? 0));
-  if (!sameGroup) rows.sort((x, y) => (y.ap ?? -1) - (x.ap ?? -1));
+  if (!same || sortMode === "pct") rows.sort((x, y) => (y.ap ?? -1) - (x.ap ?? -1));
   else if (sortMode === "gap") rows.sort((x, y) => (y.gap ?? -1) - (x.gap ?? -1));
-  else if (sortMode === "near") rows.sort((x, y) => (x.gap ?? 99) - (y.gap ?? 99));
-  else rows.sort((x, y) => (y.ap ?? -1) - (x.ap ?? -1));
-
-  const cell = (v, p, key) => `<td class="num mono">${fmt(key, v)}</td>
-    <td class="pcell"><span class="chip c${band(p)}">${p == null ? "—" : p}</span></td>`;
-
+  else rows.sort((x, y) => (x.gap ?? 99) - (y.gap ?? 99));
+  const last = n => esc(n.split(" ").slice(-1)[0]);
+  const cell = (v, p, key) => `<td class="num">${fmt(key, v)}</td><td class="pcell">${chip(p)}</td>`;
   $("compare").innerHTML = `<div class="tablewrap"><table>
-    <thead><tr>
-      <th>Metric</th><th class="num" colspan="2">${esc(a.n.split(" ").slice(-1)[0])}</th>
-      <th class="num" colspan="2">${esc(b.n.split(" ").slice(-1)[0])}</th><th>Gap</th>
-    </tr>
-    <tr class="sub"><th></th><th class="num">per 90</th><th>%ile</th>
-      <th class="num">per 90</th><th>%ile</th><th></th></tr></thead>
+    <thead><tr><th>Metric</th><th class="num" colspan="2">${last(a.n)}</th><th class="num" colspan="2">${last(b.n)}</th><th>Gap</th></tr>
+    <tr class="subh"><th></th><th class="num">per 90</th><th>%ile</th><th class="num">per 90</th><th>%ile</th><th></th></tr></thead>
     <tbody>${rows.map(r => `<tr${r.modelled ? "" : ' class="off"'}>
-      <td class="lb">${esc(r.label)}${r.modelled ? "" : '<span class="tag">context</span>'}</td>
+      <td class="lb">${esc(label(r.key))}${r.modelled ? "" : '<span class="tag">context</span>'}</td>
       ${cell(r.av, r.ap, r.key)}${cell(r.bv, r.bp, r.key)}
       <td class="gap">${r.gap == null ? '<span class="muted">—</span>'
         : `<span class="gbar" title="${r.gap.toFixed(2)} standard deviations apart"><span style="width:${
-            Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td>
-    </tr>`).join("")}</tbody></table></div>
-    <div class="note" style="border-top:1px solid var(--line)">${sameGroup
-      ? `Rows marked <span class="tag">context</span> are measured and shown, but are not part of
-         this position's similarity model, so they carry no gap bar. The ${spec.f.length} that are
-         modelled drive the ${sim.toFixed(1)}% above.`
-      : `<b>No similarity percentage here.</b> These two play different positions
-         (${esc(M.groupNames[a.g] || a.g)} and ${esc(M.groupNames[b.g] || b.g)}), and similarity is
-         only defined inside one position group - a centre-back and a winger share no meaningful
-         axis. Their percentiles are still each measured against their own peers, so the columns
-         are readable side by side; the gap column is not.`}</div>`;
+            Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td></tr>`).join("")}</tbody></table></div>
+    <p class="note" style="border-top:1px solid var(--line)">${same
+      ? `Rows marked <span class="tag">context</span> are measured but are not part of this position's
+         similarity model. The ${spec.f.length} that are drive the ${sim.toFixed(1)}% above${scale ? ", under your weights" : ""}.`
+      : `<b>No similarity here.</b> These two are in different position groups (${esc(gname(a.g))} and
+         ${esc(gname(b.g))}), and similarity is only defined inside one. Each percentile is still against his
+         own peers, so the columns read side by side; the gap does not.`}
+      Where a scout wants a metric <em>low</em> - errors, miscontrols, fouls - the percentile is already
+      flipped, so a high number is always good.</p>`;
 }
 
-function draw(){ drawSubject(); drawMatches(); drawCompare(); drawBoard(); }
-
-// ---- leaderboard ---------------------------------------------------------
-// Similarity answers "who is like him". This answers the other half of
-// scouting: "who is best at this", which no amount of similarity gives you.
-function buildBoardControls(){
-  const groups = Object.keys(G);
-  $("bgroup").innerHTML = groups.map(g =>
-    `<option value="${g}">${esc(M.groupNames[g] || g)}</option>`).join("");
-  const here = P[subject] ? P[subject].g : groups[0];
-  $("bgroup").value = groups.includes(here) ? here : groups[0];
-  buildBoardMetrics();
-}
-
-// Only the metrics the chosen position actually has. Offering the union across
-// every group would let you pick "saves" for a winger and get an empty table.
-function buildBoardMetrics(){
-  const group = $("bgroup").value, spec = G[group];
-  if (!spec) return;
-  const keep = $("bmetric").value;
-  const options = spec.d
-    .map(k => [k, M.labels[k] || k])
-    .sort((a, b) => a[1].localeCompare(b[1]));
-  $("bmetric").innerHTML = options.map(([k, label]) =>
-    `<option value="${k}">${esc(label)}</option>`).join("");
-  // Keep the chosen metric across a position change where it still applies.
-  if (keep && spec.d.includes(keep)) $("bmetric").value = keep;
-}
-
-function drawBoard(){
-  const metric = $("bmetric").value, group = $("bgroup").value;
-  const spec = G[group];
-  if (!spec || !metric){ $("board").innerHTML = ""; return; }
-  const slot = spec.d.indexOf(metric);
-  if (slot < 0){
-    $("board").innerHTML = `<div class="empty">${esc(M.labels[metric] || metric)} is not
-      measured for ${esc((M.groupNames[group] || group).toLowerCase())}s in this dataset.</div>`;
-    return;
+// ---- career ------------------------------------------------------------------
+async function drawCareer(){
+  const p = P[subject], src = sourceOf(dsKey);
+  const seasons = [M.season, ...(p.os || [])].sort();
+  $("career-panel").hidden = false;
+  $("career-title").textContent = `${p.n} — ${seasons.length} seasons`;
+  $("career").innerHTML = `<div class="empty">Loading ${seasons.length} seasons…</div>`;
+  const rows = [];
+  for (const season of seasons){
+    try {
+      const d = await getDataset(src + ":" + season);
+      const q = d.players.find(x => x.id === p.id);
+      if (q) rows.push({season, d, q});
+    } catch (e) { rows.push({season, err: true}); }
   }
+  if (P[subject] !== p) return;
+  const cats = [];
+  rows.forEach(r => { if (r.q){ (r.d.meta.groups[r.q.g] || {c: []}).c.forEach(c => { if (!cats.includes(c)) cats.push(c); }); } });
+  const bar = v => v == null ? '<span class="muted">—</span>'
+    : `<span class="spark"><span style="width:${v}%;background:var(--s${band(v)})"></span></span><span class="mono">${Math.round(v)}</span>`;
+  const provider = src === "fbref_big5" && rows.some(r => r.season < "2022-23") && rows.some(r => r.season >= "2022-23");
+  $("career").innerHTML = `<div class="tablewrap"><table>
+    <thead><tr><th>Season</th><th>Club</th><th>Position</th><th class="num">Min</th><th class="num">Age</th>
+      ${cats.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => r.err ? `<tr><td>${seasonLabel(r.season)}</td><td colspan="${4 + cats.length}" class="muted">could not load</td></tr>` : (() => {
+      const spec = r.d.meta.groups[r.q.g] || {c: []};
+      const val = c => { const i = spec.c.indexOf(c); return i < 0 ? null : r.q.cv[i]; };
+      return `<tr class="${r.season === M.season ? "here" : ""}"><td class="mono">${seasonLabel(r.season)}</td>
+        <td>${esc(r.q.t)}</td><td>${esc(r.q.p)}</td><td class="num">${r.q.m.toLocaleString()}</td>
+        <td class="num">${r.q.a != null ? r.q.a.toFixed(1) : "—"}</td>${cats.map(c => `<td style="white-space:nowrap">${bar(val(c))}</td>`).join("")}</tr>`;
+    })()).join("")}</tbody></table></div>
+    <p class="note" style="border-top:1px solid var(--line)">Each cell is his category percentile against his
+    position <em>that season</em>, so a move up or down is relative to that year's peers. A dash is a
+    category that season did not measure.${provider ? " FBref changed data provider in 2022/23 and defines some "
+    + "metrics differently either side of it, so read the two eras as separate runs." : ""}</p>`;
+}
+
+// ---- profile search ----------------------------------------------------------
+function groupOptions(sel, current){
+  const groups = Object.keys(G).sort((a, b) => gname(a).localeCompare(gname(b)));
+  sel.innerHTML = groups.map(g => `<option value="${g}">${esc(gname(g))}</option>`).join("");
+  sel.value = groups.includes(current) ? current : groups[0];
+  return sel.value;
+}
+function metricOptions(group, chosen){
+  return (G[group] ? G[group].d : []).map(k => [k, label(k)]).sort((a, b) => a[1].localeCompare(b[1]))
+    .map(([k, l]) => `<option value="${k}"${k === chosen ? " selected" : ""}>${esc(l)}</option>`).join("");
+}
+function drawSearch(){
+  searchGroup = groupOptions($("sgroup"), searchGroup);
+  const spec = G[searchGroup];
+  if (!criteria.length && spec && !searchCleared)
+    criteria = spec.f.slice(0, 2).filter(k => spec.d.includes(k)).map(k => ({metric: k, min: 70}));
+  $("criteria").innerHTML = criteria.map((c, i) => `<div class="crit">
+      <select data-crit="${i}" aria-label="Metric">${metricOptions(searchGroup, c.metric)}</select>
+      <div class="rng"><span class="lbl">At least <span class="mono pv">${c.min}th</span> percentile</span>
+        <input type="range" min="0" max="95" step="5" value="${c.min}" data-critmin="${i}" aria-label="Minimum percentile"></div>
+      <button type="button" class="xbtn" data-critdel="${i}" aria-label="Remove condition">&times;</button></div>`).join("")
+    || `<p class="fnote">Add a condition to start - say, at least the 80th percentile for progressive passes.</p>`;
+  drawResults();
+}
+function searchRows(){
+  const spec = G[searchGroup];
+  if (!spec || !criteria.length) return [];
+  const slots = criteria.map(c => spec.d.indexOf(c.metric));
+  const out = [];
+  for (const i of (byGroup[searchGroup] || [])){
+    const o = P[i];
+    if (!passes(o, false)) continue;
+    let ok = true, total = 0;
+    const got = slots.map((slot, k) => {
+      const pct = slot >= 0 && o.d[slot] ? o.d[slot][1] : null;
+      if (pct == null || pct < criteria[k].min) ok = false;
+      total += pct ?? 0; return pct;
+    });
+    if (ok) out.push([i, total / slots.length, got]);
+  }
+  return out.sort((a, b) => b[1] - a[1]);
+}
+function drawResults(){
+  const rows = searchRows();
+  $("res-hits").textContent = criteria.length ? rows.length.toLocaleString() + " players" : "";
+  if (!criteria.length){ $("results").innerHTML = ""; return; }
+  if (!rows.length){ $("results").innerHTML = `<div class="empty">Nobody meets every condition. Lower a bar or loosen a filter.</div>`; return; }
+  $("results").innerHTML = rows.slice(0, resLimit).map(([i, avg, got], n) => {
+    const o = P[i];
+    return `<button type="button" class="row res" data-s="${i}">
+      <span class="rk mono">${n+1}</span>
+      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
+        o.a != null ? " · " + o.a.toFixed(1) : ""}</span></span>
+      <span class="cells" title="${esc(criteria.map(c => label(c.metric)).join(" · "))}">${got.map(chip).join("")}</span>
+      <span class="bval mono">${avg.toFixed(0)}</span></button>`;
+  }).join("") + (rows.length > resLimit
+    ? `<button type="button" class="more" data-more="res">Show ${Math.min(25, rows.length - resLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
+}
+
+// ---- leaderboard ---------------------------------------------------------------
+function drawBoardControls(){
+  const current = G[$("bgroup").value] ? $("bgroup").value : (P[subject] ? P[subject].g : null);
+  const g = groupOptions($("bgroup"), current);
+  const keep = $("bmetric").value;
+  $("bmetric").innerHTML = metricOptions(g, keep);
+  if (keep && G[g] && G[g].d.includes(keep)) $("bmetric").value = keep;
+}
+function drawBoard(){
+  const metric = $("bmetric").value, group = $("bgroup").value, spec = G[group];
+  if (!spec || !metric){ $("board").innerHTML = ""; $("board-hits").textContent = ""; return; }
+  const slot = spec.d.indexOf(metric);
   const rows = [];
   for (const i of (byGroup[group] || [])){
-    const cell = P[i].d[slot];
-    if (cell && cell[0] != null) rows.push([i, cell[0], cell[1]]);
+    const o = P[i], c = o.d[slot];
+    if (c && c[0] != null && passes(o, false)) rows.push([i, c[0], c[1]]);
   }
   const asc = $("bdir").value === "asc";
   rows.sort((a, b) => asc ? a[1] - b[1] : b[1] - a[1]);
-  const top = rows.slice(0, 20);
-  if (!top.length){ $("board").innerHTML = `<div class="empty">Nothing to rank.</div>`; return; }
-  $("board").innerHTML = top.map(([i, value, pct], n) => {
+  $("board-hits").textContent = rows.length.toLocaleString() + " ranked";
+  if (!rows.length){ $("board").innerHTML = `<div class="empty">Nobody to rank with these filters.</div>`; return; }
+  $("board").innerHTML = rows.slice(0, boardLimit).map(([i, v, pct], n) => {
     const o = P[i];
-    return `<button class="brow" data-s="${i}">
-      <span class="rk mono">${n + 1}</span>
-      <span class="who"><span class="nm">${esc(o.n)}</span><br>
-        <span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span></span>
-      <span class="bval mono">${fmt(metric, value)}</span>
-      <span class="pcell"><span class="chip c${band(pct)}">${pct == null ? "—" : pct}</span></span>
-    </button>`;
-  }).join("");
+    return `<button type="button" class="row brd" data-s="${i}" data-tosim="1">
+      <span class="rk mono">${n+1}</span>
+      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
+        o.a != null ? " · " + o.a.toFixed(1) : ""} · ${o.m.toLocaleString()} min</span></span>
+      <span class="bval mono">${fmt(metric, v)}</span><span>${chip(pct)}</span></button>`;
+  }).join("") + (rows.length > boardLimit
+    ? `<button type="button" class="more" data-more="board">Show ${Math.min(25, rows.length - boardLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
 }
 
-// ---- shortlist as CSV ----------------------------------------------------
-// Copy rather than download: a download is blocked inside some embedded
-// viewers, while the clipboard works everywhere the page does.
-function shortlistCsv(){
-  const head = ["rank", "player", "position", "club", "league", "age", "value", "similarity_pct"];
-  const rows = ranked().slice(0, 40).map(([i, sc], n) => {
-    const o = P[i];
-    return [n + 1, o.n, o.p, o.t, o.l, o.a == null ? "" : o.a,
-            o.v != null ? o.v : (o.pr != null ? o.pr : ""), sc.toFixed(1)];
-  });
-  return [head, ...rows]
-    .map(r => r.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(","))
-    .join("\n");
+// ---- modes, drawing, sharing ------------------------------------------------------
+function setMode(m){
+  mode = m;
+  document.querySelectorAll(".tabs [data-mode]").forEach(b => b.setAttribute("aria-selected", b.dataset.mode === m));
+  ["similar", "search", "board"].forEach(v => { $("view-" + v).hidden = v !== m; });
+  syncFilterInputs(); drawMode(); writeHash();
+}
+function drawMode(){
+  if (mode === "similar"){ drawSubject(); drawRadar(); drawWeights(); drawMatches(); drawCompare();
+    if (careerOpen) drawCareer(); }
+  else if (mode === "search") drawSearch();
+  else { drawBoardControls(); drawBoard(); }
+}
+function drawAll(){ syncFilterInputs(); drawMode(); writeHash(); }
+function refilter(){
+  syncFilterInputs();
+  listLimit = resLimit = boardLimit = 25;
+  // An explicit comparison stays open even if the filters would now hide him.
+  if (mode === "similar") drawMatches(); else if (mode === "search") drawResults(); else drawBoard();
+  writeHash();
 }
 
+function writeHash(){
+  if (!P) return;
+  const p = P[subject], o = match != null ? P[match] : null;
+  const parts = ["d=" + encodeURIComponent(dsKey), "p=" + encodeURIComponent(p.n)];
+  if (o) parts.push("m=" + encodeURIComponent(o.n));
+  if (mode !== "similar") parts.push("v=" + mode);
+  history.replaceState(null, "", "#" + parts.join("&"));
+}
+function readHash(){
+  const raw = location.hash.replace(/^#/, "");
+  if (!raw) return null;
+  const q = {};
+  raw.split("&").forEach(bit => { const [k, v] = bit.split("="); if (k) q[k] = decodeURIComponent(v || ""); });
+  return q;
+}
+function csv(rows){
+  return rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\n");
+}
 async function copyText(text, button, done){
   const original = button.textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    button.textContent = done;
-  } catch {
-    // Clipboard permission can be refused; select-to-copy still works.
+  try { await navigator.clipboard.writeText(text); button.textContent = done; }
+  catch {
     const box = document.createElement("textarea");
     box.value = text; box.style.position = "fixed"; box.style.opacity = "0";
     document.body.appendChild(box); box.select();
@@ -470,130 +815,175 @@ async function copyText(text, button, done){
   setTimeout(() => { button.textContent = original; }, 2200);
 }
 
-// ---- shareable state ----------------------------------------------------
-// The URL carries dataset, subject and match by NAME rather than row number, so
-// a link keeps working after the data is rebuilt and the rows move.
-function writeHash(){
-  const p = P[subject], o = match != null ? P[match] : null;
-  const parts = ["d=" + encodeURIComponent(dsKey), "p=" + encodeURIComponent(p.n)];
-  if (o) parts.push("m=" + encodeURIComponent(o.n));
-  history.replaceState(null, "", "#" + parts.join("&"));
-}
-
-function readHash(){
-  const raw = location.hash.replace(/^#/, "");
-  if (!raw) return null;
-  const q = {};
-  raw.split("&").forEach(bit => {
-    const [k, v] = bit.split("=");
-    if (k) q[k] = decodeURIComponent(v || "");
-  });
-  return q;
-}
-
-function findByName(name){
-  if (!name) return -1;
-  const target = name.toLowerCase();
-  return P.findIndex(p => p.n.toLowerCase() === target);
-}
-
-function setSubject(i){
-  subject = i; match = null; sortMode = "gap";
-  document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b.dataset.sort === "gap"));
-  $("q").value = ""; $("picker").hidden = true;
-  draw();
-  writeHash();
-}
-
-// ---- picker --------------------------------------------------------------
-$("q").addEventListener("input", e => {
-  const q = e.target.value.trim().toLowerCase();
-  if (q.length < 2){ $("picker").hidden = true; return; }
+// ---- pickers -------------------------------------------------------------------
+function pickerHits(q, skip, limit){
   const hits = [];
-  for (let i = 0; i < P.length && hits.length < 40; i++){
+  for (let i = 0; i < P.length && hits.length < limit; i++){
+    if (i === skip) continue;
     const p = P[i];
     if (p.n.toLowerCase().includes(q) || p.t.toLowerCase().includes(q)) hits.push(i);
   }
+  return hits;
+}
+$("q").addEventListener("input", e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (q.length < 2){ $("picker").hidden = true; return; }
+  const hits = pickerHits(q, -1, 40);
   $("picker").hidden = false;
-  $("picker").innerHTML = hits.length ? hits.map(i => {
-    const p = P[i];
-    return `<button class="prow" data-s="${i}"><span class="nm">${esc(p.n)}</span>
-      <span class="mt">${esc(p.p)} · ${esc(p.t)} · ${esc(p.l)}</span></button>`;
-  }).join("") : `<div class="empty">No player by that name.</div>`;
+  $("picker").innerHTML = hits.length ? hits.map(i => { const p = P[i];
+    return `<button type="button" class="prow" data-s="${i}"><span class="nm">${esc(p.n)}</span>
+      <span class="mt">${esc(p.p)} · ${esc(p.t)} · ${esc(p.l)}</span></button>`; }).join("")
+    : `<div class="empty">No player by that name this season.</div>`;
 });
-
-document.addEventListener("click", e => {
-  const pick = e.target.closest("[data-s]");
-  if (pick){ setSubject(+pick.dataset.s); return; }
-  const m2 = e.target.closest("[data-m2]");
-  if (m2){
-    match = +m2.dataset.m2;
-    $("q2").value = ""; $("picker2").hidden = true;
-    drawMatches(); drawCompare(); writeHash();
-    return;
-  }
-  const m = e.target.closest("[data-m]");
-  if (m){ match = +m.dataset.m; drawMatches(); drawCompare(); writeHash();
-    $("compare-panel").scrollIntoView({block:"nearest", behavior:"smooth"}); return; }
-  const d = e.target.closest("[data-ds]");
-  if (d){ loadDataset(d.dataset.ds); return; }
-  const s = e.target.closest("#sortseg button");
-  if (s){ sortMode = s.dataset.sort;
-    document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b === s));
-    drawCompare(); return; }
-  if (!e.target.closest(".pick")){ $("picker").hidden = true; $("picker2").hidden = true; }
+$("q").addEventListener("keydown", e => {
+  if (e.key === "Enter"){ const first = $("picker").querySelector("[data-s]"); if (first) first.click(); }
+  if (e.key === "Escape") $("picker").hidden = true;
 });
-
-const bind = (id, key, fn) => $(id).addEventListener("input", e => {
-  F[key] = fn ? fn(e.target) : e.target.value;
-  if (id === "age") $("age-v").textContent = F.age >= 40 ? "40+" : F.age;
-  if (id === "val") $("val-v").textContent = F.val > 180 ? "any" : "€" + F.val + "m";
-  if (id === "mins") $("mins-v").textContent = F.mins.toLocaleString();
-  drawMatches(); if (match != null && !ranked().some(([i]) => i === match)){ match = null; drawCompare(); }
-});
-$("bgroup").addEventListener("change", () => { buildBoardMetrics(); drawBoard(); });
-["bmetric","bdir"].forEach(id => $(id).addEventListener("change", drawBoard));
-
-$("copycsv").addEventListener("click", e =>
-  copyText(shortlistCsv(), e.target, "Copied " + Math.min(40, ranked().length) + " rows"));
-$("sharebtn").addEventListener("click", e => {
-  writeHash();
-  copyText(location.href, e.target, "Link copied");
-});
-
-// Compare against anyone, not only a player the ranking surfaced.
 $("q2").addEventListener("input", e => {
   const q = e.target.value.trim().toLowerCase();
   if (q.length < 2){ $("picker2").hidden = true; return; }
-  const hits = [];
-  for (let i = 0; i < P.length && hits.length < 30; i++){
-    if (i === subject) continue;
-    const o = P[i];
-    if (o.n.toLowerCase().includes(q) || o.t.toLowerCase().includes(q)) hits.push(i);
-  }
+  const hits = pickerHits(q, subject, 30);
   $("picker2").hidden = false;
-  $("picker2").innerHTML = hits.length ? hits.map(i => {
-    const o = P[i];
-    const same = o.g === P[subject].g;
-    return `<button class="prow" data-m2="${i}"><span class="nm">${esc(o.n)}</span>
-      <span class="mt">${esc(o.p)} · ${esc(o.t)}${same ? "" : " · different position group"}</span></button>`;
-  }).join("") : `<div class="empty">No player by that name.</div>`;
+  $("picker2").innerHTML = hits.length ? hits.map(i => { const o = P[i];
+    return `<button type="button" class="prow" data-m2="${i}"><span class="nm">${esc(o.n)}</span>
+      <span class="mt">${esc(o.p)} · ${esc(o.t)}${o.g === P[subject].g ? "" : " · different position group"}</span></button>`; }).join("")
+    : `<div class="empty">No player by that name this season.</div>`;
 });
 
-bind("lg","lg"); bind("side","side");
-bind("age","age", t => +t.value);
-bind("val","val", t => +t.value >= 180 ? 181 : +t.value);
-bind("mins","mins", t => +t.value);
-bind("xclub","xclub", t => t.checked);
-bind("xleague","xleague", t => t.checked);
+// ---- events ------------------------------------------------------------------------
+document.addEventListener("click", e => {
+  const t = e.target;
+  const src = t.closest("[data-src]");
+  if (src){
+    const cat = BUNDLE.catalog.find(c => c.key === src.dataset.src);
+    const want = cat.seasons.find(s => s.season === seasonOf(dsKey)) || cat.seasons[cat.seasons.length - 1];
+    loadDataset(cat.key + ":" + want.season); return;
+  }
+  const tab = t.closest(".tabs [data-mode]");
+  if (tab){ setMode(tab.dataset.mode); return; }
+  const lg = t.closest("[data-lg]");
+  if (lg){ const l = lg.dataset.lg; F.lgs.has(l) ? F.lgs.delete(l) : F.lgs.add(l); refilter(); return; }
+  const go = t.closest("[data-goseason]");
+  if (go){ loadDataset(sourceOf(dsKey) + ":" + go.dataset.goseason, {id: P[subject].id}); return; }
+  if (t.closest("#career-btn")){ careerOpen = true; drawCareer().then(() => $("career-panel").scrollIntoView({block: "nearest", behavior: "smooth"})); return; }
+  if (t.closest("#career-close")){ careerOpen = false; $("career-panel").hidden = true; return; }
+  const more = t.closest("[data-more]");
+  if (more){ const k = more.dataset.more;
+    if (k === "list"){ listLimit += 25; drawMatches(); } else if (k === "res"){ resLimit += 25; drawResults(); }
+    else { boardLimit += 25; drawBoard(); } return; }
+  const pick = t.closest("[data-s]");
+  if (pick){ const i = +pick.dataset.s;
+    if (mode !== "similar") setMode("similar");
+    selectSubject(i); window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  const m2 = t.closest("[data-m2]");
+  if (m2){ match = +m2.dataset.m2; $("q2").value = ""; $("picker2").hidden = true;
+    drawMatches(); drawRadar(); drawCompare(); writeHash(); return; }
+  const m = t.closest("[data-m]");
+  if (m){ match = +m.dataset.m; drawMatches(); drawRadar(); drawCompare(); writeHash();
+    $("compare-panel").scrollIntoView({block: "nearest", behavior: "smooth"}); return; }
+  const ls = t.closest("#listsort [data-sort]");
+  if (ls){ listSort = ls.dataset.sort; listLimit = 25;
+    document.querySelectorAll("#listsort button").forEach(b => b.classList.toggle("on", b === ls));
+    drawMatches(); return; }
+  const s = t.closest("#sortseg [data-sort]");
+  if (s){ sortMode = s.dataset.sort;
+    document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b === s));
+    drawCompare(); return; }
+  const del = t.closest("[data-critdel]");
+  if (del){ criteria.splice(+del.dataset.critdel, 1); drawSearch(); return; }
+  if (!t.closest(".pick")){ $("picker").hidden = true; $("picker2").hidden = true; }
+});
 
-// Open on whatever a shared link asked for, otherwise the default view.
-const asked = readHash();
-if (asked && asked.d && BUNDLE.datasets[asked.d]){
-  dsKey = asked.d;
-  const D = BUNDLE.datasets[dsKey]; P = D.players;      // so findByName can run
-  loadDataset(dsKey, {subject: findByName(asked.p), match: findByName(asked.m)});
-} else {
-  loadDataset(dsKey);
+$("season").addEventListener("change", e => loadDataset(sourceOf(dsKey) + ":" + e.target.value));
+$("side").addEventListener("change", e => { F.side = e.target.value; refilter(); });
+$("foot").addEventListener("change", e => { F.foot = e.target.value; refilter(); });
+$("amin").addEventListener("input", e => { F.amin = Math.min(+e.target.value, F.amax); refilter(); });
+$("amax").addEventListener("input", e => { F.amax = Math.max(+e.target.value, F.amin); refilter(); });
+$("hmin").addEventListener("input", e => { F.hmin = +e.target.value; refilter(); });
+$("mins").addEventListener("input", e => { F.mins = +e.target.value; refilter(); });
+$("val").addEventListener("input", e => { const v = +e.target.value;
+  F.val = v >= +e.target.max ? null : v; refilter(); });
+$("xclub").addEventListener("change", e => { F.xclub = e.target.checked; refilter(); });
+$("xleague").addEventListener("change", e => { F.xleague = e.target.checked; refilter(); });
+$("freset").addEventListener("click", () => {
+  Object.assign(F, {side: "", amin: 16, amax: 40, val: null, hmin: 160, foot: "", mins: M.minMinutes, xclub: false, xleague: false});
+  F.lgs.clear(); $("val").value = $("val").max; refilter();
+});
+
+$("weights").addEventListener("input", e => {
+  const r = e.target.closest("[data-cat]"); if (!r) return;
+  const v = [0, 0.5, 1, 1.5, 2, 2.5, 3][+r.value];
+  W[r.dataset.cat] = v;
+  // Update the row in place: rebuilding the panel would destroy the slider mid-drag.
+  const row = r.closest(".wrow");
+  row.classList.toggle("off", v === 0);
+  row.querySelector(".wv").textContent = v === 0 ? "off" : v + "×";
+  const custom = Object.values(W).some(x => x !== 1);
+  $("w-state").textContent = custom ? "Custom weights" : "Equal weights";
+  drawMatches(); drawCompare();
+});
+$("wreset").addEventListener("click", () => { W = {}; drawWeights(); drawMatches(); drawCompare(); });
+
+$("sgroup").addEventListener("change", e => { searchGroup = e.target.value; criteria = []; searchCleared = false;
+  resLimit = 25; drawSearch(); });
+$("addcrit").addEventListener("click", () => {
+  const spec = G[searchGroup]; if (!spec) return;
+  const used = new Set(criteria.map(c => c.metric));
+  const next = spec.d.find(k => !used.has(k));
+  if (next){ criteria.push({metric: next, min: 70}); searchCleared = false; drawSearch(); }
+});
+$("clearcrit").addEventListener("click", () => { criteria = []; searchCleared = true; drawSearch(); });
+$("criteria").addEventListener("change", e => {
+  const s = e.target.closest("[data-crit]"); if (!s) return;
+  criteria[+s.dataset.crit].metric = s.value; resLimit = 25; drawResults();
+});
+$("criteria").addEventListener("input", e => {
+  const r = e.target.closest("[data-critmin]"); if (!r) return;
+  criteria[+r.dataset.critmin].min = +r.value;
+  r.parentElement.querySelector(".pv").textContent = r.value + "th"; resLimit = 25; drawResults();
+});
+$("bgroup").addEventListener("change", () => { boardLimit = 25; drawBoardControls(); drawBoard(); });
+["bmetric", "bdir"].forEach(id => $(id).addEventListener("change", () => { boardLimit = 25; drawBoard(); }));
+
+$("copycsv").addEventListener("click", e => {
+  const rows = sortedMatches(ranked()).slice(0, listLimit).map(([i, sc], n) => { const o = P[i];
+    return [n + 1, o.n, o.p, o.t, o.l, o.a ?? "", o.v ?? o.pr ?? "", o.m, sc.toFixed(1)]; });
+  copyText(csv([["rank","player","position","club","league","age","value","minutes","similarity_pct"], ...rows]),
+    e.target, `Copied ${rows.length} rows`);
+});
+$("rescsv").addEventListener("click", e => {
+  const rows = searchRows().slice(0, resLimit).map(([i, avg, got], n) => { const o = P[i];
+    return [n + 1, o.n, o.p, o.t, o.l, o.a ?? "", ...got.map(g => g ?? ""), avg.toFixed(1)]; });
+  copyText(csv([["rank","player","position","club","league","age", ...criteria.map(c => label(c.metric) + " pct"), "average_pct"], ...rows]),
+    e.target, `Copied ${rows.length} rows`);
+});
+$("sharebtn").addEventListener("click", e => { writeHash(); copyText(location.href, e.target, "Link copied"); });
+
+// ---- theme ------------------------------------------------------------------------------
+function applyTheme(t){
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  const dark = t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  $("theme-l").textContent = dark ? "Light" : "Dark";
 }
+$("theme").addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  const next = dark ? "light" : "dark";
+  applyTheme(next);
+  try { localStorage.setItem("scout-theme", next); } catch {}
+});
+let savedTheme = null;
+try { savedTheme = localStorage.getItem("scout-theme"); } catch {}
+applyTheme(savedTheme);
+if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
+
+// ---- start ------------------------------------------------------------------------------
+(async () => {
+  const asked = readHash() || {};
+  if (asked.v && ["similar", "search", "board"].includes(asked.v)) mode = asked.v;
+  const key = asked.d && entryFor(asked.d) ? asked.d : BUNDLE.default;
+  await loadDataset(key, {name: asked.p, match: asked.m});
+  if (!P){ await loadDataset(BUNDLE.default); }
+  setMode(mode);
+})();
 </script>

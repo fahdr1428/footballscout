@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.config import LOWER_IS_BETTER
 from src.feature_engineering import (
@@ -121,3 +122,66 @@ def test_a_composite_with_an_unmeasured_part_is_missing_not_zero(cleaned):
     assert out.loc[blank_one, "progressive_actions_per90"].isna().all()
     measured = out.index[20:]
     assert out.loc[measured, "defensive_actions_per90"].notna().all()
+
+
+def test_a_metric_that_repeats_earns_weight_and_a_noisy_one_does_not():
+    """Repeatability is what separates describing a player from describing a season."""
+    from src.feature_engineering import feature_reliability, reliability_weights
+
+    rng = np.random.default_rng(1)
+    n = 200
+    talent = rng.normal(size=n)
+    rows = []
+    for season in ["2021-22", "2022-23"]:
+        rows.append(pd.DataFrame({
+            "player_id": [f"p{i}" for i in range(n)], "season": season,
+            "position_group": "CB", "minutes": 2000,
+            "stable": talent + rng.normal(scale=0.2, size=n),   # the player
+            "noise": rng.normal(size=n),                        # the season
+        }))
+    frame = pd.concat(rows, ignore_index=True)
+    rel = feature_reliability(frame, "CB", ["stable", "noise"])
+    assert rel["stable"] > 0.9
+    assert abs(rel["noise"]) < 0.2
+    w = reliability_weights(rel, ["stable", "noise", "unmeasured"])
+    assert w["stable"] > 20 * w["noise"]
+    assert w["unmeasured"] == pytest.approx(np.median([w["stable"], w["noise"]]))
+    assert reliability_weights({}, ["a", "b"]) == {"a": 1.0, "b": 1.0}
+
+
+def test_a_club_metric_is_not_credited_with_the_clubs_stability():
+    """Goals conceded repeats because the keeper stays at the club; it takes the
+    median weight of the player metrics however repeatable it looks."""
+    from src.feature_engineering import reliability_weights
+
+    rel = {"save_rate": 0.3, "gk_psxg_minus_ga_per90": 0.5, "gk_goals_against_per90": 0.9,
+           "clean_sheet_rate": 0.8}
+    w = reliability_weights(rel, list(rel))
+    player = [0.3 ** 2, 0.5 ** 2]
+    assert w["gk_goals_against_per90"] == pytest.approx(np.median(player))
+    assert w["clean_sheet_rate"] == pytest.approx(np.median(player))
+    assert w["gk_psxg_minus_ga_per90"] == pytest.approx(0.25)
+
+
+def test_a_shift_across_the_whole_league_is_not_read_as_players_changing():
+    """Standardised within season: a provider switch that halves every value
+    must not make a perfectly stable metric look unrepeatable."""
+    from src.feature_engineering import feature_reliability
+
+    rng = np.random.default_rng(2)
+    base = rng.normal(loc=5, size=120)
+    frame = pd.concat([
+        pd.DataFrame({"player_id": range(120), "season": "2021-22", "position_group": "DM",
+                      "minutes": 1500, "m": base}),
+        pd.DataFrame({"player_id": range(120), "season": "2022-23", "position_group": "DM",
+                      "minutes": 1500, "m": base * 0.5 + 1}),
+    ])
+    assert feature_reliability(frame, "DM", ["m"])["m"] > 0.99
+
+
+def test_the_similarity_engine_is_weighted_by_repeatability(platform):
+    model = platform.models["CB"]
+    assert model.reliability, "a two-season fixture has players to measure repeatability on"
+    weights = model.engine.weights
+    assert weights.max() > weights.min()        # not the old equal weighting
+    assert weights.sum() == pytest.approx(1.0)

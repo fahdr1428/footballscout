@@ -23,8 +23,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import adjusted_rand_score
 
-from .config import METRIC_LABELS, VALIDATION_REPORT, categories_for
-from .feature_engineering import correlation_analysis
+from .config import METRIC_LABELS, TEAM_CONTEXT_METRICS, VALIDATION_REPORT, categories_for
+from .feature_engineering import correlation_analysis, reliability_weights
 from .pipeline import ScoutingPlatform
 from .similarity import SimilarityEngine, jaccard, rank_correlation
 
@@ -239,24 +239,29 @@ def feature_dominance(
 ) -> pd.DataFrame:
     """Mean share of the pairwise distance carried by each feature.
 
+    Measured on the live engine, so it includes the repeatability weights.
     With equal weights and uncorrelated features every metric would carry
-    1/n_features of the distance. Anything far above that line is effectively
-    steering the similarity model on its own.
+    1/n_features of the distance; ``weight_share`` is what the weights alone
+    would give it, and anything far above that line is being amplified by
+    correlation with other metrics as well.
     """
     model = platform.models[group]
     z = model.z.to_numpy()
+    weights = model.engine.weights
     rng = np.random.default_rng(seed)
     a = rng.integers(0, len(z), pairs)
     b = rng.integers(0, len(z), pairs)
     keep = a != b
-    squared = (z[a[keep]] - z[b[keep]]) ** 2
-    shares = squared / squared.sum(axis=1, keepdims=True)
+    squared = (z[a[keep]] - z[b[keep]]) ** 2 * weights
+    total = squared.sum(axis=1, keepdims=True)
+    shares = np.divide(squared, total, out=np.zeros_like(squared), where=total > 0)
     even = 1 / len(model.features)
     return (
         pd.DataFrame(
             {
                 "feature": model.features,
                 "metric": [METRIC_LABELS.get(f, f) for f in model.features],
+                "weight_share": np.round(weights, 4),
                 "mean_distance_share": shares.mean(axis=0).round(4),
                 "vs_even_share": (shares.mean(axis=0) / even).round(2),
             }
@@ -270,15 +275,26 @@ def feature_dominance(
 # Sensitivity testing
 # --------------------------------------------------------------------------
 
+def _base_weights(model) -> dict[str, float]:
+    """The weights the live engine uses, so a perturbation changes one thing only."""
+    return reliability_weights(model.reliability, model.features)
+
+
 def _engine_without(platform: ScoutingPlatform, group: str, drop: list[str]) -> SimilarityEngine:
     model = platform.models[group]
     keep = [f for f in model.features if f not in drop]
-    return SimilarityEngine(model.z[keep], platform.pool.loc[model.index])
+    base = _base_weights(model)
+    return SimilarityEngine(
+        model.z[keep], platform.pool.loc[model.index], weights={f: base[f] for f in keep}
+    )
 
 
 def _engine_weighted(platform: ScoutingPlatform, group: str, weights: dict[str, float]) -> SimilarityEngine:
+    """The live engine with each metric's weight multiplied by ``weights``."""
     model = platform.models[group]
-    return SimilarityEngine(model.z, platform.pool.loc[model.index], weights=weights)
+    base = _base_weights(model)
+    combined = {f: base[f] * weights.get(f, 1.0) for f in model.features}
+    return SimilarityEngine(model.z, platform.pool.loc[model.index], weights=combined)
 
 
 def _compare(
@@ -350,6 +366,28 @@ def _md_table(frame: pd.DataFrame) -> str:
         for row in frame.itertuples(index=False)
     ]
     return "\n".join([header, divider, *rows])
+
+
+def metric_repeatability(platform: ScoutingPlatform, show: int = 3) -> pd.DataFrame:
+    """Per position: the most and least repeatable model metrics, and their weights."""
+    rows = []
+    for group, model in platform.models.items():
+        if not model.reliability:
+            continue
+        weights = dict(zip(model.engine.features, model.engine.weights))
+        ranked = sorted(model.reliability.items(), key=lambda kv: -kv[1])
+        describe = lambda items: ", ".join(
+            f"{METRIC_LABELS.get(k, k)} {v:.2f}{' (club)' if k in TEAM_CONTEXT_METRICS else ''}"
+            for k, v in items)
+        rows.append({
+            "position_group": group,
+            "metrics_measured": f"{len(model.reliability)} of {len(model.features)}",
+            "median_repeatability": round(float(np.median(list(model.reliability.values()))), 2),
+            "most_repeatable": describe(ranked[:show]),
+            "least_repeatable": describe(ranked[-show:][::-1]),
+            "top_weight_share": round(max(weights.values()), 3),
+        })
+    return pd.DataFrame(rows)
 
 
 def build_validation_report(
@@ -460,6 +498,24 @@ def build_validation_report(
             "`chance` is what random ordering would give."
         )
 
+    repeat = metric_repeatability(platform)
+    if not repeat.empty:
+        parts += ["", "## 2e. Which metrics describe the player, and which the season?", ""]
+        parts.append(
+            "Each metric's season-to-season correlation for the same player in the same position "
+            "(900+ minutes in both), measured over the source's whole history with values "
+            "standardised within each season. Its similarity weight is that correlation squared, "
+            "so a metric that repeats at 0.8 counts four times as much as one at 0.4, and one "
+            "that barely repeats at all - mostly the season's noise - hardly counts. Chosen by "
+            "cross-validation over players: held-out players' own other season landed in their "
+            "top ten more often under it on every source tested, and it held for players who had "
+            "changed club in between, so the weights are not simply recognising clubs. Metrics "
+            "marked (club) - goals conceded, clean sheets, a keeper's saves - describe the team "
+            "in front of him, so they take the median weight whatever their figure."
+        )
+        parts.append("")
+        parts.append(_md_table(repeat))
+
     bias = team_mate_bias(platform)
     if not bias.empty:
         parts += ["", "## 2c. Is the engine matching on club rather than player?", ""]
@@ -538,9 +594,14 @@ def build_validation_report(
             continue
         dominance = feature_dominance(platform, group)
         even = 1 / len(platform.models[group].features)
-        parts.append(f"**{group}** - even share would be {even:.3f} per feature.")
+        parts.append(
+            f"**{group}** - even share would be {even:.3f} per feature; `weight_share` is what "
+            "the repeatability weights alone give each metric."
+        )
         parts.append("")
-        parts.append(_md_table(dominance.head(6)[["metric", "mean_distance_share", "vs_even_share"]]))
+        parts.append(_md_table(
+            dominance.head(6)[["metric", "weight_share", "mean_distance_share", "vs_even_share"]]
+        ))
         parts.append("")
 
     parts += ["", "## 4. Sensitivity of the similarity rankings", ""]

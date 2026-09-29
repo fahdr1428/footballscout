@@ -25,6 +25,7 @@ from .config import (
     NO_PER90,
     POSITION_FEATURES,
     RATIO_METRICS,
+    TEAM_CONTEXT_METRICS,
     categories_for,
     per90,
 )
@@ -314,6 +315,86 @@ def category_scores(
 # --------------------------------------------------------------------------
 # Scaling
 # --------------------------------------------------------------------------
+
+# How much each metric counts in a similarity search. A metric earns its weight
+# by repeating: if a player's value this season predicts his value next season,
+# it describes him; if it does not, it is mostly the season's noise - a
+# centre-back's goals, a striker's xG per shot - and letting it count equally
+# makes two different players look alike by coincidence. The weight is the
+# square of the season-to-season correlation, chosen by cross-validation over
+# players: out of sample it lifted the share of players whose own other season
+# is among their ten closest matches on every source (0.47 -> 0.53 on FBref's
+# Opta seasons, 0.28 -> 0.31 on its StatsBomb seasons).
+RELIABILITY_MIN_MINUTES = 900
+RELIABILITY_MIN_PAIRS = 40
+RELIABILITY_FLOOR = 0.05
+
+
+def feature_reliability(
+    features: pd.DataFrame, position_group: str, columns: list[str]
+) -> dict[str, float]:
+    """Season-to-season repeatability of each metric, for one position.
+
+    Every player with this position in two consecutive seasons (900+ minutes
+    each) is a pair; a metric's repeatability is the correlation of its value
+    across those pairs. Values are standardised within their season first, so a
+    league-wide shift - a scoring change, FBref's change of data provider - is
+    not read as players changing. A metric with too few pairs gets no entry.
+    """
+    needed = {"player_id", "season", "position_group", "minutes"}
+    if not needed.issubset(features.columns):
+        return {}
+    cols = [c for c in columns if c in features.columns]
+    df = features[
+        features["position_group"].eq(position_group)
+        & features["minutes"].ge(RELIABILITY_MIN_MINUTES)
+    ]
+    if df.empty or not cols:
+        return {}
+    by_season = df.groupby("season")[cols]
+    z = (df[cols] - by_season.transform("mean")) / by_season.transform("std").replace(0, np.nan)
+    order = {s: i for i, s in enumerate(sorted(df["season"].unique()))}
+    this = pd.concat([df[["player_id"]], z], axis=1).assign(k=df["season"].map(order))
+    this = this.drop_duplicates(["player_id", "k"])
+    after = this.assign(k=this["k"] - 1)
+    pairs = this.merge(after, on=["player_id", "k"], suffixes=("_a", "_b"))
+    out: dict[str, float] = {}
+    for column in cols:
+        a, b = pairs[f"{column}_a"], pairs[f"{column}_b"]
+        ok = a.notna() & b.notna()
+        if ok.sum() < RELIABILITY_MIN_PAIRS or a[ok].std() == 0 or b[ok].std() == 0:
+            continue
+        r = float(np.corrcoef(a[ok], b[ok])[0, 1])
+        if np.isfinite(r):
+            out[column] = round(r, 3)
+    return out
+
+
+def reliability_weights(
+    reliability: dict[str, float],
+    columns: list[str],
+    context: set[str] | frozenset[str] = frozenset(TEAM_CONTEXT_METRICS),
+) -> dict[str, float]:
+    """Similarity weight per metric: repeatability squared, floored.
+
+    A metric too thin to measure takes the median weight of the others rather
+    than being dropped or trusted fully; with nothing measurable at all, every
+    metric counts equally, which is what the engine did before.
+
+    Team-context metrics (goals conceded, clean sheets, a keeper's saves) take
+    that median too. They repeat because most players stay at the same club,
+    not because they describe the player: a keeper's saves per 90 repeats at
+    0.37 across all FBref pairs and -0.17 for keepers who changed club.
+    Trusting the first figures let club readings carry 69% of the weight in
+    the Premier League goalkeeper model.
+    """
+    player = {c: max(reliability[c], RELIABILITY_FLOOR) ** 2
+              for c in columns if c in reliability and c not in context}
+    if not player:
+        return {c: 1.0 for c in columns}
+    fallback = float(np.median(list(player.values())))
+    return {c: player.get(c, fallback) for c in columns}
+
 
 def scale_features(
     pool: pd.DataFrame, features: list[str]

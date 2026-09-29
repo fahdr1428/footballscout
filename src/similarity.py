@@ -21,6 +21,11 @@ Two distance metrics over the *standardised, position-specific* feature space:
   randomly picked players in this position". Nothing here is a fudge factor -
   the reference distance is printed in the app.
 
+Both are taken after each z-score is multiplied by the square root of its
+metric's weight. The pipeline sets that weight to the metric's season-to-season
+repeatability squared (feature_engineering.reliability_weights), so a metric
+that is mostly one season's noise barely moves a match.
+
 Every result also carries a feature-level explanation: which metrics match,
 which diverge, and how much each metric contributed to the distance.
 """

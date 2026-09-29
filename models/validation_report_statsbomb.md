@@ -3,6 +3,20 @@
 Pool: **2,626 player-seasons**, minimum **900 minutes**, seasons 2015-16, 2018, 2018-19, 2019-20, 2020-21, 2021-22, 2023, 2023-24.
 All models are fitted per position group. Nothing below is tuned to make the numbers look better; where a result is weak it is reported and interpreted.
 
+## 0. Are the position groups the right shape?
+
+Before asking whether the models are any good, the groups they are fitted on have to be the right ones. Each row trains a cross-validated classifier to tell two specific positions apart on their own model features. **Balanced accuracy**, so 0.50 is a coin flip whatever the class imbalance; the two control rows are pairs nobody doubts are different jobs, and exist to show the measurement works.
+
+| pair | kind | players | balanced_accuracy | chance | majority_class | modelled_separately | verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Wide midfield vs winger | candidate | 212 | 0.651 | 0.5 | 0.778 | True | borderline |
+| Left-back vs right-back | candidate | 449 | 0.59 | 0.5 | 0.512 | False | the same job - splitting would only cost peers |
+| Left wing vs right wing | candidate | 322 | 0.548 | 0.5 | 0.512 | False | the same job - splitting would only cost peers |
+| Centre-back vs defensive midfield | control | 359 | 0.9 | 0.5 | 0.942 | True | different jobs - deserves its own model |
+| Defensive vs attacking midfield | control | 457 | 0.946 | 0.5 | 0.74 | True | different jobs - deserves its own model |
+
+A pair the classifier cannot separate is one job under two names: giving them separate peer groups would halve the sample and buy nothing. A pair it separates easily is two jobs, and measuring one against the other's percentiles is a bias no sample size fixes. The taxonomy in `src/config.py` follows this table - second strikers and wide midfielders are modelled apart, left and right are not - and the verdict column says so explicitly when the code and the evidence disagree.
+
 ## 1. Clustering
 
 | position_group | players | features | k | elbow_k | silhouette | inertia | smallest_cluster |
@@ -65,40 +79,46 @@ For every player with two seasons in the pool, this asks where his *other* seaso
 
 Team style leaks into individual numbers: a defender in a possession side passes more because of the side. Some over-representation of team-mates is expected and correct; a large lift would mean the model is partly clustering clubs.
 
+**Read the absolute column, not the ratio.** In a wide pool - five leagues in one season - two team-mates are a vanishing share of the candidates, so `chance` is tiny and `lift` divides by it. A lift of 4 on a 1% observed share still means a top-ten list contains one-tenth of a team-mate on average, which is not a model clustering clubs. The ratio only becomes worrying when the observed share itself climbs into double figures.
+
+## 2d. Did the market later agree? (forward test)
+
+Not run. This needs a source with market values and at least three seasons loaded in the pool - select more seasons in the sidebar.
+
 ## 3. Is the model dominated by a few metrics?
 
-**W** - even share would be 0.043 per feature.
+**W** - even share would be 0.043 per feature; `weight_share` is what the repeatability weights alone give each metric.
 
-| metric | mean_distance_share | vs_even_share |
-| --- | --- | --- |
-| Dribble success % | 0.054 | 1.24 |
-| Pass completion % | 0.0531 | 1.22 |
-| Pressures per 90 | 0.0522 | 1.2 |
-| Progressive passes received per 90 | 0.0509 | 1.17 |
-| Tackles per 90 | 0.0499 | 1.15 |
-| Non-penalty xG per shot | 0.0474 | 1.09 |
+| metric | weight_share | mean_distance_share | vs_even_share |
+| --- | --- | --- | --- |
+| Dribble success % | 0.0435 | 0.054 | 1.24 |
+| Pass completion % | 0.0435 | 0.0531 | 1.22 |
+| Pressures per 90 | 0.0435 | 0.0522 | 1.2 |
+| Progressive passes received per 90 | 0.0435 | 0.0509 | 1.17 |
+| Tackles per 90 | 0.0435 | 0.0499 | 1.15 |
+| Non-penalty xG per shot | 0.0435 | 0.0474 | 1.09 |
 
-**CB** - even share would be 0.050 per feature.
+**CB** - even share would be 0.050 per feature; `weight_share` is what the repeatability weights alone give each metric.
 
-| metric | mean_distance_share | vs_even_share |
-| --- | --- | --- |
-| Interceptions per 90 | 0.0581 | 1.16 |
-| Fouls committed per 90 | 0.0567 | 1.13 |
-| Tackle success % | 0.0562 | 1.12 |
-| Tackles per 90 | 0.056 | 1.12 |
-| Errors leading to shot per 90 | 0.0553 | 1.11 |
-| Aerial duel success % | 0.053 | 1.06 |
+| metric | weight_share | mean_distance_share | vs_even_share |
+| --- | --- | --- | --- |
+| Interceptions per 90 | 0.05 | 0.0581 | 1.16 |
+| Fouls committed per 90 | 0.05 | 0.0567 | 1.13 |
+| Tackle success % | 0.05 | 0.0562 | 1.12 |
+| Tackles per 90 | 0.05 | 0.056 | 1.12 |
+| Errors leading to shot per 90 | 0.05 | 0.0553 | 1.11 |
+| Aerial duel success % | 0.05 | 0.053 | 1.06 |
 
-**DM** - even share would be 0.045 per feature.
+**DM** - even share would be 0.045 per feature; `weight_share` is what the repeatability weights alone give each metric.
 
-| metric | mean_distance_share | vs_even_share |
-| --- | --- | --- |
-| Fouls committed per 90 | 0.0527 | 1.16 |
-| Tackle success % | 0.0521 | 1.15 |
-| Pressure success % | 0.051 | 1.12 |
-| Aerial duel success % | 0.0503 | 1.11 |
-| Pressures per 90 | 0.0496 | 1.09 |
-| Ball recoveries per 90 | 0.0494 | 1.09 |
+| metric | weight_share | mean_distance_share | vs_even_share |
+| --- | --- | --- | --- |
+| Fouls committed per 90 | 0.0455 | 0.0527 | 1.16 |
+| Tackle success % | 0.0455 | 0.0521 | 1.15 |
+| Pressure success % | 0.0455 | 0.051 | 1.12 |
+| Aerial duel success % | 0.0455 | 0.0503 | 1.11 |
+| Pressures per 90 | 0.0455 | 0.0496 | 1.09 |
+| Ball recoveries per 90 | 0.0455 | 0.0494 | 1.09 |
 
 
 ## 4. Sensitivity of the similarity rankings
@@ -210,7 +230,7 @@ Highly correlated features double-count one idea inside a Euclidean distance. Th
 
 ## Known limitations
 
-- The bundled dataset is **simulated**. Absolute values are plausible but they are not real players, and no conclusion about a real footballer can be drawn from them.
+- This pool is **StatsBomb Open Data (real players)** - real players, real seasons. See the caveats on the Home page and in `src/config.py` for exactly what this source does and does not measure.
 - League strength coefficients are editable assumptions in `src/config.py`, not measured quantities. Every score that uses them says so.
 - One season of finishing (goals minus xG) is noisy and is treated as descriptive only.
 - Positions come from the dataset. A player who changed role mid-season is compared against the peer group of his listed position, which will understate him.

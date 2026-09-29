@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from src.config import METRIC_LABELS
-from src.pipeline import format_metric
+from src.pipeline import NOISY_REPEATABILITY, format_metric
 from src.reporting import generate_report, headline_metrics, key_takeaways, ordinal
 from src.ui import (
     chart, eyebrow, note, page_setup, player_header, player_selector, sidebar_filters,
@@ -141,8 +141,19 @@ st.markdown("## Strengths and weaknesses")
 note(
     "Taken from the same percentile table: metrics at or above the 70th percentile are listed as "
     "strengths, at or below the 30th as weaknesses, out of the features this position is modelled "
-    "on. No metric is cherry-picked."
+    "on. No metric is cherry-picked. Club readings - goals conceded, clean sheets, a keeper's "
+    "saves - are left out because they describe the team in front of him, and a metric that "
+    "barely repeats from one season to the next is marked *noisy*: one season of it says little."
 )
+
+
+def _noisy(item) -> str:
+    r = item.get("repeatability")
+    if r is None or pd.isna(r) or r >= NOISY_REPEATABILITY:
+        return ""
+    return f" · *noisy - repeats at {r:.2f} season to season*"
+
+
 columns = st.columns(2)
 with columns[0]:
     eyebrow("Strengths")
@@ -152,7 +163,7 @@ with columns[0]:
     for _, item in strengths.iterrows():
         st.markdown(
             f"**{item['metric']}** - {format_metric(item['key'], item['value'])} "
-            f"· {ordinal(item['percentile'])} percentile"
+            f"· {ordinal(item['percentile'])} percentile{_noisy(item)}"
         )
 with columns[1]:
     eyebrow("Weaknesses")
@@ -162,7 +173,7 @@ with columns[1]:
     for _, item in weaknesses.iterrows():
         st.markdown(
             f"**{item['metric']}** - {format_metric(item['key'], item['value'])} "
-            f"· {ordinal(item['percentile'])} percentile"
+            f"· {ordinal(item['percentile'])} percentile{_noisy(item)}"
         )
 
 # ---- performance overview table -----------------------------------------

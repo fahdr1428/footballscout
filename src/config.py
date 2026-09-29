@@ -305,7 +305,16 @@ DERIVED_METRICS = {
 # engine starts clustering clubs instead of players. They stay on the radar and
 # in the recruitment weights, where a scout can read them as context, but for
 # outfield model features only the most informative one is kept.
-TEAM_CONTEXT_METRICS = {"clean_sheet_rate", "goals_conceded_per90", "xgc_per90"}
+# FBref's keeper "goals against per 90" is the same club reading under another name,
+# and a keeper's saves per 90 is how many shots his defence lets through: it
+# repeats at 0.37 across all FBref keepers and -0.17 across the 86 who changed
+# club. Their season-to-season repeatability is mostly the club's, so the
+# similarity weights do not credit it to the player
+# (feature_engineering.reliability_weights).
+TEAM_CONTEXT_METRICS = {
+    "clean_sheet_rate", "goals_conceded_per90", "xgc_per90",
+    "gk_goals_against_per90", "gk_saves_per90",
+}
 
 # Metrics where a lower value is better (used by percentile calculations).
 LOWER_IS_BETTER = {

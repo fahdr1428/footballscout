@@ -34,6 +34,7 @@ from .config import (
     POSITION_GROUPS,
     POSITION_GROUP_NAMES,
     POSITION_PARENT,
+    TEAM_CONTEXT_METRICS,
     categories_for,
 )
 from .data_processing import CleaningReport, clean_players, load_source
@@ -81,6 +82,9 @@ def collapse_thin_groups(
     return pool, collapsed
 
 STRENGTH_PERCENTILE = 70
+# Below this season-to-season repeatability one season of a metric is mostly
+# that season, so a strength or weakness on it is flagged rather than trusted.
+NOISY_REPEATABILITY = 0.3
 WEAKNESS_PERCENTILE = 30
 
 
@@ -99,6 +103,8 @@ class PositionModel:
     pca: PCA
     loadings: dict[str, list[tuple[str, float]]]
     dropped_features: list[str] = field(default_factory=list)
+    # Season-to-season repeatability of each feature; the similarity weights.
+    reliability: dict[str, float] = field(default_factory=dict)
 
     @property
     def archetypes(self) -> pd.Series:
@@ -271,7 +277,14 @@ class ScoutingPlatform:
         model = self.model_for(index)
         if model is None:
             return pd.DataFrame(columns=["metric", "value", "percentile"])
-        frame = self.percentile_frame(index, model.features)
+        # Club readings (goals conceded, clean sheets, a keeper's saves) describe
+        # the team in front of him, so they are not his strengths or weaknesses.
+        frame = self.percentile_frame(
+            index, [f for f in model.features if f not in TEAM_CONTEXT_METRICS]
+        )
+        if frame.empty:
+            return pd.DataFrame(columns=["metric", "key", "value", "percentile", "repeatability"])
+        frame["repeatability"] = frame["key"].map(model.reliability)
         return frame.sort_values("percentile", ascending=False)
 
     # -- similarity ----------------------------------------------------
@@ -515,7 +528,13 @@ def build_platform(
             continue
         dropped = [f for f in wanted if f not in group_features]
         z, scaler = fe.scale_features(subset, group_features)
-        engine = SimilarityEngine(z, subset, random_state=random_state)
+        # Repeatability comes from the source's whole history, not the pool:
+        # a one-season pool has no player twice to measure it on.
+        reliability = fe.feature_reliability(features, group, group_features)
+        engine = SimilarityEngine(
+            z, subset, weights=fe.reliability_weights(reliability, group_features),
+            random_state=random_state,
+        )
         clusters = cl.fit_clusters(z, group, random_state=random_state)
         coords, pca = cl.pca_projection(z, random_state=random_state)
         models[group] = PositionModel(
@@ -530,6 +549,7 @@ def build_platform(
             pca=pca,
             loadings=cl.component_loadings(pca, group_features),
             dropped_features=dropped,
+            reliability=reliability,
         )
 
     platform = ScoutingPlatform(

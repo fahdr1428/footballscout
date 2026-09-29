@@ -9,7 +9,8 @@ from src.config import METRIC_LABELS, POSITION_GROUP_NAMES
 from src.ui import chart, eyebrow, note, page_setup, sidebar_filters, tiles
 from src.validation import (
     build_validation_report, clustering_diagnostics, correlation_summary, drop_metric_sensitivity,
-    feature_dominance, pca_variance, reweight_sensitivity, self_season_recall,
+    feature_dominance, metric_repeatability, pca_variance, reweight_sensitivity,
+    self_season_recall,
     position_separability, similarity_role_agreement, team_mate_bias, value_growth_backtest,
 )
 from src.visualisation import correlation_heatmap
@@ -143,6 +144,38 @@ squad around him.
 """
     )
 
+repeat = metric_repeatability(platform)
+if not repeat.empty:
+    st.markdown("## 2e. Which metrics describe the player, and which the season?")
+    st.dataframe(repeat, hide_index=True)
+    st.markdown(
+        """
+Each metric's **season-to-season correlation** for the same player in the same position (900+
+minutes in both seasons), over the source's whole history, with values standardised within each
+season so a league-wide shift is not read as players changing. A metric that repeats describes the
+player; one that does not is mostly that season's noise.
+
+That correlation, squared, is the metric's **weight in every similarity search**: a metric that
+repeats at 0.8 counts four times as much as one at 0.4. It was chosen by cross-validation over
+players - fit on four-fifths of them, scored on the rest - where it lifted the share of players
+whose own other season is among their ten closest matches on every source tested: **0.47 -> 0.53**
+on FBref's 2022/23-2023/24 seasons, **0.28 -> 0.31** on 2017/18-2021/22, **0.168 -> 0.172** on the
+Premier League and **0.053 -> 0.059** on Understat, with the median rank of that other season
+falling by 8-33%.
+
+**It is not recognising clubs.** Restricted to players who changed club between the two seasons,
+the same share still rises - 0.34 -> 0.35 and 0.15 -> 0.17 on FBref, 0.05 -> 0.07 on the Premier
+League - and is flat on Understat (0.030 -> 0.029, median rank 527 -> 480). The exception is the
+metrics marked *(club)* - goals conceded, clean sheets, a keeper's saves. They describe the team in
+front of him and repeat because the player usually stays at the same club: a keeper's saves per 90
+repeats at 0.37 across all FBref keepers and at -0.17 across the 86 who changed club. Those take
+the median weight, whatever their figure.
+
+The least repeatable metrics are the ones football analytics already distrusts over one season:
+a forward's shot accuracy and assists, a winger's dribble success, a goalkeeper's save rate.
+"""
+    )
+
 bias = team_mate_bias(platform, sample=100)
 if not bias.empty:
     st.markdown("## 2c. Is it matching on the club rather than the player?")
@@ -213,16 +246,19 @@ model = platform.models[group]
 dominance = feature_dominance(platform, group)
 even = 1 / len(model.features)
 st.caption(
-    f"With {len(model.features)} equally weighted features, an even share would be "
-    f"{even:.3f} per metric."
+    f"Measured on the model as it runs, repeatability weights included. With {len(model.features)} "
+    f"features an even share would be {even:.3f} per metric; 'Weight' is the share the weights "
+    "alone give it, so a metric well above its weight is also being amplified by metrics it "
+    "correlates with."
 )
 st.dataframe(
     dominance.rename(
         columns={
-            "metric": "Metric", "mean_distance_share": "Mean share of pairwise distance",
+            "metric": "Metric", "weight_share": "Weight",
+            "mean_distance_share": "Mean share of pairwise distance",
             "vs_even_share": "× even share",
         }
-    )[["Metric", "Mean share of pairwise distance", "× even share"]],
+    )[["Metric", "Weight", "Mean share of pairwise distance", "× even share"]],
     hide_index=True, height=420,
 )
 worst = dominance.iloc[0]
@@ -230,7 +266,9 @@ if worst["vs_even_share"] >= 2:
     st.warning(
         f"**{worst['metric']}** carries {worst['mean_distance_share']:.1%} of the average pairwise "
         f"distance - {worst['vs_even_share']:.1f}× an even share. Similarity results for "
-        f"{group}s lean on it, which is worth knowing before trusting a close match.",
+        f"{group}s lean on it, which is worth knowing before trusting a close match. Part of that "
+        f"is deliberate - its weight is {worst['weight_share']:.1%} because it repeats season to "
+        f"season - and the rest is metrics that move with it.",
         icon="⚠️",
     )
 else:

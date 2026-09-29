@@ -14,9 +14,10 @@ static host - GitHub Pages, Netlify, Cloudflare Pages, Vercel. Opened straight
 from disk the page still works for the inlined season; the others need to be
 served, because a browser will not fetch files for a page opened from disk.
 
-Similarity is computed **in the browser**: each player ships as the weighted
-z-vector the model already uses, and `100 x cosine` between two of them is the
-same number the Streamlit app reports. That lets the page rank every player in
+Similarity is computed **in the browser**: each player ships as the z-vector
+the model uses and each position as its metric weights (repeatability squared),
+and `100 x cosine` over the two, weighted, is the same number the Streamlit app
+reports. That lets the page rank every player in
 a position group live, refilter and reweight the ranking, and show which
 metrics pulled a pair together - none of which a precomputed list could do.
 
@@ -41,7 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import (  # noqa: E402
     COUNTING_STATS, DATA_SOURCES, LOWER_IS_BETTER, METRIC_LABELS, PERCENT_METRICS,
-    POSITION_GROUP_NAMES, ROOT_DIR, categories_for,
+    POSITION_GROUP_NAMES, ROOT_DIR, TEAM_CONTEXT_METRICS, categories_for,
 )
 from src.feature_engineering import metrics_for_percentiles  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
@@ -91,8 +92,9 @@ def _label(column: str) -> str:
 def export(platform, season: str) -> dict:
     """Everything the page needs for one season, keyed short because it ships over the wire.
 
-    The important choice is shipping each player's **weighted z-vector**
-    rather than a precomputed list of his nearest neighbours. Similarity in this
+    The important choice is shipping each player's **z-vector** and each
+    position's metric weights rather than a precomputed list of his nearest
+    neighbours. Similarity in this
     project is `100 x cosine` over that vector, which is a few lines of
     JavaScript - so the page can rank every player in a group live, refilter and
     reweight the ranking without a round trip, and show which metrics pulled two
@@ -110,7 +112,17 @@ def export(platform, season: str) -> dict:
         # scout say "weight passing more" and reweight the cosine the same way
         # the engine does: every component scaled by sqrt(weight).
         membership = [[i for i, c in enumerate(names) if f in basket[c]] for f in model.features]
-        groups[group] = {"f": list(model.features), "d": display, "c": names, "w": membership}
+        # The engine's repeatability weights, rescaled to average 1 so a page
+        # multiplying them by a scout's category weights keeps both readable.
+        # Plain z plus these reproduces the engine's cosine exactly; shipping
+        # z already multiplied by them would lose precision to rounding and
+        # turn every z-gap on the page into something other than SDs.
+        weights = model.engine.weights / model.engine.weights.mean()
+        groups[group] = {
+            "f": list(model.features), "d": display, "c": names, "w": membership,
+            "r": [round(float(w), 3) for w in weights],
+            "rr": [model.reliability.get(f) for f in model.features],
+        }
         for metric in set(model.features) | set(display):
             labels[metric] = _label(metric)
 
@@ -124,7 +136,7 @@ def export(platform, season: str) -> dict:
         if spec is not None:
             model = platform.models[group]
             seat = model.z.index.get_loc(index)
-            zrow = [round(float(v), 2) for v in model.engine._zw[seat]]
+            zrow = [round(float(v), 2) for v in model.z.iloc[seat]]
             for metric in spec["d"]:
                 value = row.get(metric)
                 pct = percentiles.loc[index].get(f"pct_{metric}")
@@ -167,14 +179,18 @@ def export(platform, season: str) -> dict:
             "season": season,
             "minMinutes": int(platform.min_minutes),
             "leagues": sorted(pool["league"].unique()),
-            "groupNames": {g: POSITION_GROUP_NAMES[g]
-                           for g in sorted(pool["position_group"].unique())},
+            # Folded and unmodelled groups are named on the page too, so they
+            # need a name here even though no player in the pool carries them.
+            "groupNames": {g: POSITION_GROUP_NAMES.get(g, g) for g in sorted(
+                set(pool["position_group"]) | set(platform.collapsed_groups)
+                | set(platform.unmodelled_groups))},
             "groups": groups,
             "labels": labels,
             # Rendering hints: a percentage needs a % sign, and for a
             # lower-is-better metric the smaller number is the better one.
             "pct": sorted(PERCENT_METRICS & set(labels)),
             "lower": sorted(LOWER_IS_BETTER & set(labels)),
+            "club": sorted(TEAM_CONTEXT_METRICS & set(labels)),
             "collapsed": {g: info["parent"] for g, info in platform.collapsed_groups.items()},
             "counts": {g: int(n) for g, n in pool["position_group"].value_counts().items()},
             "unmodelled": {g: int(n) for g, n in platform.unmodelled_groups.items()},

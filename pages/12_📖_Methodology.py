@@ -575,7 +575,7 @@ st.dataframe(
 st.markdown("## 7. Similarity")
 st.markdown(
     """
-Features are z-scored **within the position group**, then:
+Features are z-scored **within the position group**, weighted by how well each repeats (below), then:
 
 **Cosine (default).** The cosine of the two standardised profile vectors, floored at zero and
 shown as a percentage. Because the features are centred on the positional average, this asks
@@ -593,6 +593,30 @@ where `typical_pair_distance` is the **median RMS distance between two randomly 
 the same position pool** (printed on the Similar Players page). 100% is an identical profile; 0%
 means "as different as two random players in this position". This metric does care about
 intensity, so it favours matches at a similar output level.
+
+**Weights: what repeats counts.** Not every metric describes the player equally well. Some repeat
+from one season to the next - a centre-back's aerial duels won correlate at 0.69 with his own
+figure the following season, and at 0.60 for centre-backs who changed club - and some are mostly
+that season's noise: his errors leading to shots repeat at 0.05, his tackle success at 0.12, a
+forward's shot accuracy at 0.19, and no better for movers. Some sit between: centre-back pass
+volume repeats at 0.77 but at 0.45 for movers, since part of it is the club's possession style -
+still how he plays now, so it keeps its weight. Each metric's weight is its season-to-season
+correlation **squared** (floored at 0.05), measured per position over the source's whole history
+on players with 900+ minutes in both seasons, with values standardised inside each season so a
+league-wide shift - FBref's change of data provider - is not read as players changing. A metric too
+thin to measure takes the median weight. Both metrics apply the weights the same way: every
+z-score is multiplied by the square root of its weight before the distance is taken.
+
+Two checks keep this honest. **Cross-validation over players**: fitted on four-fifths of players and
+scored on the rest, it puts a player's own other season in his top ten more often than equal
+weights on every source (0.47 -> 0.53 and 0.28 -> 0.31 on FBref's two eras, 0.168 -> 0.172 on the
+Premier League, 0.053 -> 0.059 on Understat). **Club movers**: the gain survives for players who
+changed club in between, so the weights are not just recognising clubs. The exception is the
+club readings - goals conceded, clean sheets, a keeper's saves - which describe the team in front
+of him and repeat because a player usually stays put: a keeper's saves per 90 repeats at 0.37
+across all FBref keepers and at -0.17 across the 86 who changed club. They take the median weight
+whatever their figure. Model Validation lists every position's most and least
+repeatable metrics, and the category sliders on the Similar Players page multiply on top.
 
 **Explanations.** For any pair the app reports, per feature, both raw values, both percentiles,
 the z-gap, and that feature's share of the squared distance. Matches are features within 0.6 SD

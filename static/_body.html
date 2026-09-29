@@ -5,8 +5,9 @@
     <h1>Who Plays Like Him</h1>
     <p class="sub">Pick a player and every other player in his position is ranked by how closely his
     statistical profile matches - weighted by what you care about, filtered to who you could
-    actually sign. Or describe the player you want and search for him, or rank a whole league on
-    one metric. Every number opens up to show its arithmetic.</p>
+    actually sign. Describe the player you want and search for him, rank a league on one metric,
+    or plot a position on any two, and keep a shortlist as you go. Every number opens up to show
+    its arithmetic.</p>
   </div>
   <div class="head-side">
     <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
@@ -35,7 +36,10 @@
 <nav class="tabs" role="tablist" aria-label="What to do">
   <button role="tab" id="tab-similar" data-mode="similar" aria-selected="true" aria-controls="view-similar">Similar<span class="long"> players</span></button>
   <button role="tab" id="tab-search" data-mode="search" aria-selected="false" aria-controls="view-search"><span class="long">Profile </span>Search</button>
-  <button role="tab" id="tab-board" data-mode="board" aria-selected="false" aria-controls="view-board">Leaderboard</button>
+  <button role="tab" id="tab-board" data-mode="board" aria-selected="false" aria-controls="view-board"><span class="long">Leaderboard</span><span class="short">Ranks</span></button>
+  <button role="tab" id="tab-explore" data-mode="explore" aria-selected="false" aria-controls="view-explore">Explorer</button>
+  <button role="tab" id="tab-shortlist" data-mode="shortlist" aria-selected="false" aria-controls="view-shortlist">Shortlist
+    <span class="count-pill" id="sl-count" hidden></span></button>
 </nav>
 
 <div class="layout">
@@ -94,6 +98,15 @@
         <div id="subject-line"></div>
       </section>
 
+      <section class="panel" id="sw-panel">
+        <div class="panel-h"><h3>Where he stands out</h3><span class="eyebrow" id="sw-peers">&mdash;</span></div>
+        <div class="sw" id="sw"></div>
+        <p class="note">The metrics his position is modelled on, as percentiles against his peers - where a
+        scout wants a number low, the percentile is already flipped. Club readings such as goals
+        conceded are left out: they describe his team. <span class="tag">noisy</span> marks a metric that
+        barely repeats from one season to the next, so one season of it says less about him.</p>
+      </section>
+
       <div class="cols2">
         <section class="panel">
           <div class="panel-h"><h3>Attribute profile</h3><span class="eyebrow" id="peer-note">&mdash;</span></div>
@@ -103,9 +116,12 @@
         </section>
         <section class="panel" id="weights-panel">
           <div class="panel-h"><h3>What matters</h3>
-            <div class="tools"><span class="eyebrow" id="w-state">Equal weights</span>
+            <div class="tools"><span class="eyebrow" id="w-state">Default weights</span>
               <button class="mini" id="wreset" type="button">Reset</button></div></div>
           <div class="weights" id="weights"></div>
+          <label class="chk rwrow"><input type="checkbox" id="rw" checked> Count each metric by how well it
+            repeats season to season</label>
+          <p class="note" id="rw-note"></p>
           <p class="note">Slide a category up and the metrics in it count for more in every
           similarity below; slide it to zero and they are ignored. Each metric is scaled by the
           average weight of the categories it sits in - the same arithmetic as the full app.</p>
@@ -135,6 +151,7 @@
                 aria-label="Compare with another player">
               <div id="picker2" class="picker" hidden></div>
             </div>
+            <span id="star-match"></span>
             <div class="seg" id="sortseg" role="group" aria-label="Sort metrics">
               <button data-sort="gap" class="on">Biggest gaps</button>
               <button data-sort="near">Most alike</button>
@@ -192,22 +209,68 @@
         never ranked on the same scale. Click a row to make him the subject of Similar players.</p>
       </section>
     </div>
+
+    <!-- ================= explorer ================= -->
+    <div class="stack" id="view-explore" role="tabpanel" aria-labelledby="tab-explore" hidden>
+      <section class="panel">
+        <div class="panel-h"><h3>Explorer <span class="eyebrow" id="ex-hits">&mdash;</span></h3>
+          <span class="eyebrow">One position, any two metrics</span></div>
+        <div class="filters excontrols">
+          <div class="field"><label for="xgroup">Position</label><select id="xgroup"></select></div>
+          <div class="field"><label for="xmetric">Across</label><select id="xmetric"></select></div>
+          <div class="field"><label for="ymetric">Up</label><select id="ymetric"></select></div>
+          <div class="field"><span class="lbl">Scale</span>
+            <div class="seg" id="xscale" role="group" aria-label="Axis scale">
+              <button type="button" data-scale="v" class="on">Per 90</button>
+              <button type="button" data-scale="p">Percentile</button></div></div>
+        </div>
+        <div class="scatter" id="scatter"></div>
+        <div class="legend" id="ex-legend"></div>
+        <div id="ex-card"></div>
+        <p class="note" id="ex-note"></p>
+      </section>
+    </div>
+
+    <!-- ================= shortlist ================= -->
+    <div class="stack" id="view-shortlist" role="tabpanel" aria-labelledby="tab-shortlist" hidden>
+      <section class="panel shared" id="shared-panel" hidden>
+        <div class="panel-h"><h3 id="shared-title">A shared shortlist</h3>
+          <div class="tools"><button class="mini primary" id="shared-keep" type="button">Add to my shortlist</button>
+            <button class="mini" id="shared-close" type="button">Dismiss</button></div></div>
+        <div id="shared-list"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-h"><h3>Your shortlist <span class="eyebrow" id="sl-hits">&mdash;</span></h3>
+          <div class="tools">
+            <button class="mini" id="slcsv" type="button">Copy CSV</button>
+            <button class="mini" id="slshare" type="button">Copy share link</button>
+            <button class="mini" id="slclear" type="button">Clear</button>
+          </div></div>
+        <div id="shortlist"></div>
+        <p class="note" id="sl-note">Star a player anywhere on the page to keep him here, from any source and
+        any season, with a note of your own. The list lives in this browser only - nothing is sent anywhere -
+        and <b>Copy share link</b> hands someone else a link that opens the same players.</p>
+      </section>
+    </div>
   </main>
 </div>
 
 <footer>
   <div><b>How similarity is calculated.</b> Each player is a vector of his position's metrics,
-  standardised so every metric counts equally, and similarity is the cosine between two such vectors
-  &times;&nbsp;100. A 90% match means the two profiles point in nearly the same direction across all
-  of them. Comparisons only happen inside a position, because a centre-back and a winger share no
-  meaningful axis.</div>
+  standardised against his peers, and similarity is the cosine between two such vectors
+  &times;&nbsp;100. A 90% match means the two profiles point in nearly the same direction. Each
+  metric counts by how well it repeats from one season to the next - its correlation with the same
+  player's figure a year later, squared - so a centre-back's aerial duels, which repeat even when he
+  changes club, outweigh his errors, which barely repeat at all. Comparisons only happen inside a position, because a centre-back
+  and a winger share no meaningful axis.</div>
   <div><b>What the money means.</b> A figure in euros is Transfermarkt's market value estimate for
   that season - not a fee anybody paid. A figure in pounds with an asterisk is the <em>fantasy
   game's</em> price, a popularity signal set by its operator, not a valuation at all.</div>
   <div><b>What is not guessed.</b> A season that did not measure something shows a dash, not a zero
   and not an average: no invented ages, heights or tackles. Each season lists what it lacks above.</div>
-  <div><b>Sharing a view.</b> The address bar tracks the dataset, the player, the comparison and the
-  tab, so <b>Copy link</b> hands someone the exact screen you are looking at.</div>
+  <div><b>Sharing a view.</b> The address bar tracks the dataset, the player, the comparison, the
+  tab and the Explorer's axes, so <b>Copy link</b> hands someone the exact screen you are looking at;
+  the Shortlist's link hands them your players. Your shortlist and notes stay in this browser.</div>
   <div id="fold-note"></div>
   <div>A static extract of a larger Streamlit platform, which adds recruitment briefs, squad
   analysis, archetype maps and a model-validation suite.</div>
@@ -230,6 +293,10 @@ const F = {lgs: new Set(), side: "", amin: 16, amax: 40, val: null, hmin: 160, f
 let W = {};                  // category name -> weight multiplier
 let criteria = [];           // [{metric, min}]
 let searchGroup = null, careerOpen = false, searchCleared = false;
+let RW = true;               // count each metric by its season-to-season repeatability
+let exGroup = null, exX = null, exY = null, exScale = "v", exSel = null, exPts = [];
+let SL = [], SHARED = null, slStored = true;   // the shortlist, and a shared one being viewed
+const MODES = ["similar", "search", "board", "explore", "shortlist"];
 
 // ---- formatting ----------------------------------------------------------
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -407,17 +474,23 @@ function passes(o, forSimilar){
 
 // ---- similarity -----------------------------------------------------------
 // The engine scales every component by sqrt(weight) before the cosine, so the
-// page does the same: a metric's weight is the mean weight of its categories.
+// page does the same. A metric's weight is its repeatability weight (spec.r,
+// the engine's own, rescaled to average 1) times the mean weight of the
+// categories a scout has set for it.
 function weightScale(group){
   const spec = G[group]; if (!spec) return null;
   let changed = false;
-  const scale = spec.w.map(cats => {
-    if (!cats.length) return 1;
-    const m = cats.reduce((t, c) => t + (W[spec.c[c]] ?? 1), 0) / cats.length;
+  const scale = spec.w.map((cats, i) => {
+    let m = cats.length ? cats.reduce((t, c) => t + (W[spec.c[c]] ?? 1), 0) / cats.length : 1;
+    if (RW && spec.r) m *= spec.r[i];
     if (m !== 1) changed = true;
     return Math.sqrt(m);
   });
   return changed ? scale : null;
+}
+function weightState(){
+  if (Object.values(W).some(x => x !== 1)) return "Custom weights";
+  return RW ? "Default weights" : "Equal weights";
 }
 function cosine(a, b, s){
   let dot = 0, na = 0, nb = 0;
@@ -472,6 +545,8 @@ function selectSubject(i, {keepMatch = false, matchName = null} = {}){
     else { const first = ranked()[0]; if (first) match = first[0]; }
   }
   if (!searchGroup || !G[searchGroup]) searchGroup = G[P[subject].g] ? P[subject].g : Object.keys(G)[0];
+  if (G[P[subject].g] && P[subject].g !== exGroup){ exGroup = P[subject].g; exX = exY = null; }
+  exSel = null;
   careerOpen = false; $("career-panel").hidden = true;
   drawAll();
 }
@@ -481,8 +556,8 @@ function drawSubject(){
   const p = P[subject];
   const others = (p.os || []);
   $("subject-line").innerHTML = `
-    <div class="who"><span class="eyebrow">${esc(gname(p.g))} &middot; ${esc(seasonLabel(M.season))}</span>
-      <h2>${esc(p.n)}</h2></div>
+    <div class="who-top"><div class="who"><span class="eyebrow">${esc(gname(p.g))} &middot; ${esc(seasonLabel(M.season))}</span>
+      <h2>${esc(p.n)}</h2></div>${starBtn(subject)}</div>
     <div class="badges">
       ${badge(p.ar, "arch")}${badge(p.p, "key")}${badge(p.t)}${badge(p.l)}
       ${badge(p.a != null ? "Age " + p.a.toFixed(1) : "")}${badge(p.h ? p.h + " cm" : "")}
@@ -494,6 +569,39 @@ function drawSubject(){
     ${others.length ? `<div class="seasons-line"><span class="eyebrow">Also in</span>${others.map(s =>
       `<button type="button" class="chip-btn" data-goseason="${s}">${seasonLabel(s)}</button>`).join("")}
       <button type="button" class="mini" id="career-btn">Career across ${others.length + 1} seasons</button></div>` : ""}`;
+}
+
+// ---- strengths & weaknesses -------------------------------------------------
+// Straight from his percentiles: nothing here is a model output. A metric whose
+// season-to-season repeatability is under 0.3 is flagged, because one season
+// of it is mostly that season.
+function repeatOf(spec, key){
+  const j = spec.f.indexOf(key);
+  return j >= 0 && spec.rr ? spec.rr[j] : null;
+}
+function drawSW(){
+  const p = P[subject], spec = G[p.g], panel = $("sw-panel");
+  const club = new Set(M.club || []);
+  // His position's model metrics, as in the full app: the metrics chosen to describe the
+  // position, not every column the feed happens to carry (a keeper's tackles, say).
+  const cell = k => { const j = spec.d.indexOf(k); return j >= 0 && p.d[j] ? p.d[j] : [null, null]; };
+  const rows = spec ? spec.f.map(k => ({k, v: cell(k)[0], pct: cell(k)[1]}))
+    .filter(r => r.pct != null && !club.has(r.k)) : [];
+  panel.hidden = !rows.length;
+  if (!rows.length) return;
+  $("sw-peers").textContent = `against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s`;
+  const item = r => {
+    const q = repeatOf(spec, r.k), noisy = q != null && q < 0.3;
+    return `<div class="swr"><span>${esc(label(r.k))}${noisy
+      ? `<span class="tag" title="Repeats at ${q.toFixed(2)} from one season to the next">noisy</span>` : ""}</span>
+      <span class="v mono">${fmt(r.k, r.v)}</span>${chip(r.pct)}</div>`;
+  };
+  const top = rows.filter(r => r.pct >= 70).sort((a, b) => b.pct - a.pct).slice(0, 6);
+  const low = rows.filter(r => r.pct <= 30).sort((a, b) => a.pct - b.pct).slice(0, 6);
+  $("sw").innerHTML = `<div><h4>Top of his position</h4>${top.length ? top.map(item).join("")
+      : '<p class="fnote">Nothing at the 70th percentile or above.</p>'}</div>
+    <div><h4>Bottom of his position</h4>${low.length ? low.map(item).join("")
+      : '<p class="fnote">Nothing at the 30th percentile or below.</p>'}</div>`;
 }
 
 // ---- radar ---------------------------------------------------------------
@@ -552,8 +660,22 @@ function drawWeights(){
         aria-label="Weight on ${esc(c)}"><span class="wv mono">${v === 0 ? "off" : v + "×"}</span></div>`;
   }).join("");
   const loose = spec.w.filter(cats => !cats.length).length;
-  const custom = used.some(({c}) => (W[c] ?? 1) !== 1);
-  $("w-state").textContent = custom ? "Custom weights" : "Equal weights";
+  $("w-state").textContent = weightState();
+  const rwOk = !!(spec.r && spec.rr);
+  $("rw").closest("label").hidden = !rwOk;
+  $("rw").checked = RW;
+  if (!rwOk) $("rw-note").textContent = "";
+  else {
+    const club = new Set(M.club || []);
+    const known = spec.f.map((k, i) => ({k, r: spec.rr[i]})).filter(x => x.r != null && !club.has(x.k))
+      .sort((a, b) => b.r - a.r);
+    const show = xs => xs.map(x => `${esc(label(x.k))} <span class="mono">${x.r.toFixed(2)}</span>`).join(", ");
+    const n = Math.min(3, Math.floor(known.length / 2));
+    $("rw-note").innerHTML = !RW ? "Every metric counts the same, however noisy it is from season to season."
+      : !n ? "" : `Counts most: ${show(known.slice(0, n))}. Counts least: ${
+        show(known.slice(-n).reverse())} - each figure is how well the metric repeats for the same
+        player a season later. Club readings such as goals conceded count at the median.`;
+  }
   if (loose) $("weights").insertAdjacentHTML("beforeend",
     `<p class="fnote">${loose} of the ${spec.f.length} metrics sit in no category and always count once.</p>`);
 }
@@ -601,13 +723,18 @@ function drawCompare(){
   const scale = same ? weightScale(a.g) : null;
   const sim = same ? pctSim(a.z, b.z, scale) : null;
   $("compare-title").textContent = same ? `${a.n} vs ${b.n} — ${sim.toFixed(1)}% alike` : `${a.n} vs ${b.n}`;
+  $("star-match").innerHTML = starBtn(match);
   const zgap = {};
-  if (same) spec.f.forEach((key, i) => { zgap[key] = Math.abs((a.z[i] ?? 0) - (b.z[i] ?? 0)) * (scale ? scale[i] : 1); });
+  if (same) spec.f.forEach((key, i) => {
+    const raw = Math.abs((a.z[i] ?? 0) - (b.z[i] ?? 0)), k = scale ? scale[i] : 1;
+    zgap[key] = {raw, w: raw * k, k: k * k};
+  });
   const ca = cells(a), cb = cells(b);
   let rows = [...new Set([...Object.keys(ca), ...Object.keys(cb)])].map(key => ({
     key, av: ca[key] ? ca[key][0] : null, ap: ca[key] ? ca[key][1] : null,
     bv: cb[key] ? cb[key][0] : null, bp: cb[key] ? cb[key][1] : null,
-    gap: zgap[key], modelled: key in zgap,
+    gap: zgap[key] ? zgap[key].w : null, raw: zgap[key] ? zgap[key].raw : null,
+    k: zgap[key] ? zgap[key].k : null, modelled: key in zgap,
   })).filter(r => r.av != null || r.bv != null);
   const widest = Math.max(0.001, ...rows.map(r => r.gap ?? 0));
   if (!same || sortMode === "pct") rows.sort((x, y) => (y.ap ?? -1) - (x.ap ?? -1));
@@ -622,11 +749,13 @@ function drawCompare(){
       <td class="lb">${esc(label(r.key))}${r.modelled ? "" : '<span class="tag">context</span>'}</td>
       ${cell(r.av, r.ap, r.key)}${cell(r.bv, r.bp, r.key)}
       <td class="gap">${r.gap == null ? '<span class="muted">—</span>'
-        : `<span class="gbar" title="${r.gap.toFixed(2)} standard deviations apart"><span style="width:${
+        : `<span class="gbar" title="${r.raw.toFixed(2)} standard deviations apart; counts ${
+            r.k.toFixed(2)}× an average metric in this match"><span style="width:${
             Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td></tr>`).join("")}</tbody></table></div>
     <p class="note" style="border-top:1px solid var(--line)">${same
       ? `Rows marked <span class="tag">context</span> are measured but are not part of this position's
-         similarity model. The ${spec.f.length} that are drive the ${sim.toFixed(1)}% above${scale ? ", under your weights" : ""}.`
+         similarity model. The ${spec.f.length} that are drive the ${sim.toFixed(1)}% above, and each gap
+         bar is drawn at the weight that metric carries in it - hover one for the raw gap.`
       : `<b>No similarity here.</b> These two are in different position groups (${esc(gname(a.g))} and
          ${esc(gname(b.g))}), and similarity is only defined inside one. Each percentile is still against his
          own peers, so the columns read side by side; the gap does not.`}
@@ -762,25 +891,271 @@ function drawBoard(){
     ? `<button type="button" class="more" data-more="board">Show ${Math.min(25, rows.length - boardLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
 }
 
+// ---- explorer ----------------------------------------------------------------------
+// Any two metrics for one position, every player a dot. The axes span the whole
+// position so they hold still while the filters thin the dots out, and the
+// dashed lines are the position's medians.
+const EX_PAIRS = {
+  GK: [["gk_psxg_minus_ga_per90", "gk_save_pct"], ["save_rate", "gk_saves_per90"]],
+  CB: [["progressive_passes_per90", "defensive_actions_per90"]],
+  FB: [["progressive_passes_per90", "progressive_carries_per90"]],
+  DM: [["progressive_passes_per90", "defensive_actions_per90"]],
+  CM: [["progressive_passes_per90", "defensive_actions_per90"]],
+  WM: [["progressive_carries_per90", "xa_per90"]],
+  DEF: [["defensive_contribution_per90", "creativity_per90"], ["xg_buildup_per90", "xa_per90"]],
+};
+function exDefaults(group){
+  const spec = G[group], has = k => spec.d.includes(k);
+  for (const pair of [...(EX_PAIRS[group] || []), ["npxg_per90", "xa_per90"], ["xg_per90", "xa_per90"]])
+    if (pair.every(has)) return pair.slice();
+  const f = spec.f.filter(has);
+  return [f[0] || spec.d[0], f[1] || spec.d[1] || spec.d[0]];
+}
+function drawExplore(){
+  exGroup = groupOptions($("xgroup"), exGroup || (P[subject] ? P[subject].g : null));
+  const spec = G[exGroup];
+  if (!spec){ $("scatter").innerHTML = `<div class="empty">No position to plot this season.</div>`; return; }
+  if (!spec.d.includes(exX) || !spec.d.includes(exY)) [exX, exY] = exDefaults(exGroup);
+  $("xmetric").innerHTML = metricOptions(exGroup, exX);
+  $("ymetric").innerHTML = metricOptions(exGroup, exY);
+  document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b.dataset.scale === exScale));
+  drawScatter();
+}
+function niceTicks(lo, hi, n){
+  const raw = (hi - lo) / n || 1, mag = 10 ** Math.floor(Math.log10(raw)), e = raw / mag;
+  const step = (e < 1.5 ? 1 : e < 3 ? 2 : e < 7 ? 5 : 10) * mag;
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toFixed(10));
+  return {out, dp: Math.max(0, -Math.floor(Math.log10(step)))};
+}
+function median(xs){
+  const v = xs.slice().sort((a, b) => a - b), h = v.length >> 1;
+  return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2;
+}
+function pearson(pts){
+  const n = pts.length; if (n < 3) return null;
+  let sx = 0, sy = 0; pts.forEach(p => { sx += p[1]; sy += p[2]; });
+  const mx = sx / n, my = sy / n;
+  let xy = 0, xx = 0, yy = 0;
+  pts.forEach(p => { const a = p[1] - mx, b = p[2] - my; xy += a * b; xx += a * a; yy += b * b; });
+  return xx > 0 && yy > 0 ? xy / Math.sqrt(xx * yy) : null;
+}
+const lastName = n => n.split(" ").slice(-1)[0];
+function drawScatter(){
+  const box = $("scatter"), spec = G[exGroup];
+  exPts = [];
+  if (!spec) return;
+  const xi = spec.d.indexOf(exX), yi = spec.d.indexOf(exY), col = exScale === "p" ? 1 : 0;
+  const val = (o, j) => o.d[j] ? o.d[j][col] : null;
+  const all = [], shown = [];
+  for (const i of (byGroup[exGroup] || [])){
+    const o = P[i], x = val(o, xi), y = val(o, yi);
+    if (x == null || y == null) continue;
+    all.push([i, x, y]);
+    if (i === subject || i === exSel || passes(o, false)) shown.push([i, x, y]);
+  }
+  $("ex-hits").textContent = shown.length.toLocaleString() + " players";
+  if (!shown.length){
+    box.innerHTML = `<div class="empty">Nobody in this position has both metrics recorded and clears these filters.</div>`;
+    $("ex-legend").innerHTML = $("ex-card").innerHTML = $("ex-note").textContent = "";
+    return;
+  }
+  const Wd = Math.max(300, Math.round(box.clientWidth || 700) - 16);
+  const Ht = Math.round(Wd < 560 ? Wd * 0.95 : Math.min(540, Wd * 0.6));
+  const m = {l: 52, r: 16, t: 14, b: 44};
+  const dom = j => {
+    if (col) return [0, 100];
+    let lo = Infinity, hi = -Infinity;
+    all.forEach(p => { lo = Math.min(lo, p[j]); hi = Math.max(hi, p[j]); });
+    const pad = (hi - lo || 1) * 0.05;
+    return [lo - pad, hi + pad];
+  };
+  const [x0, x1] = dom(1), [y0, y1] = dom(2);
+  const sx = v => m.l + (v - x0) / (x1 - x0) * (Wd - m.l - m.r);
+  const sy = v => Ht - m.b - (v - y0) / (y1 - y0) * (Ht - m.t - m.b);
+  const tx = niceTicks(x0, x1, Wd < 560 ? 4 : 6), ty = niceTicks(y0, y1, 5);
+  const grid = tx.out.map(v => `<line x1="${sx(v)}" x2="${sx(v)}" y1="${m.t}" y2="${Ht - m.b}" stroke="var(--line)"/>
+      <text x="${sx(v)}" y="${Ht - m.b + 16}" text-anchor="middle" class="tk">${v.toFixed(tx.dp)}</text>`).join("")
+    + ty.out.map(v => `<line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line)"/>
+      <text x="${m.l - 7}" y="${sy(v) + 4}" text-anchor="end" class="tk">${v.toFixed(ty.dp)}</text>`).join("");
+  const mx = median(all.map(p => p[1])), my = median(all.map(p => p[2]));
+  const meds = `<line x1="${sx(mx)}" x2="${sx(mx)}" y1="${m.t}" y2="${Ht - m.b}" class="med"/>
+    <line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(my)}" y2="${sy(my)}" class="med"/>
+    <text x="${sx(mx) + 4}" y="${m.t + 10}" class="tk">median</text>`;
+  const axisName = k => esc(label(k)) + (!col && LOWER.has(k) ? " (lower is better)" : "") + (col ? " — percentile" : "");
+  const axes = `<text x="${(m.l + Wd - m.r) / 2}" y="${Ht - 6}" text-anchor="middle" class="ax">${axisName(exX)}</text>
+    <text transform="translate(13 ${(m.t + Ht - m.b) / 2}) rotate(-90)" text-anchor="middle" class="ax">${axisName(exY)}</text>`;
+
+  // Who is highlighted: the subject, his closest matches, the shortlist, the selected dot.
+  const s = P[subject], mine = s && s.g === exGroup;
+  const close = new Set(mine ? ranked().slice(0, 8).map(r => r[0]) : []);
+  const starred = new Set(shown.filter(p => slIndex(dsKey, P[p[0]].id) >= 0).map(p => p[0]));
+  const kind = i => i === subject ? "subj" : starred.has(i) ? "star" : close.has(i) ? "close" : "";
+  const tip = (i, x, y) => `${P[i].n} · ${P[i].t} — ${label(exX)} ${col ? x : fmt(exX, x)}, ${label(exY)} ${col ? y : fmt(exY, y)}`;
+  const order = shown.slice().sort((a, b) => (kind(a[0]) ? 1 : 0) - (kind(b[0]) ? 1 : 0) || (a[0] === subject) - (b[0] === subject));
+  let dots = "", labels = "";
+  for (const [i, x, y] of order){
+    const cx = sx(x), cy = sy(y), k = kind(i);
+    exPts.push([i, cx, cy]);
+    const r = k === "subj" ? 7 : k ? 5 : 3.4;
+    dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" class="dot ${k}"><title>${esc(tip(i, x, y))}</title></circle>`;
+    if (i === exSel) dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r + 4}" class="sel"/>`;
+    if (k === "subj" || i === exSel || k === "star" || (k === "close" && labels.split("<text").length < 7)){
+      const right = cx > Wd - 110;
+      labels += `<text x="${cx + (right ? -9 : 9)}" y="${cy + 4}" text-anchor="${right ? "end" : "start"}" class="lab ${k}">${esc(lastName(P[i].n))}</text>`;
+    }
+  }
+  box.innerHTML = `<svg viewBox="0 0 ${Wd} ${Ht}" width="${Wd}" height="${Ht}" role="img"
+    aria-label="${esc(label(exX))} against ${esc(label(exY))} for ${shown.length} ${esc(gname(exGroup).toLowerCase())}s">
+    ${grid}${meds}${axes}<g>${dots}</g><g>${labels}</g></svg>`;
+  $("ex-legend").innerHTML = (mine ? `<span><i style="background:var(--accent)"></i>${esc(s.n)}</span>
+      <span><i style="background:var(--second)"></i>His closest matches</span>` : "")
+    + (starred.size ? `<span><i style="background:var(--s5)"></i>Shortlisted</span>` : "")
+    + `<span><i style="background:var(--muted);opacity:.5"></i>Everyone else</span>`;
+  const r = pearson(shown);
+  $("ex-note").textContent = `Each dot is one ${gname(exGroup).toLowerCase()} with ${M.minMinutes.toLocaleString()}+ minutes`
+    + ` this season${activeFilterCount() ? " who clears the filters" : ""}; the dashed lines are the medians of all `
+    + `${all.length.toLocaleString()} in the position. ${r != null ? `Across the dots shown the two metrics correlate at r = ${r.toFixed(2)}. ` : ""}`
+    + `Click or tap a dot for his numbers.`;
+  drawExCard();
+}
+function drawExCard(){
+  const o = exSel != null ? P[exSel] : null, spec = G[exGroup];
+  if (!o || !spec || o.g !== exGroup){ $("ex-card").innerHTML = ""; return; }
+  const cell = key => o.d[spec.d.indexOf(key)] || [null, null];
+  const s = P[subject];
+  const sim = s && s.g === o.g && exSel !== subject && s.z.length && o.z.length ? pctSim(s.z, o.z, weightScale(o.g)) : null;
+  const priced = (M.has || {}).value || (M.has || {}).price;
+  $("ex-card").innerHTML = `<div class="excard">
+    <div><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
+      o.a != null ? " · age " + o.a.toFixed(1) : ""} · ${o.m.toLocaleString()} min${priced ? " · " + worth(o) : ""}</span></div>
+    <div class="exvals">${[exX, exY].map(k => `<span>${esc(label(k))} <b class="mono">${fmt(k, cell(k)[0])}</b> ${chip(cell(k)[1])}</span>`).join("")}
+      ${sim != null ? `<span><b class="mono">${sim.toFixed(1)}%</b> like ${esc(s.n)}</span>` : ""}</div>
+    <div class="tools">${exSel !== subject ? `<button class="mini primary" type="button" data-s="${exSel}">Players like him</button>` : ""}
+      ${sim != null ? `<button class="mini" type="button" data-cmp="${exSel}">Compare with ${esc(lastName(s.n))}</button>` : ""}
+      ${starBtn(exSel)}</div></div>`;
+}
+
+// ---- shortlist -------------------------------------------------------------------------
+// Kept in this browser's storage, keyed by dataset and player id so the same
+// man in two seasons is two entries. Every read and write is guarded: a
+// private window can refuse storage, and the list then lasts for the tab.
+const SL_KEY = "scout-shortlist";
+function loadSL(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(SL_KEY) || "[]");
+    SL = Array.isArray(raw) ? raw.filter(e => e && e.k && e.id && e.n) : [];
+  } catch { SL = []; slStored = false; }
+}
+function saveSL(){
+  try { localStorage.setItem(SL_KEY, JSON.stringify(SL)); slStored = true; } catch { slStored = false; }
+  $("sl-count").hidden = !SL.length; $("sl-count").textContent = SL.length;
+}
+const slIndex = (k, id) => SL.findIndex(e => e.k === k && e.id === id);
+const entryOf = (k, p) => ({k, id: p.id, n: p.n, t: p.t, l: p.l, g: p.g, p: p.p, a: p.a, v: p.v, pr: p.pr, m: p.m, note: ""});
+function starBtn(i){
+  if (i == null || !P[i]) return "";
+  const on = slIndex(dsKey, P[i].id) >= 0;
+  return `<button type="button" class="mini star" data-star="${i}" aria-pressed="${on}"
+    aria-label="${on ? "Remove " + esc(P[i].n) + " from" : "Add " + esc(P[i].n) + " to"} the shortlist">${on ? "★ Shortlisted" : "☆ Shortlist"}</button>`;
+}
+function toggleStar(i){
+  const p = P[i], at = slIndex(dsKey, p.id);
+  if (at >= 0) SL.splice(at, 1); else SL.push(entryOf(dsKey, p));
+  saveSL();
+  document.querySelectorAll("[data-star]").forEach(b => {
+    const q = P[+b.dataset.star];
+    if (!q) return;                     // a hidden button left over from another season
+    const on = slIndex(dsKey, q.id) >= 0;
+    b.setAttribute("aria-pressed", on); b.textContent = on ? "★ Shortlisted" : "☆ Shortlist";
+  });
+  if (mode === "explore") drawScatter();
+}
+function sourceName(k){
+  const c = BUNDLE.catalog.find(c => c.key === sourceOf(k));
+  return (c ? c.name : sourceOf(k)) + " " + seasonLabel(seasonOf(k) || "");
+}
+function slTable(list, own){
+  return `<div class="tablewrap"><table class="sltable"><thead><tr><th>Player</th><th>Season</th><th>Club</th>
+    <th>Position</th><th class="num">Age</th><th class="num">Value</th><th class="num">Min</th>${own ? "<th>Note</th><th></th>" : ""}</tr></thead>
+    <tbody>${list.map((e, n) => `<tr><td><button type="button" class="linkbtn" data-open="${own ? "o" : "s"}${n}">${esc(e.n)}</button></td>
+      <td style="white-space:nowrap">${esc(sourceName(e.k))}</td><td>${esc(e.t)} <span class="muted">· ${esc(e.l)}</span></td>
+      <td>${esc(e.p)}</td><td class="num">${e.a != null ? e.a.toFixed(1) : "—"}</td><td class="num">${worth(e)}</td>
+      <td class="num">${(e.m || 0).toLocaleString()}</td>${own ? `<td><input type="text" class="slnote" data-note="${n}"
+        value="${esc(e.note || "")}" placeholder="Add a note" maxlength="240" aria-label="Note on ${esc(e.n)}"></td>
+      <td><button type="button" class="xbtn" data-sldel="${n}" aria-label="Remove ${esc(e.n)}">&times;</button></td>` : ""}</tr>`).join("")}
+    </tbody></table></div>`;
+}
+function drawShortlist(){
+  $("sl-hits").textContent = SL.length ? `${SL.length} player${SL.length > 1 ? "s" : ""}` : "";
+  $("shortlist").innerHTML = SL.length ? slTable(SL, true)
+    : `<div class="empty">Nothing here yet. Star a player - on his profile, in a comparison or in the Explorer - to keep him.</div>`;
+  ["slcsv", "slshare", "slclear"].forEach(id => { $(id).disabled = !SL.length; });
+  if (!slStored) $("sl-note").textContent = "This browser is not letting the page store anything, so the list lasts "
+    + "until the tab closes. Copy share link keeps a copy.";
+  drawShared();
+}
+const shareValue = list => list.slice(0, 60).map(e => e.k + "~" + e.id).join(",");
+function parseShared(raw){
+  return raw.split(",").map(x => { const [k, id] = x.split("~"); return {k, id}; })
+    .filter(x => x.k && x.id && entryFor(x.k)).slice(0, 60);
+}
+async function resolveShared(){
+  const want = SHARED, out = [];
+  for (const {k, id} of want.items){
+    try { const d = await getDataset(k); const p = d.players.find(x => x.id === id); if (p) out.push(entryOf(k, p)); }
+    catch {}
+  }
+  if (SHARED !== want) return;
+  SHARED.resolved = out;
+  drawShared();
+}
+function drawShared(){
+  $("shared-panel").hidden = !SHARED;
+  if (!SHARED) return;
+  if (!SHARED.resolved){
+    $("shared-title").textContent = "A shared shortlist";
+    $("shared-list").innerHTML = `<div class="empty">Loading ${SHARED.items.length} players…</div>`;
+    return;
+  }
+  const got = SHARED.resolved, missing = SHARED.items.length - got.length;
+  $("shared-title").textContent = `A shared shortlist of ${got.length} player${got.length === 1 ? "" : "s"}`;
+  $("shared-keep").disabled = !got.length;
+  $("shared-list").innerHTML = (got.length ? slTable(got, false) : "")
+    + (missing ? `<p class="note">${missing} could not be found in this version of the data.</p>` : "");
+}
+async function openEntry(tag){
+  const e = (tag[0] === "o" ? SL : (SHARED && SHARED.resolved) || [])[+tag.slice(1)];
+  if (!e) return;
+  if (e.k === dsKey && byId.has(e.id)){ setMode("similar"); selectSubject(byId.get(e.id)); }
+  else { await loadDataset(e.k, {id: e.id}); setMode("similar"); }
+  window.scrollTo({top: 0, behavior: "smooth"});
+}
+
 // ---- modes, drawing, sharing ------------------------------------------------------
 function setMode(m){
   mode = m;
   document.querySelectorAll(".tabs [data-mode]").forEach(b => b.setAttribute("aria-selected", b.dataset.mode === m));
-  ["similar", "search", "board"].forEach(v => { $("view-" + v).hidden = v !== m; });
+  MODES.forEach(v => { $("view-" + v).hidden = v !== m; });
+  // The shortlist spans every source and season, so the season's filters do not apply to it.
+  document.querySelector(".layout").classList.toggle("solo", m === "shortlist");
   syncFilterInputs(); drawMode(); writeHash();
 }
 function drawMode(){
-  if (mode === "similar"){ drawSubject(); drawRadar(); drawWeights(); drawMatches(); drawCompare();
+  if (mode === "similar"){ drawSubject(); drawSW(); drawRadar(); drawWeights(); drawMatches(); drawCompare();
     if (careerOpen) drawCareer(); }
   else if (mode === "search") drawSearch();
-  else { drawBoardControls(); drawBoard(); }
+  else if (mode === "board"){ drawBoardControls(); drawBoard(); }
+  else if (mode === "explore") drawExplore();
+  else drawShortlist();
 }
 function drawAll(){ syncFilterInputs(); drawMode(); writeHash(); }
 function refilter(){
   syncFilterInputs();
   listLimit = resLimit = boardLimit = 25;
   // An explicit comparison stays open even if the filters would now hide him.
-  if (mode === "similar") drawMatches(); else if (mode === "search") drawResults(); else drawBoard();
+  if (mode === "similar") drawMatches(); else if (mode === "search") drawResults();
+  else if (mode === "board") drawBoard(); else if (mode === "explore") drawScatter();
   writeHash();
 }
 
@@ -790,6 +1165,9 @@ function writeHash(){
   const parts = ["d=" + encodeURIComponent(dsKey), "p=" + encodeURIComponent(p.n)];
   if (o) parts.push("m=" + encodeURIComponent(o.n));
   if (mode !== "similar") parts.push("v=" + mode);
+  if (!RW) parts.push("rw=0");
+  if (mode === "explore" && exGroup) parts.push("ex=" + encodeURIComponent([exGroup, exX, exY, exScale].join("~")));
+  if (mode === "shortlist" && SHARED) parts.push("sl=" + encodeURIComponent(shareValue(SHARED.items)));
   history.replaceState(null, "", "#" + parts.join("&"));
 }
 function readHash(){
@@ -871,6 +1249,19 @@ document.addEventListener("click", e => {
   if (more){ const k = more.dataset.more;
     if (k === "list"){ listLimit += 25; drawMatches(); } else if (k === "res"){ resLimit += 25; drawResults(); }
     else { boardLimit += 25; drawBoard(); } return; }
+  const star = t.closest("[data-star]");
+  if (star){ toggleStar(+star.dataset.star); return; }
+  const cmp = t.closest("[data-cmp]");
+  if (cmp){ match = +cmp.dataset.cmp; setMode("similar");
+    requestAnimationFrame(() => $("compare-panel").scrollIntoView({block: "start", behavior: "smooth"})); return; }
+  const open = t.closest("[data-open]");
+  if (open){ openEntry(open.dataset.open); return; }
+  const sld = t.closest("[data-sldel]");
+  if (sld){ SL.splice(+sld.dataset.sldel, 1); saveSL(); drawShortlist(); return; }
+  const xs = t.closest("#xscale [data-scale]");
+  if (xs){ exScale = xs.dataset.scale;
+    document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b === xs));
+    drawScatter(); writeHash(); return; }
   const pick = t.closest("[data-s]");
   if (pick){ const i = +pick.dataset.s;
     if (mode !== "similar") setMode("similar");
@@ -918,10 +1309,10 @@ $("weights").addEventListener("input", e => {
   const row = r.closest(".wrow");
   row.classList.toggle("off", v === 0);
   row.querySelector(".wv").textContent = v === 0 ? "off" : v + "×";
-  const custom = Object.values(W).some(x => x !== 1);
-  $("w-state").textContent = custom ? "Custom weights" : "Equal weights";
+  $("w-state").textContent = weightState();
   drawMatches(); drawCompare();
 });
+$("rw").addEventListener("change", e => { RW = e.target.checked; drawWeights(); drawMatches(); drawCompare(); writeHash(); });
 $("wreset").addEventListener("click", () => { W = {}; drawWeights(); drawMatches(); drawCompare(); });
 
 $("sgroup").addEventListener("change", e => { searchGroup = e.target.value; criteria = []; searchCleared = false;
@@ -959,6 +1350,48 @@ $("rescsv").addEventListener("click", e => {
 });
 $("sharebtn").addEventListener("click", e => { writeHash(); copyText(location.href, e.target, "Link copied"); });
 
+// ---- explorer & shortlist controls -----------------------------------------------------
+$("xgroup").addEventListener("change", e => { exGroup = e.target.value; exX = exY = null; exSel = null; drawExplore(); writeHash(); });
+$("xmetric").addEventListener("change", e => { exX = e.target.value; drawScatter(); writeHash(); });
+$("ymetric").addEventListener("change", e => { exY = e.target.value; drawScatter(); writeHash(); });
+$("scatter").addEventListener("click", e => {
+  const svg = $("scatter").querySelector("svg");
+  if (!svg || !exPts.length) return;
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const at = pt.matrixTransform(svg.getScreenCTM().inverse());
+  let best = null, bd = 20 * 20;
+  for (const [i, x, y] of exPts){ const d = (x - at.x) ** 2 + (y - at.y) ** 2; if (d < bd){ bd = d; best = i; } }
+  exSel = best; drawScatter();
+});
+let resizeTimer;
+addEventListener("resize", () => { clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (mode === "explore") drawScatter(); }, 150); });
+
+let noteTimer;
+$("shortlist").addEventListener("input", e => {
+  const n = e.target.closest("[data-note]"); if (!n) return;
+  SL[+n.dataset.note].note = n.value;
+  clearTimeout(noteTimer); noteTimer = setTimeout(saveSL, 300);
+});
+$("slcsv").addEventListener("click", e => {
+  const rows = SL.map(x => [x.n, sourceName(x.k), x.t, x.l, x.p, x.a ?? "", x.v ?? "", x.pr ?? "", x.m, x.note || ""]);
+  copyText(csv([["player","season","club","league","position","age","market_value_eur","fpl_price_m","minutes","note"], ...rows]),
+    e.target, `Copied ${rows.length} rows`);
+});
+$("slshare").addEventListener("click", e => {
+  copyText(location.href.split("#")[0] + "#v=shortlist&sl=" + encodeURIComponent(shareValue(SL)), e.target, "Link copied");
+});
+$("slclear").addEventListener("click", () => {
+  if (!SL.length || !confirm(`Remove all ${SL.length} players from the shortlist?`)) return;
+  SL = []; saveSL(); drawShortlist();
+});
+$("shared-keep").addEventListener("click", () => {
+  if (!SHARED || !SHARED.resolved) return;
+  SHARED.resolved.forEach(x => { if (slIndex(x.k, x.id) < 0) SL.push(x); });
+  SHARED = null; saveSL(); drawShortlist(); writeHash();
+});
+$("shared-close").addEventListener("click", () => { SHARED = null; drawShortlist(); writeHash(); });
+
 // ---- theme ------------------------------------------------------------------------------
 function applyTheme(t){
   if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
@@ -978,12 +1411,23 @@ applyTheme(savedTheme);
 if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
 
 // ---- start ------------------------------------------------------------------------------
-(async () => {
-  const asked = readHash() || {};
-  if (asked.v && ["similar", "search", "board"].includes(asked.v)) mode = asked.v;
-  const key = asked.d && entryFor(asked.d) ? asked.d : BUNDLE.default;
+// A link opens the view it describes - on first load, and when one is pasted
+// into a tab that is already open (the page's own replaceState fires no event).
+async function applyHash(asked){
+  mode = asked.v && MODES.includes(asked.v) ? asked.v : "similar";
+  RW = asked.rw !== "0";
+  if (asked.sl){ const items = parseShared(asked.sl); if (items.length){ SHARED = {items, resolved: null}; mode = "shortlist"; } }
+  const key = asked.d && entryFor(asked.d) ? asked.d : (dsKey || BUNDLE.default);
   await loadDataset(key, {name: asked.p, match: asked.m});
   if (!P){ await loadDataset(BUNDLE.default); }
+  if (asked.ex){ const [g, x, y, sc] = asked.ex.split("~");
+    if (G[g]){ exGroup = g; exX = x; exY = y; exScale = sc === "p" ? "p" : "v"; } }
   setMode(mode);
+  if (SHARED && !SHARED.resolved) resolveShared();
+}
+addEventListener("hashchange", () => applyHash(readHash() || {}));
+(async () => {
+  loadSL(); $("sl-count").hidden = !SL.length; $("sl-count").textContent = SL.length;
+  await applyHash(readHash() || {});
 })();
 </script>

@@ -208,7 +208,9 @@ with st.expander("How the search works", expanded=False):
   of them in the current pool - using {len(model.features)} position-specific features.
 - Features are z-scored inside that group, so every metric enters the distance on the same scale.
 - Cosine and Euclidean answer different questions; both are computed from the same standardised
-  matrix, and neither applies any hidden weighting.
+  matrix and the same weights. Each metric's weight is its season-to-season repeatability squared,
+  so a metric that is mostly one season's noise barely moves the match - Model Validation lists
+  them. Club readings such as goals conceded take the median weight.
 - Filters (age, minutes, league) are applied to the **candidates**, not to the scaling: removing
   players from the shortlist never changes anyone's percentile or z-score.
 """

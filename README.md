@@ -27,14 +27,19 @@ Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
 Public, free, no sign-in, and it works on a phone. **29 seasons across three sources** —
 Premier League 2016/17–2025/26, the big five leagues 2017/18–2024/25, six leagues 2014/15–2024/25 —
-36,500 player-seasons in all. Three tools on one page:
+36,500 player-seasons in all. Five tools on one page:
 
 - **Similar players** — pick anyone and every other player in his position is ranked by how closely
-  his profile matches, **reweighted by the categories you care about**, with a side-by-side radar
-  and a metric-by-metric account of why; follow him through **every season he played**.
+  his profile matches, **reweighted by the categories you care about**, with where he stands out
+  and falls short, a side-by-side radar and a metric-by-metric account of why; follow him through
+  **every season he played**.
 - **Profile search** — describe the player you want as percentile conditions ("at least the 80th
   for progressive passes, the 70th for tackles") and get everyone who meets them all.
 - **Leaderboard** — rank a position on any metric.
+- **Explorer** — plot a position on any two metrics, with the player you are looking at, his
+  closest matches and your shortlist picked out; tap a dot for his numbers.
+- **Shortlist** — star players from any source and season, add notes, copy it as CSV or share it
+  as a link. It lives in your browser; nothing is sent anywhere.
 
 All three share one set of filters: leagues, side, age range, market value or FPL price, height,
 preferred foot, minutes. A filter only appears where the season actually has the data behind it,
@@ -463,7 +468,7 @@ a percentile is a statement about a peer group, so the peer group has to be visi
 
 ### Similarity, and why two players are alike
 
-Features are z-scored within the position group, then:
+Features are z-scored within the position group, weighted by how well each repeats (below), then:
 
 - **Cosine (default)** — the cosine of the two standardised profile vectors. Because the features are
   centred on the positional average, this asks whether two players deviate from their peers *in the
@@ -473,6 +478,27 @@ Features are z-scored within the position group, then:
   `similarity % = 100 × (1 − rms ÷ typical_pair_distance)`, where the reference is the **median RMS
   distance between two randomly chosen players in the same position pool** (printed in the app).
   100% is an identical profile; 0% means "as different as two random players in this position".
+
+**What repeats counts.** Some metrics describe the player — a centre-back's aerial duels won
+correlate at 0.69 with his own figure a season later, and still at 0.60 for centre-backs who
+changed club — and some are mostly that season's noise: his errors leading to shots repeat at
+0.05, his tackle success at 0.12, a forward's shot accuracy at 0.19, and no better for movers.
+Some sit between: centre-back pass volume repeats at 0.77, but 0.45 for movers, because part of it
+is the club's possession style. That is still how he plays now, so it keeps its weight. Each metric's
+weight is that season-to-season correlation **squared** (floored at 0.05), measured per position
+over the source's whole history on players with 900+ minutes in both seasons, with values
+standardised inside each season so FBref's change of data provider is not read as players changing.
+
+- **Cross-validated over players.** Fitted on four-fifths and scored on the rest, it puts a
+  player's own other season in his top ten more often than equal weights on every source:
+  0.47 → 0.53 and 0.28 → 0.31 on FBref's two eras, 0.168 → 0.172 on the Premier League,
+  0.053 → 0.059 on Understat.
+- **Not recognising clubs.** The gain survives for players who changed club in between (0.34 →
+  0.35 and 0.15 → 0.17 on FBref, 0.05 → 0.07 on the Premier League; flat on Understat).
+- **Club readings excluded from the credit.** Goals conceded, clean sheets and a keeper's saves
+  describe the team in front of him and repeat because players usually stay put — a keeper's saves
+  per 90 repeats at 0.37 across all FBref keepers and −0.17 across the 86 who moved — so they take
+  the median weight whatever their figure.
 
 Every match comes with an explanation: which metrics agree, which diverge, both players' raw values
 and percentiles, and each metric's share of the squared distance. If one statistic is carrying a
@@ -559,25 +585,22 @@ where nobody differs on output, gets no line at all rather than a fitted-looking
 For every player with two seasons in the pool, where does his **own other season** rank among
 his nearest neighbours? It is the one case where the right answer is known without any labels —
 which makes it the check that still works on a feed with no ground truth about playing roles.
-
-| Position | Player-seasons tested | Own season in top 10 | Chance | Lift | Median rank |
-| --- | --- | --- | --- | --- | --- |
 On the StatsBomb event data:
 
 | GK | CB | FB | DM | CM | AM | W | FW |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 5.0× | 24.0× | 13.2× | 22.5× | 9.3× | 9.3× | 12.3× | 9.9× |
+| 5.2× | 24.0× | 13.2× | 22.5× | 9.3× | 9.3× | 12.3× | 9.9× |
 
 The profile the engine builds is stable enough to pick the same footballer out of a 500-player
 pool in a different season, with a different squad around him, at 5–25× chance. On the thinner
-Premier League feature set the same check gives 2–21×, which is the honest cost of a summary
-feed.
+Premier League feature set, over 2022/23–2025/26, the same check gives 1.8–10×, which is the
+honest cost of a summary feed.
 
 The report also checks whether it is **matching on the club rather than the player** — team style
 leaks into individual numbers, since a defender in a low-possession side makes more tackles.
 Within a single Premier League season team-mates take top-ten slots at 0.6–1.7× chance
 (essentially no club clustering); on StatsBomb, where the pool spans ten competitions and
-defensive volume goes unadjusted for possession in the feature set, centre-backs reach 10.6×.
+defensive volume goes unadjusted for possession in the feature set, centre-backs reach 8.2×.
 That is a real effect, measured and reported rather than hidden.
 
 ### Did the market later agree?
@@ -636,14 +659,17 @@ nearest neighbours share his generative role 2.0–2.8× more often than chance.
 
 ### Both datasets
 
-- **Feature dominance** — the mean share of pairwise distance carried by each metric. No metric
-  exceeds ~1.3× an even share, so no position's model rests on one statistic.
-- **Drop-metric sensitivity** — remove one metric and 77–90% of the top ten survives.
+- **Feature dominance** — the mean share of pairwise distance carried by each metric, measured on
+  the weighted model. The most repeatable metrics carry more by design, up to about 2× an even
+  share (Premier League defenders' creativity index, 2.0×); the report prints each metric's weight
+  beside its share, so deliberate weight and correlation-driven dominance can be told apart. No
+  position's model rests on one statistic.
+- **Drop-metric sensitivity** — remove one metric and 66–96% of the top ten survives.
 - **Redundant team-context metrics removed.** Clean-sheet rate, goals conceded and expected goals
   conceded are three near-identical readings of one thing — the club — so only the most
   informative survives into an outfield model. They stay on the radar and in the recruitment
   weights, where a scout reads them as context.
-- **Category re-weighting** — triple a category's weight and 60–75% survives: the weights do
+- **Category re-weighting** — triple a category's weight and 51–88% survives: the weights do
   something without the ranking being at their mercy.
 - **Correlation analysis** — feature pairs above |r| = 0.85 are reported rather than silently
   dropped, because to a scout two correlated metrics can still be two different questions.
@@ -751,12 +777,14 @@ python scripts/export_static.py        # -> static/index.html + static/data/*.js
 
 **One page plus one data file per season** — a 0.3 MB `index.html` carrying the catalogue and the
 default season, and 29 season files (22 MB in all, fetched only when chosen). It is a working
-similarity engine rather than a snapshot of one: each player ships as the weighted z-vector the
-model already uses, so the page computes `100 × cosine` in the browser — the same number the
-Streamlit app reports. That means:
+similarity engine rather than a snapshot of one: each player ships as the z-vector the model uses
+and each position as its repeatability weights, so the page computes `100 × cosine` in the browser
+— the same number the Streamlit app reports, to within 0.2 of a percentage point of rounding.
+That means:
 
 - rank **every** other player in the position, not a precomputed top six, and **reweight** it by
-  category with the same arithmetic the engine uses (each metric scaled by √weight);
+  category with the same arithmetic the engine uses (each metric scaled by √weight), or switch the
+  repeatability weighting off to see what it changes;
 - refilter the ranking live — leagues, side, age range, value or price, height, foot, minutes,
   excluding his own club or league. A filter a season cannot support is not shown at all, and a
   narrowed age, height or foot filter leaves out players whose value is unknown rather than
@@ -764,7 +792,9 @@ Streamlit app reports. That means:
 - open any match for a **metric-by-metric comparison**: both players' per-90 values and positional
   percentiles, sorted by biggest gap or closest agreement, with the standardised gap on each metric;
 - follow a player across every season he appears in, with his category percentiles season by season;
-- search by profile, or rank a position on any metric.
+- search by profile, rank a position on any metric, or plot it on any two;
+- keep a shortlist with notes across sources and seasons, in the browser's own storage, and share
+  it as a link that re-opens the same players.
 
 Drop the `static/` folder on any static host (Vercel serves it from this repository). Opened
 straight from disk it still works for the season built into the page; the others need to be

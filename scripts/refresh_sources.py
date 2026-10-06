@@ -71,6 +71,9 @@ USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like G
               "Chrome/124.0 Safari/537.36 footballscout-refresh "
               "(+https://github.com/fahdr1428/footballscout)")
 PAUSE_SECONDS = 2.5
+# A fixed mtime keeps the gzip bytes identical when the table is, so a run
+# that finds nothing new commits nothing.
+GZIP = {"method": "gzip", "mtime": 0}
 
 
 def log(message: str) -> None:
@@ -78,11 +81,16 @@ def log(message: str) -> None:
 
 
 def fetch(url: str, headers: dict | None = None, retries: int = 4, timeout: int = 120) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **(headers or {})})
+    request = urllib.request.Request(url, headers={
+        "User-Agent": USER_AGENT, "Accept-Encoding": "gzip", **(headers or {})})
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                return response.read()
+                body = response.read()
+            # Understat compresses its JSON whether or not it was asked to.
+            if body[:2] == b"\x1f\x8b" and not url.endswith(".gz"):
+                body = gzip.decompress(body)
+            return body
         except (urllib.error.URLError, TimeoutError) as error:
             status = getattr(error, "code", None)
             log(f"  attempt {attempt + 1} failed for {url}: {status or error}")
@@ -205,18 +213,18 @@ def refresh_transfermarkt(out: Path) -> dict:
                     player_name=("player_name", "last"))
                .rename(columns={"player_club_id": "club_id"})
                .merge(clubs, on="club_id", how="left"))
-    minutes.to_csv(target / "tm_season_minutes.csv.gz", index=False, compression="gzip")
+    minutes.to_csv(target / "tm_season_minutes.csv.gz", index=False, compression=GZIP)
     wanted = set(minutes["player_id"])
     log(f"  {len(minutes):,} player-club-seasons for {len(wanted):,} players")
 
     players = tm_table("players", TM_PLAYER_COLUMNS)
     players = players[players["player_id"].isin(wanted)]
-    players.to_csv(target / "tm_players.csv.gz", index=False, compression="gzip")
+    players.to_csv(target / "tm_players.csv.gz", index=False, compression=GZIP)
 
     values = tm_table("player_valuations")
     values = values[values["player_id"].isin(wanted)]
     values = values[["player_id", "date", "market_value_in_eur"]]
-    values.to_csv(target / "tm_valuations.csv.gz", index=False, compression="gzip")
+    values.to_csv(target / "tm_valuations.csv.gz", index=False, compression=GZIP)
 
     meta = {
         "source": "dcaribou/transfermarkt-datasets (CC0 1.0)",

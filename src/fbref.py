@@ -526,6 +526,60 @@ def attach_identity(players: pd.DataFrame, mapping: pd.DataFrame,
 INVARIANT_IDENTITY = ["date_of_birth", "height_cm", "foot", "nationality"]
 
 
+def backfill_transfermarkt(players: pd.DataFrame, cache: Path,
+                           progress=print) -> tuple[pd.DataFrame, dict]:
+    """Market values and profiles for the seasons the squad records stop short of.
+
+    worldfootballR's season squad records end at 2022/23 (83% covered) and
+    carry nothing after. Transfermarkt's valuation *histories* run further -
+    to June 2026 - so every season without a squad-record value takes the
+    valuation in force on 1 July after it ends. That date is not a guess: on
+    the seasons that have both, it reproduces the squad-record value exactly
+    for 89% of players, where a mid-season date manages 30%. So a backfilled
+    price means the same thing as the ones it sits beside: what he was worth
+    as the season closed.
+
+    The squad-record value always wins where there is one. Each player also
+    gets his latest valuation and its date, which is what a scout reads as
+    his price today, and date of birth, height and foot where the squad
+    records had none.
+    """
+    from . import tm_history
+
+    players = players.copy()
+    tm_id = tm_history.tm_id_from_url(players["UrlTmarkt"])
+    history = tm_history.load_valuations(cache, progress=progress)
+    before = players["market_value_eur"].notna()
+    asof = pd.to_datetime(players["Season_End_Year"].astype(int).astype(str) + "-07-01")
+    season_value = tm_history.value_asof(tm_id, asof, history)
+    players["market_value_eur"] = players["market_value_eur"].combine_first(season_value)
+
+    latest = tm_history.latest_values(history)
+    joined = pd.DataFrame({"tm_id": tm_id}).merge(latest, on="tm_id", how="left")
+    players["latest_value_eur"] = joined["latest_value_eur"].to_numpy()
+    players["latest_value_date"] = joined["latest_value_date"].to_numpy()
+
+    profiles = tm_history.load_profiles(cache, progress=progress)
+    found = pd.DataFrame({"tm_id": tm_id}).merge(profiles, on="tm_id", how="left")
+    for column in ["date_of_birth", "height_cm", "foot", "nationality"]:
+        if column not in players.columns:
+            players[column] = np.nan
+        filler = found[column].to_numpy()
+        if column == "date_of_birth":
+            filler = pd.to_datetime(pd.Series(filler)).dt.strftime("%Y-%m-%d").to_numpy()
+        players[column] = players[column].where(players[column].notna(), filler)
+
+    added = players["market_value_eur"].notna() & ~before
+    by_season = players.groupby("Season_End_Year")["market_value_eur"].apply(
+        lambda v: round(float(v.notna().mean()), 2))
+    progress("  market value coverage by season: " + ", ".join(
+        f"{_season_label(int(y))} {c:.0%}" for y, c in by_season.items()))
+    return players, {"values_backfilled": int(added.sum()),
+                     "with_market_value": float(players["market_value_eur"].notna().mean()),
+                     "value_coverage_by_season": {_season_label(int(y)): c
+                                                  for y, c in by_season.items()}}
+
+
 def _carry_identity(players: pd.DataFrame) -> pd.DataFrame:
     """Fill a player's invariant attributes from his other seasons.
 
@@ -749,6 +803,9 @@ def build_dataset(cache: Path, seasons: range | None = None,
     mapping = pd.read_csv(paths["mapping"], encoding="latin-1")
     values = read_rds(paths["values"])
     players, coverage = attach_identity(players, mapping, values)
+    progress("extending Transfermarkt values past 2022/23 from valuation histories")
+    players, extended = backfill_transfermarkt(players, cache, progress=progress)
+    coverage.update(extended)
     players = _carry_identity(players)
 
     players["age"] = _age(players)

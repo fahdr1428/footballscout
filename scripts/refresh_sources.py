@@ -138,7 +138,8 @@ def understat_players(league: str, season: int) -> tuple[list[dict], str]:
 
 
 def refresh_understat(seasons: list[int], out: Path) -> dict:
-    stamp = datetime.now(timezone.utc).isoformat()
+    # The day, not the second: a re-run the same day writes identical rows.
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     frames, summary = [], {}
     for season in seasons:
         for league in UNDERSTAT_LEAGUES:
@@ -247,6 +248,7 @@ def main() -> int:
     parser.add_argument("--seasons", type=int, nargs="*", default=DEFAULT_SEASONS,
                         help="Understat season start years, e.g. 2025 for 2025/26")
     args = parser.parse_args()
+    args.out = args.out.resolve()
 
     meta_path = args.out / "live" / "refresh_meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}

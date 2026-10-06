@@ -1,7 +1,7 @@
 {
   "transfermarkt": {
     "source": "dcaribou/transfermarkt-datasets (CC0 1.0)",
-    "fetched_at": "2026-10-06T16:37:09.165160+00:00",
+    "fetched_at": "2026-10-06T16:40:24.804501+00:00",
     "players": 11107,
     "valuations": 244344,
     "latest_valuation": "2026-06-11",
@@ -20,5 +20,83 @@
       2024,
       2025
     ]
+  },
+  "understat": {
+    "fetched_at": "2026-10-06",
+    "rows": 5732,
+    "by_league_season": {
+      "EPL 2025": {
+        "players": 537,
+        "route": "getLeagueData",
+        "max_games": 38,
+        "max_minutes": 3420
+      },
+      "La_Liga 2025": {
+        "players": 600,
+        "route": "getLeagueData",
+        "max_games": 38,
+        "max_minutes": 3420
+      },
+      "Bundesliga 2025": {
+        "players": 499,
+        "route": "getLeagueData",
+        "max_games": 34,
+        "max_minutes": 3060
+      },
+      "Serie_A 2025": {
+        "players": 586,
+        "route": "getLeagueData",
+        "max_games": 38,
+        "max_minutes": 3420
+      },
+      "Ligue_1 2025": {
+        "players": 553,
+        "route": "getLeagueData",
+        "max_games": 34,
+        "max_minutes": 3060
+      },
+      "RFPL 2025": {
+        "players": 470,
+        "route": "getLeagueData",
+        "max_games": 31,
+        "max_minutes": 2778
+      },
+      "EPL 2026": {
+        "players": 421,
+        "route": "getLeagueData",
+        "max_games": 5,
+        "max_minutes": 450
+      },
+      "La_Liga 2026": {
+        "players": 461,
+        "route": "getLeagueData",
+        "max_games": 8,
+        "max_minutes": 720
+      },
+      "Bundesliga 2026": {
+        "players": 367,
+        "route": "getLeagueData",
+        "max_games": 4,
+        "max_minutes": 360
+      },
+      "Serie_A 2026": {
+        "players": 448,
+        "route": "getLeagueData",
+        "max_games": 5,
+        "max_minutes": 450
+      },
+      "Ligue_1 2026": {
+        "players": 424,
+        "route": "getLeagueData",
+        "max_games": 5,
+        "max_minutes": 450
+      },
+      "RFPL 2026": {
+        "players": 366,
+        "route": "getLeagueData",
+        "max_games": 9,
+        "max_minutes": 810
+      }
+    }
   }
 }

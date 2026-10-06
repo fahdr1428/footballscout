@@ -650,19 +650,19 @@ The closest thing here to an out-of-sample test. A player's hidden-gem score in 
 **only that season's data**; the outcome is his Transfermarkt valuation two seasons later. Nothing
 about the future enters the score.
 
-Across 3,503 followed-up player-seasons, median market value moves monotonically with the score:
+Across 3,555 followed-up player-seasons, median market value moves monotonically with the score:
 
 | Decile | 1 (lowest) | 5 | 10 (highest) |
 | --- | --- | --- | --- |
-| Median value change | ×0.58 | ×0.67 | **×1.07** |
-| Share whose value rose | 14% | 28% | **52%** |
+| Median value change | ×0.58 | ×0.70 | **×1.05** |
+| Share whose value rose | 12% | 29% | **50%** |
 
-Rank correlation of score against growth: **0.238**.
+Rank correlation of score against growth: **0.241**.
 
 **Most of a table like that can be an artefact**, and here about half of it is. The top decile is
 also younger and cheaper, and a cheap twenty-year-old rises in percentage terms for reasons the
 model can take no credit for. Asking the same question inside cells of similar age *and* similar
-starting price — 19 cells, 3,487 players, minimum 40 each — gives **0.117**, positive in 16 of 19
+starting price — 19 cells, 3,539 players, minimum 40 each — gives **0.115**, positive in 16 of 19
 cells.
 
 So: a modest edge that survives both controls. That is a believable result for a model built from

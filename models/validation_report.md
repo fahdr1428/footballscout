@@ -9,7 +9,7 @@ Before asking whether the models are any good, the groups they are fitted on hav
 
 | pair | kind | players | balanced_accuracy | chance | majority_class | modelled_separately | verdict |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Centre-back vs defensive midfield | control | 69 | 0.943 | 0.5 | 0.594 | True | different jobs - deserves its own model |
+| Centre-back vs defensive midfield | control | 77 | 0.947 | 0.5 | 0.584 | True | different jobs - deserves its own model |
 
 A pair the classifier cannot separate is one job under two names: giving them separate peer groups would halve the sample and buy nothing. A pair it separates easily is two jobs, and measuring one against the other's percentiles is a bias no sample size fixes. The taxonomy in `src/config.py` follows this table - second strikers and wide midfielders are modelled apart, left and right are not - and the verdict column says so explicitly when the code and the evidence disagree.
 
@@ -18,8 +18,8 @@ A pair the classifier cannot separate is one job under two names: giving them se
 | position_group | players | features | k | elbow_k | silhouette | inertia | smallest_cluster |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | GK | 24 | 8 | 2 | 2 | 0.38 | 121.3 | 7 |
-| DEF | 128 | 16 | 3 | 6 | 0.167 | 1391.5 | 25 |
-| MID | 153 | 16 | 4 | 6 | 0.149 | 1436.0 | 29 |
+| DEF | 128 | 16 | 3 | 6 | 0.169 | 1391.3 | 24 |
+| MID | 153 | 16 | 4 | 5 | 0.149 | 1436.0 | 29 |
 | FWD | 34 | 13 | 2 | 2 | 0.245 | 312.7 | 15 |
 
 Silhouette scores in the 0.10-0.25 range are typical for football style data and should be read honestly: playing styles form a **continuum**, not well-separated groups. K-Means here is a useful summary of that continuum, not evidence that discrete player types exist. `k` is chosen as the largest k whose silhouette stays within 10% of the best score, with the inertia elbow reported alongside as a cross-check.
@@ -43,10 +43,10 @@ Each metric's season-to-season correlation for the same player in the same posit
 
 | position_group | metrics_measured | median_repeatability | most_repeatable | least_repeatable | top_weight_share |
 | --- | --- | --- | --- | --- | --- |
-| GK | 8 of 8 | 0.34 | Goals conceded per 90 0.61 (club), Expected goals conceded (team, while on pitch) per 90 0.48 (club), Clean sheets per appearance % 0.42 (club) | Share of appearances that were starts % -0.05, Bonus points system score per 90 0.17, Influence (Opta index) per 90 0.27 | 0.198 |
-| DEF | 12 of 16 | 0.51 | Creativity (Opta index) per 90 0.89, xA (expected assists) per 90 0.72, Expected goal involvements per 90 0.65 | Goals per 90 0.21, Yellow cards per 90 0.36, Share of appearances that were starts % 0.38 | 0.157 |
-| MID | 12 of 16 | 0.62 | Threat (Opta index) per 90 0.87, Creativity (Opta index) per 90 0.84, Expected goal involvements per 90 0.81 | Share of appearances that were starts % 0.34, Expected goals conceded (team, while on pitch) per 90 0.43 (club), Assists per 90 0.51 | 0.109 |
-| FWD | 10 of 13 | 0.58 | Share of appearances that were starts % 0.63, Threat (Opta index) per 90 0.62, Creativity (Opta index) per 90 0.61 | Assists per 90 0.27, xA (expected assists) per 90 0.39, Goals per 90 0.53 | 0.098 |
+| GK | 8 of 8 | 0.34 | Goals conceded per 90 0.60 (club), Expected goals conceded (team, while on pitch) per 90 0.49 (club), Saves per 90 0.41 (club) | Share of appearances that were starts % -0.05, Bonus points system score per 90 0.17, Save rate (saves / shots faced) % 0.26 | 0.203 |
+| DEF | 12 of 16 | 0.51 | Creativity (Opta index) per 90 0.88, xA (expected assists) per 90 0.72, Expected goal involvements per 90 0.65 | Goals per 90 0.20, Yellow cards per 90 0.37, Share of appearances that were starts % 0.38 | 0.157 |
+| MID | 12 of 16 | 0.61 | Threat (Opta index) per 90 0.87, Creativity (Opta index) per 90 0.84, Expected goal involvements per 90 0.81 | Share of appearances that were starts % 0.35, Expected goals conceded (team, while on pitch) per 90 0.43 (club), Assists per 90 0.50 | 0.109 |
+| FWD | 10 of 13 | 0.58 | Share of appearances that were starts % 0.64, Threat (Opta index) per 90 0.62, Creativity (Opta index) per 90 0.61 | Assists per 90 0.26, xA (expected assists) per 90 0.39, Goals per 90 0.53 | 0.099 |
 
 ## 2c. Is the engine matching on club rather than player?
 
@@ -71,34 +71,34 @@ Not run. This needs a source with market values and at least three seasons loade
 
 | metric | weight_share | mean_distance_share | vs_even_share |
 | --- | --- | --- | --- |
-| Threat (Opta index) per 90 | 0.1086 | 0.0963 | 1.54 |
-| Creativity (Opta index) per 90 | 0.1012 | 0.0907 | 1.45 |
-| Ball recoveries per 90 | 0.0578 | 0.0729 | 1.17 |
-| Expected goal involvements per 90 | 0.0932 | 0.0717 | 1.15 |
-| xG per 90 | 0.0816 | 0.0698 | 1.12 |
-| Expected goals conceded (team, while on pitch) per 90 | 0.0578 | 0.0696 | 1.11 |
+| Threat (Opta index) per 90 | 0.1087 | 0.0963 | 1.54 |
+| Creativity (Opta index) per 90 | 0.1021 | 0.0914 | 1.46 |
+| Ball recoveries per 90 | 0.0577 | 0.073 | 1.17 |
+| Expected goal involvements per 90 | 0.0935 | 0.0716 | 1.15 |
+| Expected goals conceded (team, while on pitch) per 90 | 0.0577 | 0.0704 | 1.13 |
+| xG per 90 | 0.0821 | 0.0698 | 1.12 |
 
 **DEF** - even share would be 0.062 per feature; `weight_share` is what the repeatability weights alone give each metric.
 
 | metric | weight_share | mean_distance_share | vs_even_share |
 | --- | --- | --- | --- |
-| Creativity (Opta index) per 90 | 0.157 | 0.1256 | 2.01 |
-| xA (expected assists) per 90 | 0.1051 | 0.0835 | 1.34 |
-| Ball recoveries per 90 | 0.0633 | 0.0779 | 1.25 |
-| Tackles per 90 | 0.0633 | 0.0772 | 1.24 |
-| Influence (Opta index) per 90 | 0.0633 | 0.0721 | 1.15 |
-| Bonus points system score per 90 | 0.0681 | 0.0714 | 1.14 |
+| Creativity (Opta index) per 90 | 0.1566 | 0.1255 | 2.01 |
+| xA (expected assists) per 90 | 0.1047 | 0.0834 | 1.33 |
+| Ball recoveries per 90 | 0.0634 | 0.0789 | 1.26 |
+| Tackles per 90 | 0.0634 | 0.078 | 1.25 |
+| Bonus points system score per 90 | 0.069 | 0.0716 | 1.15 |
+| Influence (Opta index) per 90 | 0.0634 | 0.0712 | 1.14 |
 
 **FWD** - even share would be 0.077 per feature; `weight_share` is what the repeatability weights alone give each metric.
 
 | metric | weight_share | mean_distance_share | vs_even_share |
 | --- | --- | --- | --- |
-| Share of appearances that were starts % | 0.0984 | 0.1246 | 1.62 |
-| Tackles per 90 | 0.0843 | 0.098 | 1.27 |
-| Threat (Opta index) per 90 | 0.0938 | 0.0935 | 1.22 |
-| Defensive contribution actions per 90 | 0.0843 | 0.0905 | 1.18 |
-| Creativity (Opta index) per 90 | 0.0914 | 0.0863 | 1.12 |
-| Bonus points system score per 90 | 0.0896 | 0.0848 | 1.1 |
+| Share of appearances that were starts % | 0.0994 | 0.1256 | 1.63 |
+| Tackles per 90 | 0.0844 | 0.0981 | 1.28 |
+| Threat (Opta index) per 90 | 0.0936 | 0.0932 | 1.21 |
+| Defensive contribution actions per 90 | 0.0844 | 0.0906 | 1.18 |
+| Creativity (Opta index) per 90 | 0.0914 | 0.0864 | 1.12 |
+| Bonus points system score per 90 | 0.09 | 0.0851 | 1.11 |
 
 
 ## 4. Sensitivity of the similarity rankings
@@ -107,75 +107,75 @@ Not run. This needs a source with market values and at least three seasons loade
 
 | removed | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Creativity (Opta index) per 90 | 0.782 | 0.803 |
-| Threat (Opta index) per 90 | 0.783 | 0.849 |
-| Goals per 90 | 0.837 | 0.892 |
-| xG per 90 | 0.841 | 0.876 |
-| Influence (Opta index) per 90 | 0.852 | 0.907 |
-| xA (expected assists) per 90 | 0.852 | 0.891 |
-| Assists per 90 | 0.859 | 0.844 |
-| Expected goal involvements per 90 | 0.891 | 0.928 |
+| Creativity (Opta index) per 90 | 0.778 | 0.786 |
+| Threat (Opta index) per 90 | 0.778 | 0.84 |
+| Goals per 90 | 0.826 | 0.877 |
+| xA (expected assists) per 90 | 0.847 | 0.887 |
+| Influence (Opta index) per 90 | 0.847 | 0.903 |
+| xG per 90 | 0.849 | 0.877 |
+| Assists per 90 | 0.86 | 0.837 |
+| Expected goal involvements per 90 | 0.896 | 0.93 |
 
 ### MID - tripling the weight on one category
 
 | category_weighted_x3 | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Chance Creation | 0.671 | 0.738 |
-| Defensive Work | 0.674 | 0.684 |
-| Defensive Solidity | 0.715 | 0.744 |
-| Goal Threat | 0.726 | 0.758 |
-| Overall Rating | 0.774 | 0.817 |
-| Availability | 0.823 | 0.867 |
-| Build-up Involvement | 0.842 | 0.866 |
+| Chance Creation | 0.672 | 0.727 |
+| Defensive Work | 0.675 | 0.681 |
+| Goal Threat | 0.716 | 0.754 |
+| Defensive Solidity | 0.718 | 0.753 |
+| Overall Rating | 0.776 | 0.811 |
+| Availability | 0.814 | 0.861 |
+| Build-up Involvement | 0.843 | 0.871 |
 
 ### DEF - removing one metric
 
 | removed | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Ball recoveries per 90 | 0.712 | 0.681 |
-| Tackles per 90 | 0.771 | 0.779 |
-| Expected goals conceded (team, while on pitch) per 90 | 0.796 | 0.864 |
-| xA (expected assists) per 90 | 0.837 | 0.87 |
-| Defensive contribution actions per 90 | 0.839 | 0.879 |
-| Clearances, blocks and interceptions per 90 | 0.863 | 0.912 |
-| xG per 90 | 0.873 | 0.942 |
-| Goals per 90 | 0.942 | 0.977 |
+| Ball recoveries per 90 | 0.711 | 0.678 |
+| Tackles per 90 | 0.771 | 0.786 |
+| Expected goals conceded (team, while on pitch) per 90 | 0.784 | 0.868 |
+| Defensive contribution actions per 90 | 0.835 | 0.884 |
+| xA (expected assists) per 90 | 0.844 | 0.869 |
+| Clearances, blocks and interceptions per 90 | 0.857 | 0.913 |
+| xG per 90 | 0.888 | 0.938 |
+| Goals per 90 | 0.956 | 0.978 |
 
 ### DEF - tripling the weight on one category
 
 | category_weighted_x3 | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Defensive Work | 0.617 | 0.676 |
-| Chance Creation | 0.668 | 0.681 |
-| Goal Threat | 0.704 | 0.768 |
-| Overall Rating | 0.754 | 0.817 |
-| Availability | 0.762 | 0.808 |
-| Defensive Solidity | 0.772 | 0.823 |
-| Build-up Involvement | 0.788 | 0.842 |
+| Defensive Work | 0.615 | 0.679 |
+| Chance Creation | 0.662 | 0.694 |
+| Goal Threat | 0.703 | 0.773 |
+| Overall Rating | 0.756 | 0.817 |
+| Availability | 0.764 | 0.811 |
+| Defensive Solidity | 0.778 | 0.823 |
+| Build-up Involvement | 0.797 | 0.841 |
 
 ### FWD - removing one metric
 
 | removed | top_k_overlap | rank_correlation |
 | --- | --- | --- |
 | Creativity (Opta index) per 90 | 0.86 | 0.883 |
-| Expected goal involvements per 90 | 0.874 | 0.926 |
-| Threat (Opta index) per 90 | 0.881 | 0.89 |
-| Influence (Opta index) per 90 | 0.915 | 0.94 |
-| Goals per 90 | 0.921 | 0.947 |
-| xG per 90 | 0.921 | 0.926 |
-| Assists per 90 | 0.941 | 0.952 |
-| xA (expected assists) per 90 | 0.963 | 0.949 |
+| Expected goal involvements per 90 | 0.884 | 0.927 |
+| Threat (Opta index) per 90 | 0.891 | 0.892 |
+| Influence (Opta index) per 90 | 0.911 | 0.944 |
+| xG per 90 | 0.916 | 0.927 |
+| Goals per 90 | 0.917 | 0.945 |
+| Assists per 90 | 0.952 | 0.954 |
+| xA (expected assists) per 90 | 0.963 | 0.954 |
 
 ### FWD - tripling the weight on one category
 
 | category_weighted_x3 | top_k_overlap | rank_correlation |
 | --- | --- | --- |
-| Defensive Work | 0.709 | 0.629 |
-| Availability | 0.753 | 0.776 |
-| Goal Threat | 0.777 | 0.82 |
-| Chance Creation | 0.795 | 0.772 |
-| Overall Rating | 0.849 | 0.898 |
-| Build-up Involvement | 0.879 | 0.921 |
+| Defensive Work | 0.705 | 0.628 |
+| Availability | 0.756 | 0.783 |
+| Goal Threat | 0.773 | 0.819 |
+| Chance Creation | 0.795 | 0.769 |
+| Overall Rating | 0.854 | 0.901 |
+| Build-up Involvement | 0.883 | 0.916 |
 
 `top_k_overlap` is the Jaccard overlap of the top ten before and after the change; `rank_correlation` is the Spearman correlation of the survivors' ordering. A metric whose removal drops the overlap below ~0.5 is effectively steering that position's model.
 

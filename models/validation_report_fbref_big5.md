@@ -109,24 +109,24 @@ Team style leaks into individual numbers: a defender in a possession side passes
 
 ## 2d. Did the market later agree? (forward test)
 
-Hidden-gem score in season *t*, against the player's Transfermarkt valuation **2 seasons later**. The score sees only season *t*, so nothing about the outcome enters it. 3,503 of 4,776 player-seasons (73%) could be followed up.
+Hidden-gem score in season *t*, against the player's Transfermarkt valuation **2 seasons later**. The score sees only season *t*, so nothing about the outcome enters it. 3,555 of 4,819 player-seasons (74%) could be followed up.
 
 | decile | players | median_score | median_value_eur | median_growth_x | share_that_rose |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 353 | 31.2 | 15000000.0 | 0.57 | 0.116 |
-| 2 | 346 | 37.6 | 15000000.0 | 0.64 | 0.197 |
-| 3 | 356 | 41.5 | 14500000.0 | 0.62 | 0.228 |
-| 4 | 348 | 44.7 | 13000000.0 | 0.67 | 0.259 |
-| 5 | 345 | 47.4 | 11000000.0 | 0.7 | 0.293 |
-| 6 | 350 | 50.0 | 10000000.0 | 0.69 | 0.32 |
-| 7 | 359 | 53.0 | 7500000.0 | 0.71 | 0.304 |
-| 8 | 342 | 56.1 | 6500000.0 | 0.8 | 0.325 |
-| 9 | 351 | 59.5 | 5500000.0 | 0.8 | 0.393 |
-| 10 | 353 | 65.0 | 5000000.0 | 1.0 | 0.493 |
+| 1 | 358 | 31.2 | 15000000.0 | 0.58 | 0.12 |
+| 2 | 348 | 37.55 | 14750000.0 | 0.63 | 0.193 |
+| 3 | 365 | 41.5 | 14500000.0 | 0.62 | 0.227 |
+| 4 | 355 | 44.7 | 13000000.0 | 0.67 | 0.262 |
+| 5 | 350 | 47.4 | 10250000.0 | 0.7 | 0.291 |
+| 6 | 355 | 50.0 | 10000000.0 | 0.7 | 0.318 |
+| 7 | 362 | 53.0 | 7250000.0 | 0.72 | 0.304 |
+| 8 | 347 | 56.1 | 6500000.0 | 0.8 | 0.326 |
+| 9 | 355 | 59.5 | 5500000.0 | 0.8 | 0.397 |
+| 10 | 360 | 64.95 | 5000000.0 | 1.05 | 0.503 |
 
-Median value change runs from **x0.57** in the bottom decile to **x1.0** in the top, and the share of players whose value rose climbs from 12% to 49%. Rank correlation of score against growth: **0.238**.
+Median value change runs from **x0.58** in the bottom decile to **x1.05** in the top, and the share of players whose value rose climbs from 12% to 50%. Rank correlation of score against growth: **0.241**.
 
-**But most of a monotone table like that can be an artefact.** The top decile is also younger and cheaper, and a cheap twenty-year-old rises in percentage terms for reasons the model can take no credit for. Asking the same question inside cells of similar age *and* similar starting price (19 cells, 3,487 players, minimum 40 each) gives a correlation of **0.114** - roughly half the headline figure, positive in 17 of 19 cells.
+**But most of a monotone table like that can be an artefact.** The top decile is also younger and cheaper, and a cheap twenty-year-old rises in percentage terms for reasons the model can take no credit for. Asking the same question inside cells of similar age *and* similar starting price (19 cells, 3,539 players, minimum 40 each) gives a correlation of **0.115** - roughly half the headline figure, positive in 16 of 19 cells.
 
 So: about half the apparent signal is youth and a low starting price, and about half is left over. A modest edge that survives both controls is a believable result for a model built from public data; the headline number on its own would be an overclaim.
 

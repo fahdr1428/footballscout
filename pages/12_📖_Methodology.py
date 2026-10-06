@@ -49,13 +49,15 @@ big6, big5, premier, market, real, simulated = st.tabs([
 with big6:
     st.markdown(
         """
-Understat's per-player season aggregates for the **big five plus the Russian Premier League**,
-mirrored as CSV in
-[vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated).
-**34,159 player-seasons, 10,541 players, eleven complete seasons** from 2014/15 to 2024/25.
+Understat's per-player season aggregates for the **big five plus the Russian Premier League**:
+2014/15-2024/25 from the CSV mirror
+[vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated),
+and from 2025/26 fetched from understat.com itself by a weekly job on GitHub's runners
+(`.github/workflows/refresh-data.yml`). **39,756 player-seasons, 11,653 players: twelve complete
+seasons, 2014/15 to 2025/26, plus the season being played.**
 
-This is the source for the **Russian Premier League**, which none of the others carry, and eleven
-complete seasons is enough to follow a career - the longest run here.
+This is the source for the **Russian Premier League**, which none of the others carry, and twelve
+complete seasons is enough to follow a career - the longest and most current run here.
 
 #### What it measures unusually well
 
@@ -82,29 +84,35 @@ contributing to attacks without finishing them.
 
 Understat publishes no age, height, foot, nationality or valuation - and without an age there is
 no age filter, no "younger equivalent" search and no age term in the hidden-gem score. Those come
-from Transfermarkt profiles, mirrored by
-[salimt/football-datasets](https://github.com/salimt/football-datasets).
+from Transfermarkt, via [dcaribou/transfermarkt-datasets](https://github.com/dcaribou/transfermarkt-datasets)
+(CC0; valuations to June 2026) and [salimt/football-datasets](https://github.com/salimt/football-datasets).
 
-The feeds share no id, so players are matched **on name, and only where the name is unique on both
-sides**: 73% match, covering 79% of the minutes played. A name held by two players is left
-unmatched rather than guessed at, and where the joined date of birth implies an impossible age the
-match is treated as wrong and the whole enrichment withdrawn for that row.
+The feeds share no id, so a player is matched in three passes, safest first: **name, season,
+league and club** (Transfermarkt's own minutes per club per season, the closest minutes winning a
+tie); then **a shared surname with the same club and minutes within 15%**, for names written
+differently on each side; then **a name unique on both sides**. A player's Transfermarkt id is the
+one most of his seasons agree on, and two players never share one. **99.3% of minutes are
+matched**, and the match is checked against something it never used: on 20,889 player-seasons,
+Transfermarkt's goal count equals Understat's exactly 98.6% of the time and minutes agree within
+10% for 98.5%. Where the joined date of birth implies an impossible age the match is treated as
+wrong and the whole enrichment withdrawn for that row.
 
 **Position is deliberately not taken from this join**, even though Transfermarkt has a specific
 one, because it would arrive for two players in three - so a player's peer group would depend on
 whether his name happened to match rather than on football.
 
-Market value is read **as at that season**: Transfermarkt revalues players several times a year,
-so each row takes the most recent valuation on or before 1 January inside its season.
+Market value is read **as each season closed** - the valuation in force on 1 July after it, the
+same rule as the other sources (on FBref's seasons it reproduces the squad-record value exactly for
+89% of players) - plus each player's latest valuation and its date.
 
-#### 2025/26
+#### The season being played
 
-The mirror stopped updating in September 2025, leaving about ten rounds, so 2025/26 is excluded by
-default. No source reachable from here has a complete 2025/26 for these leagues; for the Premier
-League alone, the FPL source does. `scripts/fetch_soccerdata.py` pulls the current season straight
-from FBref with full depth, but only from a machine where fbref.com is reachable.
+It is fetched weekly and kept, but left out of the default pool: a few rounds in, nobody has 900
+minutes. Select it and lower the minutes floor to see it, and read rates over a handful of games as
+form rather than a profile. Which seasons are finished is read from the data - a season is complete
+once a league has played thirty rounds - so a new season needs no code change.
 
-Rebuild it with `python scripts/fetch_understat.py` (about 57 MB, cached).
+Rebuild it with `python scripts/fetch_understat.py --include-partial` (about 57 MB, cached).
 """
     )
 

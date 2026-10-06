@@ -9,9 +9,9 @@ Four real datasets, switchable in the sidebar, plus a simulated one used to vali
 
 | Dataset | Coverage | What it is good for |
 | --- | --- | --- |
-| **Six leagues** (default, committed) | **Eleven seasons, 2014/15 → 2024/25** · big five + the Russian Premier League · **34,159 player-seasons, 10,541 players** | The longest run and the only one carrying the Russian Premier League. xG, npxG, xA plus **xGChain and xGBuildup**. Ages, heights, feet and **market values as at each season** joined on from Transfermarkt. **Measures no defending at all**, and groups players GK/DEF/MID/FWD. |
-| **Big five leagues** (committed) | **Eight seasons, 2017/18 → 2024/25**, plus 2025/26's opening weeks · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **21,400 player-seasons, 7,200 players** | The widest and deepest, and the only one supporting all **ten position groups**. Full match-data metrics — carries into the box, post-shot xG, zone-by-zone touches — plus a **true position** and **side of the pitch**. Pressures and shot/goal-creating actions end with FBref's 2022 provider switch; the mirror froze in stages, so 2023/24 is the latest season with every block. |
-| **Premier League** (committed) | **Ten seasons, 2016/17 → 2025/26** · 5,343 player-seasons | The most current: a complete 2025/26, with **age, price and ownership**. A summary feed: no progressive passes or duels. |
+| **Six leagues** (default, committed) | **2014/15 → 2025/26 complete, plus the season in progress** · big five + the Russian Premier League · **39,756 player-seasons, 11,653 players** | The most current and the longest run. xG, npxG, xA plus **xGChain and xGBuildup**. **Transfermarkt prices, ages, heights and feet for 99% of the minutes played.** Refreshed weekly from understat.com. **Measures no defending at all**, and groups players GK/DEF/MID/FWD. |
+| **Big five leagues** (committed) | **Eight seasons, 2017/18 → 2024/25**, plus 2025/26's opening weeks · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **21,400 player-seasons, 7,200 players** | The widest and deepest, and the only one supporting all **ten position groups**. Full match-data metrics — carries into the box, post-shot xG, zone-by-zone touches — plus a **true position** and **side of the pitch**, and **Transfermarkt prices for 97–99% of every season**. Pressures and shot/goal-creating actions end with FBref's 2022 provider switch; the mirror froze in stages, so 2023/24 is the latest season with every block. |
+| **Premier League** (committed) | **Ten seasons, 2016/17 → 2025/26** · 5,343 player-seasons | FPL's ICT and defensive-contribution numbers, **real Transfermarkt prices beside the FPL price**, and ages for 99%. A summary feed: no progressive passes or duels. |
 | **StatsBomb Open Data** (committed) | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. The newest complete men's league season published openly is 2015/16. |
 | **Top six leagues** (Transfermarkt) | Big five + Liga Portugal, any season · **build it yourself** | **Real market values in euros**, true positions (centre-back, not "defender"), age, height, foot, nationality. Thin on performance: appearances, goals, assists, cards, minutes. |
 | **Simulated** (committed) | 14 leagues × 2 seasons | The only way to score an unsupervised model against known ground truth. |
@@ -23,16 +23,18 @@ decides which splits the data supports, and [the evidence is on the table below]
 
 Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
-### ▶ Live: **[footballscout-fahdr1428s-projects.vercel.app](https://footballscout-fahdr1428s-projects.vercel.app)**
+### ▶ Live: **[whoplayslikehim.vercel.app](https://whoplayslikehim.vercel.app)**
 
-Public, free, no sign-in, and it works on a phone. **29 seasons across three sources** —
-Premier League 2016/17–2025/26, the big five leagues 2017/18–2024/25, six leagues 2014/15–2024/25 —
-36,500 player-seasons in all. Five tools on one page:
+Public, free, no sign-in, works on a phone, and **kept current by a weekly refresh** (below).
+**31 seasons across three sources** — six leagues 2014/15 to the season being played, the big
+five in depth 2017/18–2024/25, the Premier League 2016/17–2025/26 — every player priced from
+Transfermarkt. Five tools on one page:
 
 - **Similar players** — pick anyone and every other player in his position is ranked by how closely
-  his profile matches, **reweighted by the categories you care about**, with where he stands out
-  and falls short, a side-by-side radar and a metric-by-metric account of why; follow him through
-  **every season he played**.
+  his profile matches, **reweighted by the categories you care about**, with his **rating**, where
+  he stands out and falls short, a side-by-side radar and a metric-by-metric account of why.
+  Search **this season or every season**, so a 2025/26 winger can be matched against 2017/18's,
+  and compare any two player-seasons; follow him through **every season he played**.
 - **Profile search** — describe the player you want as percentile conditions ("at least the 80th
   for progressive passes, the 70th for tackles") and get everyone who meets them all.
 - **Leaderboard** — rank a position on any metric.
@@ -41,9 +43,19 @@ Premier League 2016/17–2025/26, the big five leagues 2017/18–2024/25, six le
 - **Shortlist** — star players from any source and season, add notes, copy it as CSV or share it
   as a link. It lives in your browser; nothing is sent anywhere.
 
-All three share one set of filters: leagues, side, age range, market value or FPL price, height,
-preferred foot, minutes. A filter only appears where the season actually has the data behind it,
-and each season says what it does not measure.
+Every tool shares one set of filters: leagues, side, age range, market value, height, preferred
+foot, minutes. A filter only appears where the season actually has the data behind it, each
+season says what it does not measure, and **About & data** on the page lists every source, its
+licence and how fresh it is.
+
+**The rating** is the full app's role fit, shown working: the player's category percentiles
+against his position, weighted by that position's defaults (a centre-back's defending counts
+30%, a forward's finishing 35%), with the breakdown beside the number. A category the source does
+not measure at all is left out and the rest re-weighted. It ranks a player inside his league pool
+and season; it does not adjust for league strength, and the page says so.
+
+**Prices** are Transfermarkt's market values — estimates, not fees — read for each season as the
+valuation in force on 1 July as it closed, plus each player's latest valuation and its date.
 
 The full Streamlit app, which adds recruitment search, squad analysis, archetype maps and the
 validation suite, takes about three minutes to put on
@@ -103,13 +115,15 @@ The real dataset is committed, so the app runs immediately — no downloads or A
 
 ## The data
 
-### Six leagues, 2014/15 → 2024/25 (the default)
+### Six leagues, 2014/15 → the season being played (the default)
 
-Understat's per-player season aggregates for the big five plus the Russian Premier League,
-mirrored as CSV in
-[vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated).
-**34,159 player-seasons, 10,541 players, eleven complete seasons** — roughly 230–350 players past
-900 minutes in every league in every season.
+Understat's per-player season aggregates for the big five plus the Russian Premier League:
+2014/15–2024/25 from the CSV mirror
+[vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated),
+and from 2025/26 **fetched from understat.com itself** every week (see
+[Keeping it current](#keeping-it-current)). **39,756 player-seasons, 11,653 players, twelve
+complete seasons plus the one in progress** — roughly 230–350 players past 900 minutes in every
+league in every complete season.
 
 This is the source for the Russian Premier League, which none of the others carry. Eleven
 complete seasons is also enough to follow a career, so a player's 2016/17 and his 2024/25 sit in
@@ -135,19 +149,32 @@ so they move together and two players look alike easily: the median closest matc
 **95.5%**, against **76.3%** on the FBref source with its more varied 15–24 metrics. Read the
 ranking, not the number, and never compare a percentage here with a percentage there.
 
-**Ages, heights, feet, nationalities and market values** come from Transfermarkt profiles
-(mirrored by [salimt/football-datasets](https://github.com/salimt/football-datasets)), because
+**Ages, heights, feet, nationalities and market values** come from Transfermarkt, because
 Understat publishes none of them — and without an age there is no age filter, no "younger
-equivalent" search and no age term in the hidden-gem score. The feeds share no id, so players are
-matched **on name and only where the name is unique on both sides**: 73% match, covering 79% of
-the minutes played. A name held by two players is left unmatched rather than guessed at, and where
-the joined date of birth implies an impossible age the match is treated as wrong and withdrawn
-entirely. Market value is read **as at that season** — the most recent valuation on or before
-1 January inside it — not scraped once and pasted onto eleven years.
+equivalent" search and no age term in the hidden-gem score. Two public builds are merged:
+[dcaribou/transfermarkt-datasets](https://github.com/dcaribou/transfermarkt-datasets) (CC0;
+valuations to June 2026) and [salimt/football-datasets](https://github.com/salimt/football-datasets).
+The feeds share no id, so a player is matched in three passes, safest first:
 
-**2025/26 is a fragment.** The mirror stopped updating in September 2025, leaving about ten
-rounds, so it is excluded by default; `--include-partial` adds it. No source reachable here has a
-complete 2025/26 for these leagues — for the Premier League alone, the FPL source below does.
+1. **Name, season, league and club**, using Transfermarkt's own minutes per club per season;
+   where two candidates remain, the one whose minutes are closest wins.
+2. **A shared surname, the same club and minutes within 15%**, for names each side writes
+   differently ("Kylian Mbappe-Lottin" against "Kylian Mbappé").
+3. **A name unique on both sides**, for whoever is left.
+
+A player's Transfermarkt id is the one most of his seasons agree on, two players are never given
+the same one, and a date of birth implying an impossible age withdraws the whole match. Result:
+**99.3% of minutes matched** (the name-only join this replaced managed 79%). Checked against a
+measurement the join never used: on 20,889 matched player-seasons past 900 minutes,
+Transfermarkt's goal count equals Understat's exactly **98.6%** of the time and minutes agree
+within 10% for **98.5%** — the outliers are mid-season moves between leagues, not wrong people.
+
+Market value is read **as each season closed** — the valuation in force on 1 July after it — the
+same rule as the other two sources, plus the player's latest valuation and its date.
+
+**The season in progress** is built and flagged. A few rounds in, nobody has 900 minutes, so each
+league's pool is its regular starters — at least half the minutes of its busiest player — and the
+page says plainly that rates over a handful of games swing hard.
 
 ```bash
 python scripts/fetch_understat.py     # ~57 MB, cached, about a minute
@@ -165,6 +192,7 @@ builds it from two generations of the same public mirror,
 | FBref season stats, eleven blocks per player | Standard, shooting, passing, pass types, shot- and goal-creating actions, defence, possession, playing time, miscellaneous, two goalkeeping blocks. |
 | A curated FBref → Transfermarkt mapping | 15,440 hand-checked URL pairs. |
 | Transfermarkt season squads | Market value for that season, a specific position, height, preferred foot, nationality, date of birth — through 2022/23. |
+| Transfermarkt valuation histories | Every valuation to June 2026 ([dcaribou/transfermarkt-datasets](https://github.com/dcaribou/transfermarkt-datasets), CC0, and salimt/football-datasets), for the seasons the squad records stop short of. |
 
 Seasons before FBref's October 2022 change of data provider come from the repository's committed
 files (the StatsBomb era); seasons from 2022/23 on from its GitHub Release asset (the Opta era),
@@ -194,8 +222,12 @@ things or straddles the provider switch (StatsBomb and Opta define interceptions
 records "Centre-Back", "Left-Back", "Defensive Midfield", "Right Winger". Taking the position from
 Transfermarkt means the position groups are fixed by an **independent source**, not inferred from
 the same statistics the models then read. 98.5% of player-seasons match and 98.3% carry a specific
-position; 95% of 2017/18–2022/23 player-seasons carry a market value for that exact season, and
-none after — the mirror was never extended.
+position. Market values come from the squad records through 2022/23 and from Transfermarkt's
+valuation histories after that, so **97–99% of every season carries one**. The history is read on
+1 July after each season — the date that reproduces the squad-record value exactly for 89% of the
+players who have both (a mid-season date manages 30%), so a backfilled price means the same thing
+as the ones beside it. Each player also carries his latest valuation, the price a scout would read
+today.
 
 **Age, height and foot** describe the person, not the season, so a value recorded in any of a
 player's seasons is carried to his others; age otherwise comes from FBref's birth year, right to
@@ -256,7 +288,11 @@ not at Manchester City.
 
 **Price** is the fantasy game's own valuation. It is a popularity and perceived-value signal —
 used for the value-for-money component of the hidden-gem score — and **not a transfer fee or a
-wage**.
+wage**. Beside it, every player now carries his **Transfermarkt market value** as each season
+closed and his latest one, matched by name, season and club as for the six-league source (99% of
+players past 900 minutes; Transfermarkt's goal count agrees with FPL's exactly on 99.8% of 3,175
+checked player-seasons). Players are keyed on FPL's stable `code`, so one whose name FPL writes
+two ways across seasons is one player.
 
 ```bash
 python scripts/fetch_premier_league.py     # rebuild; clones the mirror once (~360 MB)
@@ -270,9 +306,8 @@ Transfermarkt in a small FastAPI app. It walks competitions → clubs → player
 each player's season statistics, for the big five plus Liga Portugal (widen it with
 `--competitions`).
 
-It brings three things nothing else here has: **market value in euros** — the only genuine
-valuation in this project — **true positions** that distinguish a full-back from a centre-back,
-and the top leagues in a single comparison pool.
+It brings **true positions** that distinguish a full-back from a centre-back, Liga Portugal, and
+market values straight from the live site rather than a published build.
 
 It is a market and biographical database, not a performance one: appearances, goals, assists,
 cards and minutes, with no xG or passing. Used alone the similarity models are blunt, and the app
@@ -772,11 +807,12 @@ a week without traffic — the next visitor wakes it, at the cost of one cold st
 The Streamlit app needs a Python process. This does not:
 
 ```bash
-python scripts/export_static.py        # -> static/index.html + static/data/*.json, ~3 minutes
+python scripts/export_static.py        # -> static/index.html + static/data/*.json, ~10 minutes
 ```
 
-**One page plus one data file per season** — a 0.3 MB `index.html` carrying the catalogue and the
-default season, and 29 season files (22 MB in all, fetched only when chosen). It is a working
+**One page plus one data file per season** — an `index.html` carrying the catalogue and the
+default season, one file per season fetched only when chosen, and per source one compact
+all-seasons index for comparing across years. It is a working
 similarity engine rather than a snapshot of one: each player ships as the z-vector the model uses
 and each position as its repeatability weights, so the page computes `100 × cosine` in the browser
 — the same number the Streamlit app reports, to within 0.2 of a percentage point of rounding.
@@ -789,12 +825,23 @@ That means:
   excluding his own club or league. A filter a season cannot support is not shown at all, and a
   narrowed age, height or foot filter leaves out players whose value is unknown rather than
   guessing;
-- open any match for a **metric-by-metric comparison**: both players' per-90 values and positional
-  percentiles, sorted by biggest gap or closest agreement, with the standardised gap on each metric;
+- search **every season** of a source at once: each z-vector is standardised inside its own season,
+  so two seasons are compared on how far each player stood from *his own* peers, aligned on the
+  metrics both seasons measured (a season sharing under 60% of them is left out);
+- open any match — from this season or another — for a **metric-by-metric comparison**: both
+  players' per-90 values and positional percentiles, sorted by biggest gap or closest agreement,
+  with the standardised gap on each metric;
+- read each player's **rating** with its breakdown, his price as each season closed and his latest
+  one, and rank, search or plot on the rating like any metric;
 - follow a player across every season he appears in, with his category percentiles season by season;
 - search by profile, rank a position on any metric, or plot it on any two;
 - keep a shortlist with notes across sources and seasons, in the browser's own storage, and share
   it as a link that re-opens the same players.
+
+A season still being played is exported with each league's own minutes floor (half its busiest
+player's minutes) and a banner saying how many rounds it holds and when it was fetched. **About &
+data** lists every source, its licence and freshness; the page carries Open Graph and Twitter
+metadata and a preview card (`static/og.png`), so a shared link unfurls properly.
 
 Drop the `static/` folder on any static host (Vercel serves it from this repository). Opened
 straight from disk it still works for the season built into the page; the others need to be
@@ -828,10 +875,31 @@ streamlit run app.py
 
 Install `requirements-dev.txt` instead to get the test dependencies as well.
 
+### Keeping it current
+
+The public mirrors this project started from all froze in September 2025, and the machine it is
+usually built on cannot reach the primary sources. GitHub's runners can, so
+[`.github/workflows/refresh-data.yml`](.github/workflows/refresh-data.yml) runs **every Tuesday**:
+
+1. `scripts/refresh_sources.py` fetches the six leagues' season tables for the season being played
+   and the one before it **from understat.com**, and a compact extract of
+   **dcaribou/transfermarkt-datasets** (CC0): profiles, valuation histories and minutes per club per
+   season. The seasons are worked out from the date, so nothing needs editing each summer.
+2. The six-league dataset is rebuilt, the test suite runs, and the site is re-exported.
+3. `scripts/check_site.py` refuses to publish if a season disappeared or a complete season lost
+   more than a tenth of its players — a fetch that half-failed upstream cannot ship a thinner site.
+4. The result is committed, which redeploys the site.
+
+It can be run by hand from the repository's **Actions** tab (*Refresh data → Run workflow*) and
+switched off there too. The dcaribou dataset itself paused in July 2026 (valuations to 12 June
+2026); prices will move again when it resumes, with no change needed here.
+
 ### Rebuilding the data
 
-`scripts/fetch_fbref.py`, `scripts/fetch_premier_league.py` and `scripts/fetch_statsbomb.py`
-re-derive the three bundled real datasets from their public feeds,
+`scripts/fetch_understat.py --include-partial` rebuilds the six-league dataset (the weekly job
+runs it); `scripts/fetch_fbref.py`, `scripts/fetch_premier_league.py` and
+`scripts/fetch_statsbomb.py` re-derive the other bundled real datasets from their public feeds
+(`pip install -r requirements-dev.txt` first: the FBref build reads R files),
 `scripts/fetch_transfermarkt.py` builds the top-six-league one from a `transfermarkt-api`
 instance, and `scripts/build_dataset.py` regenerates the simulated universe. None of this is needed to deploy — it is only for refreshing a season.
 
@@ -853,9 +921,9 @@ own.
 
 ## Known limitations
 
-- **One of the datasets is simulated.** The rest are real — the big five leagues 2017/18 → 2024/25,
-  Premier League 2016/17 → 2025/26, StatsBomb Open Data and Transfermarkt — and the last is
-  invented players with plausible values,
+- **One of the datasets is simulated.** The rest are real — six leagues 2014/15 → the season being
+  played, the big five in depth 2017/18 → 2024/25, Premier League 2016/17 → 2025/26, StatsBomb Open
+  Data and Transfermarkt — and the simulated one is invented players with plausible values,
   kept because it is the only pool with known ground truth to validate the models against. Every page
   names the dataset it is reading; no conclusion about a real footballer follows from the simulated one.
 - **Small samples.** The minimum-minutes filter is the main defence. Below ~1,500 minutes, finishing
@@ -868,7 +936,12 @@ own.
   They are used for filtering and for the hidden-gem exposure component, never silently baked into a
   per-90 rate or a percentile.
 - **Finishing over-performance.** One season of goals minus xG is treated as descriptive only.
-- **No market data.** No fees, wages, contracts or injuries — so no output here is a valuation.
+- **Market values are estimates, and there is no other market data.** Transfermarkt's values are
+  crowd-informed estimates, not fees; there are no fees, wages, contracts or injuries — so no
+  output here is a valuation. The open Transfermarkt build paused in July 2026, so prices run to
+  June 2026 until it resumes.
+- **The rating ignores league strength.** It ranks a player against his own league pool and season;
+  a 75 in one league and a 75 in another are not the same standard.
 
 The app draws a hard line between **descriptive statistics** (per-90 rates, percentages,
 percentiles — measurements of what happened) and **model outputs** (similarity, archetypes, fit and

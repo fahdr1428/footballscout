@@ -1,15 +1,16 @@
-# Fetch the seasons the GitHub mirrors stopped short of, from the primary
-# sources, and commit them. Runs on GitHub's runners because they can reach
-# understat.com and the Transfermarkt dataset; see scripts/refresh_sources.py.
+# Keep the public site current. Every week this fetches the seasons the GitHub
+# mirrors stopped short of from the primary sources (understat.com, and the
+# CC0 Transfermarkt dataset), rebuilds the six-league dataset, runs the tests,
+# rebuilds the site, checks nothing was lost, and commits - which redeploys it.
+# Runs on GitHub's runners because they can reach those hosts; see
+# scripts/refresh_sources.py. Disable it from the Actions tab at any time.
 name: Refresh data
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/football-scouting-platform-hl53qc]
-    paths:
-      - .github/workflows/refresh-data.yml
-      - scripts/refresh_sources.py
+  schedule:
+    # Tuesdays 05:41 UTC: after the weekend's and Monday's matches.
+    - cron: "41 5 * * 2"
 
 permissions:
   contents: write
@@ -19,30 +20,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  fetch:
+  refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
       - name: Install
-        run: pip install "pandas>=2.2,<4"
+        run: pip install -r requirements-dev.txt
 
       - name: Fetch Understat and Transfermarkt
         run: python scripts/refresh_sources.py --out data/raw
 
-      - name: Commit what changed
+      - name: Rebuild the six-league dataset
+        run: python scripts/fetch_understat.py --include-partial --cache /tmp/understat-big6
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Rebuild the site
+        run: python scripts/export_static.py
+
+      - name: Check nothing was lost
+        run: python scripts/check_site.py
+
+      - name: Commit and publish
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
-          git add data/raw/live data/raw/tm
+          git add data/raw static
           if git diff --cached --quiet; then
             echo "Nothing new upstream."
             exit 0
           fi
-          git commit -m "Refresh raw data from Understat and Transfermarkt ($(date -u +%F))"
+          git commit -m "Weekly data refresh ($(date -u +%F))"
           git push

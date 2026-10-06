@@ -504,9 +504,15 @@ def player_header(platform: ScoutingPlatform, index, show_archetype: bool = True
     if platform.has("foot") and pd.notna(row.get("foot")):
         items.append((f"{str(row['foot']).capitalize()}-footed", ""))
     if platform.has("market_value_eur") and pd.notna(row.get("market_value_eur")):
-        items.append((format_market_value(row["market_value_eur"]), "accent"))
+        items.append((f"{format_market_value(row['market_value_eur'])} as the season closed", "accent"))
+    # His latest Transfermarkt valuation, where it has moved since that season.
+    latest = row.get("latest_value_eur")
+    if pd.notna(latest) and latest != row.get("market_value_eur"):
+        when = pd.to_datetime(row.get("latest_value_date"), errors="coerce")
+        items.append((f"Now {format_market_value(latest)}"
+                      + (f" ({when:%b %Y})" if pd.notna(when) else ""), "accent"))
     if platform.has("price_m") and pd.notna(row.get("price_m")):
-        items.append((f"£{row['price_m']:.1f}m", ""))
+        items.append((f"£{row['price_m']:.1f}m FPL price", ""))
     items.append((f"{row['minutes']:,.0f} min", "good" if row["minutes"] >= 1500 else "warn"))
     if show_archetype:
         items.insert(1, (archetype, "accent"))

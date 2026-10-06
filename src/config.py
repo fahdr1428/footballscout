@@ -1071,18 +1071,22 @@ class DataSource:
 DATA_SOURCES: dict[str, DataSource] = {
     "understat_big6": DataSource(
         key="understat_big6",
-        label="Six leagues 2014/15-2024/25 (Understat)",
+        label="Six leagues 2014/15 to date (Understat)",
         path=UNDERSTAT_CSV,
         kind="real",
         summary=(
-            "Eleven complete seasons to 2024/25 across the big five plus the Russian Premier "
-            "League - 34,159 player-seasons, 10,541 players. The longest, most recent and "
-            "widest run of real data here, and the only source carrying 2022/23 onwards."
+            "Twelve complete seasons, 2014/15 to 2025/26, plus the season being played, across "
+            "the big five and the Russian Premier League - 39,756 player-seasons, 11,653 "
+            "players. The longest and most recent run of real data here, refreshed weekly."
         ),
         attribution=(
-            "Understat per-player season aggregates, mirrored by the open-source "
-            "understat_players_aggregated repository "
-            "(https://github.com/vibedatascience/understat_players_aggregated)."
+            "Understat per-player season aggregates (https://understat.com) - to 2024/25 via "
+            "the open-source understat_players_aggregated mirror "
+            "(https://github.com/vibedatascience/understat_players_aggregated), from 2025/26 "
+            "fetched from understat.com weekly. Ages, heights, feet and market values from "
+            "Transfermarkt via dcaribou/transfermarkt-datasets "
+            "(https://github.com/dcaribou/transfermarkt-datasets, CC0) and "
+            "salimt/football-datasets."
         ),
         caveats=(
             "**This source does not measure defending. At all.** Understat models shots, not "
@@ -1094,14 +1098,13 @@ DATA_SOURCES: dict[str, DataSource] = {
             "M / F - no centre-back against full-back, no left against right wing. Deriving a "
             "finer position from the same statistics the models then read would be circular, "
             "so this source uses the four-bucket taxonomy.",
-            "**What it is unmatched at**: recency and reach. Eleven seasons is enough to follow "
+            "**What it is unmatched at**: recency and reach. Twelve seasons is enough to follow "
             "a career, and **xGChain** and **xGBuildup** credit every player in a move that "
             "ended in a shot - xGBuildup excluding the shot and the assist, which is the closest "
             "thing in open data to contribution without finishing.",
-            "**2025/26 is a fragment.** The mirror stopped updating in September 2025, leaving "
-            "about ten rounds. It is excluded by default; `--include-partial` adds it, and the "
-            "app will then rank those players at the bottom of every volume metric for a reason "
-            "that has nothing to do with them.",
+            "**The season being played is in the data but not the default pool.** A few rounds "
+            "in, nobody has 900 minutes; select it and lower the minutes floor to see it, and "
+            "read rates over a handful of games as form rather than a profile.",
             "**Similarity percentages read high here, and mean less.** Every metric this source "
             "has is measuring attacking output, so they move together and two players look "
             "alike easily: the median closest match scores **95.5%**, against **76.3%** on the "
@@ -1111,20 +1114,20 @@ DATA_SOURCES: dict[str, DataSource] = {
             "exist in this feed, so they stay in the pool, are listed everywhere, and carry no "
             "similarity score or archetype. The app says how many that is.",
             "**Ages, heights, feet, nationalities and market values are joined on from "
-            "Transfermarkt**, because Understat publishes none of them - and without an age, "
-            "the whole youth side of scouting is unavailable. The two feeds share no id, so "
-            "players are matched on name and **only where the name is unique on both sides**: "
-            "about 73% match, covering 79% of the minutes played. A name held by two players is "
-            "left unmatched rather than guessed at, and where the joined date of birth implies "
-            "an impossible age the match is treated as wrong and withdrawn entirely.",
-            "**Market value is read as at that season**, not scraped once and applied to every "
-            "year: Transfermarkt revalues players a few times annually, so each row takes the "
-            "most recent valuation on or before 1 January inside its season.",
+            "Transfermarkt**, because Understat publishes none of them. The two feeds share no "
+            "id, so players are matched on **name, season, league and club** (Transfermarkt's "
+            "own minutes per club per season), then a shared surname with the same club and "
+            "minutes, then a name unique on both sides: 99.3% of minutes matched. Checked on "
+            "20,889 player-seasons, Transfermarkt's goal count equals Understat's exactly 98.6% "
+            "of the time. A date of birth implying an impossible age withdraws the whole match.",
+            "**Market value is read as each season closed** - the valuation in force on 1 July "
+            "after it, the same rule as the other sources - plus each player's latest valuation "
+            "and its date.",
         ),
         missing=("team_possession", "starts",
                  "tackles", "interceptions", "clearances", "blocks", "pressures",
                  "aerials_won", "ball_recoveries", "passes_attempted", "progressive_passes"),
-        default_seasons=("2022-23", "2023-24", "2024-25"),
+        default_seasons=("2023-24", "2024-25", "2025-26"),
         taxonomy="bucket",
     ),
     "fbref_big5": DataSource(
@@ -1143,7 +1146,9 @@ DATA_SOURCES: dict[str, DataSource] = {
             "FBref season statistics and Transfermarkt squad records, mirrored by the "
             "open-source worldfootballR_data repository "
             "(https://github.com/JaseZiv/worldfootballR_data), through its committed files "
-            "and its GitHub Release asset."
+            "and its GitHub Release asset. Market values after 2022/23 from Transfermarkt "
+            "valuation histories via dcaribou/transfermarkt-datasets "
+            "(https://github.com/dcaribou/transfermarkt-datasets, CC0) and salimt/football-datasets."
         ),
         caveats=(
             "**Positions come from Transfermarkt, not from the statistics.** 98% of "
@@ -1169,10 +1174,11 @@ DATA_SOURCES: dict[str, DataSource] = {
             "so side is a **filter**, not a group. Run it yourself with "
             "`python scripts/position_separability.py --seasons 2017-18 2018-19 2019-20 "
             "2020-21 2021-22`.",
-            "**Market values are real but stop at 2022/23.** 95% of player-seasons in "
-            "2017/18-2022/23 carry one (Messi runs 180 -> 150 -> 112 -> 80 -> 50 million euro "
-            "across five of them). The Transfermarkt mirror this source reads was never "
-            "extended past that season, so 2023/24 onward has none.",
+            "**Market values cover every season.** Transfermarkt squad records to 2022/23, "
+            "then its valuation histories (to June 2026) read on 1 July after each season - "
+            "the date that reproduces the squad-record value exactly for 89% of players who "
+            "have both. 97-99% of every season carries one (Messi runs 180 -> 150 -> 112 -> "
+            "80 -> 50 million euro across five of them).",
             "**Age, foot and height outlive the valuations.** They describe the person, so "
             "a value recorded in any of a player's seasons is carried to his others; age "
             "otherwise comes from his birth year. Nothing is filled with a positional average.",
@@ -1217,7 +1223,10 @@ DATA_SOURCES: dict[str, DataSource] = {
         ),
         attribution=(
             "Fantasy Premier League and Understat data, mirrored by the open-source "
-            "Fantasy-Premier-League repository (https://github.com/vaastav/Fantasy-Premier-League)."
+            "Fantasy-Premier-League repository (https://github.com/vaastav/Fantasy-Premier-League). "
+            "Market values, heights and feet from Transfermarkt via "
+            "dcaribou/transfermarkt-datasets (https://github.com/dcaribou/transfermarkt-datasets, "
+            "CC0) and salimt/football-datasets."
         ),
         caveats=(
             "This is a **summary feed, not event data**. There are no progressive passes, no "

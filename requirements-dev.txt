@@ -2,3 +2,6 @@
 -r requirements.txt
 
 pytest>=8.0,<10
+
+# Rebuilding the big-five FBref dataset reads R .rds files.
+pyreadr>=0.5,<1

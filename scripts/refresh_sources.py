@@ -46,8 +46,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 UNDERSTAT = "https://understat.com"
 UNDERSTAT_LEAGUES = ["EPL", "La_Liga", "Bundesliga", "Serie_A", "Ligue_1", "RFPL"]
-# Understat names a season by the year it starts: 2025 is 2025/26.
-DEFAULT_SEASONS = [2025, 2026]
+# Understat names a season by the year it starts: 2025 is 2025/26. The run
+# fetches the season being played and the one before it (which may have
+# finished since the last run), so the schedule needs no editing each summer.
+def default_seasons(today: datetime | None = None) -> list[int]:
+    today = today or datetime.now(timezone.utc)
+    current = today.year if today.month >= 7 else today.year - 1
+    return [current - 1, current]
 MIRROR_COLUMNS = [
     "assists", "games", "goals", "id", "key_passes", "npg", "npxG", "player_name",
     "position", "red_cards", "shots", "team_title", "time", "xA", "xG", "xGBuildup",
@@ -245,10 +250,11 @@ def main() -> int:
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", type=Path, default=ROOT / "data" / "raw")
     parser.add_argument("--only", choices=["understat", "transfermarkt"], default=None)
-    parser.add_argument("--seasons", type=int, nargs="*", default=DEFAULT_SEASONS,
+    parser.add_argument("--seasons", type=int, nargs="*", default=None,
                         help="Understat season start years, e.g. 2025 for 2025/26")
     args = parser.parse_args()
     args.out = args.out.resolve()
+    args.seasons = args.seasons or default_seasons()
 
     meta_path = args.out / "live" / "refresh_meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}

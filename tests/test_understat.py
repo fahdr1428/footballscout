@@ -24,11 +24,32 @@ def test_season_label_matches_the_rest_of_the_platform():
 
 
 def test_the_unfinished_season_is_not_a_default():
-    """The mirror froze in September 2025, leaving about ten rounds of 2025/26."""
-    assert "2026/27" in PARTIAL_SEASONS
-    assert LAST_SEASON == "2025/26"
-    assert LAST_SEASON not in PARTIAL_SEASONS
+    """Read from the data: a season is finished once a league has played a
+    full season's rounds, so August needs no code change."""
+    import pandas as pd
+
+    from src.understat import FULL_SEASON_GAMES, season_status
+
+    frame = pd.DataFrame({
+        "season": ["2025/26", "2025/26", "2026/27", "2026/27"],
+        "games": [FULL_SEASON_GAMES + 8, 12, 5, 3],
+    })
+    complete, partial = season_status(frame)
+    assert complete == {"2025/26"} and partial == {"2026/27"}
     assert FIRST_SEASON < LAST_SEASON
+
+
+def test_the_refresh_fetches_the_season_being_played_and_the_last_one():
+    import sys
+    from datetime import datetime
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from refresh_sources import default_seasons
+
+    assert default_seasons(datetime(2026, 10, 6)) == [2025, 2026]
+    assert default_seasons(datetime(2027, 3, 1)) == [2025, 2026]
+    assert default_seasons(datetime(2027, 8, 1)) == [2026, 2027]
 
 
 def test_every_league_maps_to_one_the_platform_knows():

@@ -1,21 +1,23 @@
 """
-Six leagues, eleven complete seasons, to 2024/25.
+Six leagues, twelve complete seasons, and the one being played.
 
     Premier League - La Liga - Serie A - Bundesliga - Ligue 1 - Russian Premier League
-    2014/15 -> 2024/25, ~20,300 player-seasons past 900 minutes
+    2014/15 -> 2025/26 complete, plus the season in progress
 
 WHERE IT COMES FROM
 -------------------
-Understat's per-player season aggregates, mirrored as CSV in
-`vibedatascience/understat_players_aggregated`. Understat models every shot in
-these six leagues and has done since 2014/15, which is why this is the longest
+Understat's per-player season aggregates: to 2024/25 from the CSV mirror
+`vibedatascience/understat_players_aggregated`, and from 2025/26 fetched from
+understat.com itself by scripts/refresh_sources.py on GitHub's runners.
+Understat models every shot in these six leagues and has done since 2014/15,
+which is why this is the longest
 and most recent run of real data in the project.
 
 WHAT IT IS GOOD AT
 ------------------
-**Recency and reach.** It is the only source here carrying 2022/23, 2023/24 and
-2024/25, and the only one covering six leagues. Eleven seasons is enough to
-follow a career: a player's 2016/17 and his 2024/25 sit in the same table.
+**Recency and reach.** It is the only source here carrying the season being
+played, and the only one covering six leagues. Twelve seasons is enough to
+follow a career: a player's 2016/17 and his 2025/26 sit in the same table.
 
 **The expected-goals family, done properly.** xG and npxG from a shot model,
 xA from the chance created, and - unusually - **xGChain** and **xGBuildup**,
@@ -37,11 +39,11 @@ wing. Inferring a finer position from the same statistics the models then read
 would be circular, so this source uses the four-bucket taxonomy, which the
 platform treats as first class.
 
-**2025/26 is a fragment.** The mirror stopped updating in September 2025, so
-that season holds about ten rounds. It is excluded by default for the same
-reason the FBref source excludes its partial year: pooling a tenth of a season
-with whole ones puts those players at the bottom of every volume metric for a
-reason that has nothing to do with them.
+**The season being played** is built and flagged, but is not in the default
+pool: a few rounds in, nobody has 900 minutes, and pooling it with whole
+seasons would put every player at the bottom of every volume metric for a
+reason that has nothing to do with him. `season_status` reads which seasons
+are finished from the data, so a new season needs no change here.
 """
 
 from __future__ import annotations
@@ -246,6 +248,13 @@ def _attach_values(frame: pd.DataFrame, cache: Path, progress=print) -> pd.DataF
     return frame
 
 
+def season_status(frame: pd.DataFrame) -> tuple[set[str], set[str]]:
+    """(complete, in progress): complete once its deepest league reaches FULL_SEASON_GAMES."""
+    depth = pd.to_numeric(frame["games"], errors="coerce").groupby(frame["season"]).max()
+    complete = {s for s, games in depth.items() if games >= FULL_SEASON_GAMES}
+    return complete, set(depth.index) - complete
+
+
 def build_dataset(cache: Path, seasons: list[str] | None = None,
                   enrich: bool = True, include_partial: bool = False,
                   progress=print) -> tuple[pd.DataFrame, dict]:
@@ -264,12 +273,14 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
     frame["league"] = frame["league"].map(LEAGUES)
 
     if seasons is None:
-        # The season in progress is built in the same pass when asked for, so a
-        # player's Transfermarkt match - voted on across his seasons - reaches
-        # it too; Transfermarkt's minutes for it do not exist yet.
+        # Which seasons are finished is read from the data, not a constant, so
+        # a new season starting in August needs no edit here. The season in
+        # progress is built in the same pass when asked for, so a player's
+        # Transfermarkt match - voted on across his seasons - reaches it too;
+        # Transfermarkt's minutes for it do not exist yet.
+        complete, partial = season_status(frame)
         seasons = [s for s in sorted(frame["season"].unique())
-                   if FIRST_SEASON <= s and (s <= LAST_SEASON or
-                                             (include_partial and s in PARTIAL_SEASONS))]
+                   if FIRST_SEASON <= s and (s in complete or (include_partial and s in partial))]
     frame = frame[frame["season"].isin(seasons)]
 
     mapped = [_position(row) for _, row in frame.iterrows()]

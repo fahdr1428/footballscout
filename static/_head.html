@@ -1,5 +1,20 @@
-<title>Who Plays Like Him</title>
-<meta name="description" content="Find statistically similar footballers, build a scouting profile, and rank players on any metric - with the arithmetic behind every number.">
+<title>Who Plays Like Him · football player similarity and scouting</title>
+<meta name="description" content="Find footballers who play like any player in the big five leagues - current season included - with real Transfermarkt prices, a transparent rating, and the arithmetic behind every number. Free, no sign-in.">
+<link rel="canonical" href="https://whoplayslikehim.vercel.app/">
+<meta name="theme-color" content="#12456B">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Who Plays Like Him">
+<meta property="og:title" content="Who Plays Like Him - find players with the same statistical profile">
+<meta property="og:description" content="Big five leagues plus Russia, 2014/15 to the season in progress. Similar players, a transparent rating, Transfermarkt prices and the arithmetic behind every number.">
+<meta property="og:url" content="https://whoplayslikehim.vercel.app/">
+<meta property="og:image" content="https://whoplayslikehim.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Who Plays Like Him - a player's attribute radar beside his closest statistical matches">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Who Plays Like Him">
+<meta name="twitter:description" content="Find players with the same statistical profile - big five leagues, current season, real prices, every number explained.">
+<meta name="twitter:image" content="https://whoplayslikehim.vercel.app/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%2312456B'/%3E%3Cpath d='M16 6l4 3-1.5 5h-5L12 9z M9 14l4 1 1 5-3 3-4-2z M23 14l2 7-4 2-3-3 1-5z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
@@ -321,6 +336,40 @@ td.gap{width:88px}
 .sltable .xbtn{width:32px}
 .mini:disabled,.mini:disabled:hover{opacity:.5;cursor:default;border-color:var(--line-2);color:var(--ink-2)}
 .tabs .count-pill{margin-left:4px;font-size:11px}
+
+/* ---- trust: freshness, season in progress, rating, about ---------------- */
+.head-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.ds-fresh{margin:0;color:var(--muted);font-size:12.5px}
+.live{border-left:3px solid var(--second);background:var(--second-soft);color:var(--ink);
+  padding:8px 12px;border-radius:0 8px 8px 0;font-size:13.5px;line-height:1.5}
+.ssn{font-size:11px;font-weight:600;color:var(--second);border:1px solid currentColor;
+  border-radius:4px;padding:0 4px;vertical-align:1px;white-space:nowrap}
+.rating{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;align-items:center;
+  padding:12px 14px;border-bottom:1px solid var(--line)}
+.rating:empty{display:none}
+.rt-score{display:flex;align-items:baseline;gap:6px}
+.rt-score .eyebrow{align-self:center}
+.rt-score b{font-size:34px;line-height:1;color:var(--accent)}
+.rt-parts{display:flex;flex-wrap:wrap;gap:6px}
+.rt-part{display:inline-flex;gap:6px;align-items:baseline;font-size:12px;padding:3px 8px;
+  border:1px solid var(--line-2);border-radius:999px;background:var(--raised);cursor:help}
+.rt-part .rt-c{color:var(--ink-2)}
+.rt-note{grid-column:1/-1}
+@media (max-width:620px){.rating{grid-template-columns:minmax(0,1fr)}}
+#scope button{padding:5px 10px}
+#own-wrap{font-size:12.5px}
+dialog#about{max-width:760px;width:calc(100% - 32px);border:1px solid var(--line-2);border-radius:12px;
+  padding:0;background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+dialog#about::backdrop{background:rgba(8,14,13,.55)}
+.dlg-h{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px;
+  border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.dlg-h h2{font-size:24px}
+.dlg-body{padding:6px 18px 18px;font-size:14px;line-height:1.6}
+.dlg-body h3{margin:18px 0 6px}
+.dlg-body ul{padding-left:20px;margin:6px 0}
+.dlg-body li{margin:4px 0}
+.dlg-body a{color:var(--accent)}
+.dlg-body table{font-size:13px}
 
 footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--line);
   color:var(--muted);font-size:13px;display:grid;gap:9px}

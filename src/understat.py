@@ -54,27 +54,31 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import tm_history
+from .config import RAW_DIR
+
 REPO = "https://github.com/vibedatascience/understat_players_aggregated"
 RAW = ("https://raw.githubusercontent.com/vibedatascience/understat_players_aggregated/"
        "main/understat_players_aggregated_2014_td.csv")
 ATTRIBUTION = (
-    "Understat per-player season aggregates, mirrored by the open-source "
-    f"understat_players_aggregated repository ({REPO}). Ages, heights, "
-    "preferred feet and market values from Transfermarkt profiles, mirrored by "
+    "Understat per-player season aggregates (https://understat.com) - to 2024/25 "
+    f"from the open-source understat_players_aggregated mirror ({REPO}), from "
+    "2025/26 fetched from understat.com directly. Ages, heights, preferred feet "
+    "and market values from Transfermarkt, via dcaribou/transfermarkt-datasets "
+    "(https://github.com/dcaribou/transfermarkt-datasets, CC0) and "
     "salimt/football-datasets (https://github.com/salimt/football-datasets)."
 )
 
-# Transfermarkt biography and market-value history, used to fill in what
-# Understat does not record. Both are plain CSV in the mirror (the two files
-# that are Git LFS there are not needed).
-TM_BASE = ("https://raw.githubusercontent.com/salimt/football-datasets/"
-           "main/datalake/transfermarkt")
-TM_PROFILES = f"{TM_BASE}/player_profiles/player_profiles.csv"
-TM_VALUES = f"{TM_BASE}/player_market_value/player_market_value.csv"
-
-# The mirror froze in September 2025, so its newest season is ~10 rounds deep.
-PARTIAL_SEASONS = {"2025/26"}
-FIRST_SEASON, LAST_SEASON = "2014/15", "2024/25"
+# The mirror froze in September 2025, a few rounds into 2025/26. The seasons
+# after that come from understat.com itself, fetched on GitHub's runners by
+# scripts/refresh_sources.py, and replace the mirror's rows for any season both
+# carry. A season is complete once its deepest league has played
+# FULL_SEASON_GAMES rounds; the one in progress is kept, flagged, and left out
+# of the default pool.
+LIVE_CSV = RAW_DIR / "live" / "understat_live.csv"
+FULL_SEASON_GAMES = 30
+PARTIAL_SEASONS = {"2026/27"}
+FIRST_SEASON, LAST_SEASON = "2014/15", "2025/26"
 
 # Understat's league keys -> the names in config.LEAGUES.
 LEAGUES = {
@@ -140,59 +144,47 @@ def _position(row) -> tuple[str, str, str]:
     return "MID", "MID", "unknown"
 
 
-def attach_transfermarkt(frame: pd.DataFrame, profiles: Path, values: Path,
+def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
                          progress=print) -> tuple[pd.DataFrame, dict]:
-    """Fill in what Understat does not record, from Transfermarkt profiles.
+    """Fill in what Understat does not record, from Transfermarkt.
 
     Understat publishes no age, height, foot, nationality or valuation - and
     without an age the whole youth side of scouting is unavailable: no age
     filter, no "younger equivalent", no age component in the hidden-gem score.
 
-    The two feeds share no id, so players are matched **on name, and only when
-    the normalised name is unique on both sides**. A name held by two players in
-    either dataset is left unmatched rather than guessed at: a wrong age on a
-    shortlist is worse than a missing one. That costs coverage - about 73% of
-    players match, covering 79% of the minutes played - and the app reports it.
+    The two feeds share no id, so a player is matched in two passes:
+
+    1. **Name, season, league and club.** Transfermarkt's minutes per club per
+       season (`data/raw/tm/tm_season_minutes.csv.gz`) say who played where.
+       An Understat row is matched to a Transfermarkt row with the same
+       normalised name in the same league-season - or the same surname and
+       first initial *and* the same club - and where two candidates remain,
+       the one whose minutes are closest wins. A player's Transfermarkt id is
+       then the one most of his seasons agree on, which also carries it to
+       seasons Transfermarkt has not reached yet.
+    2. **Unique name**, for whoever the first pass missed: matched only when
+       the normalised name is held by one player on both sides. A name held by
+       two players in either dataset is left unmatched rather than guessed at:
+       a wrong age on a shortlist is worse than a missing one.
 
     Position is deliberately NOT taken from here, even though Transfermarkt has
-    a specific one. It would arrive for two players in three, so a player's peer
-    group would depend on whether his name happened to match rather than on
-    football. Grouping stays on Understat's own four buckets.
+    a specific one. It would not arrive for everyone, so a player's peer group
+    would depend on whether his name matched rather than on football. Grouping
+    stays on Understat's own four buckets.
     """
-    from .premier_league import normalise_name
-
-    progress("matching players to Transfermarkt profiles")
-    tm = pd.read_csv(profiles, low_memory=False, usecols=[
-        "player_id", "player_name", "date_of_birth", "height", "foot", "citizenship"])
-    tm = tm.rename(columns={"player_id": "tm_id"})
-    tm["clean"] = tm["player_name"].astype(str).str.replace(r"\s*\(\d+\)\s*$", "", regex=True)
-    tm["key"] = tm["clean"].map(normalise_name)
-    tm = tm[~tm["key"].duplicated(keep=False)]
-
     frame = frame.copy()
-    frame["key"] = frame["player"].map(normalise_name)
-    ambiguous = frame["key"].duplicated(keep=False) & frame["player_id"].duplicated(keep=False)
-    keys = frame[["player_id", "key"]].drop_duplicates("player_id")
-    keys = keys[~keys["key"].duplicated(keep=False)]
+    frame["key"] = frame["player"].map(tm_history.normalise_name)
+    profiles = tm_history.load_profiles(cache, progress=progress)
 
-    link = keys.merge(tm, on="key", how="inner")[
-        ["player_id", "tm_id", "date_of_birth", "height", "foot", "citizenship"]]
-    frame = frame.merge(link, on="player_id", how="left")
+    progress("matching players to Transfermarkt by name, season and club")
+    link = tm_history.link_players(frame, profiles)
 
+    frame = frame.merge(link[["player_id", "tm_id", "how"]], on="player_id", how="left")
+    frame = frame.merge(
+        profiles[["tm_id", "date_of_birth", "height_cm", "foot", "nationality"]],
+        on="tm_id", how="left")
+    frame["date_of_birth"] = pd.to_datetime(frame["date_of_birth"]).dt.strftime("%Y-%m-%d")
     frame["age"] = _age(frame)
-    frame["height_cm"] = pd.to_numeric(
-        frame["height"].astype(str).str.replace(",", ".").str.extract(r"([\d.]+)")[0],
-        errors="coerce")
-    # Transfermarkt writes heights in metres; anything under 3 is metres.
-    frame["height_cm"] = np.where(frame["height_cm"] < 3,
-                                  frame["height_cm"] * 100, frame["height_cm"]).round()
-    # Transfermarkt lists every citizenship a player holds, run together; the
-    # first is the one he represents or was born to, which is what a scout reads.
-    frame["nationality"] = (frame["citizenship"].astype(str)
-                            .str.split(r"\s{2,}", regex=True).str[0]
-                            .str.strip().replace({"nan": np.nan, "": np.nan}))
-    frame = frame.drop(columns=["citizenship"])
-    frame["foot"] = frame["foot"].astype(str).str.lower().replace("nan", np.nan)
 
     # An impossible age is not a bad age - it is evidence the name matched the
     # wrong person, and everything else attached to that row came from him too.
@@ -202,19 +194,25 @@ def attach_transfermarkt(frame: pd.DataFrame, profiles: Path, values: Path,
     frame.loc[wrong, ["age", "height_cm", "foot", "nationality", "tm_id",
                       "date_of_birth"]] = np.nan
 
-    progress("attaching market values as at each season")
-    frame = _attach_values(frame, values)
+    progress("attaching market values")
+    frame = _attach_values(frame, cache, progress=progress)
 
+    matched = frame["tm_id"].notna()
     coverage = {
         "rejected_implausible_age": rejected,
-        "matched_players": int(frame.loc[frame["tm_id"].notna(), "player_id"].nunique()),
+        "matched_players": int(frame.loc[matched, "player_id"].nunique()),
+        "matched_by_season_and_club": int(
+            frame.loc[matched & frame["how"].eq("season"), "player_id"].nunique()),
         "total_players": int(frame["player_id"].nunique()),
-        "minutes_covered": float(
-            frame.loc[frame["tm_id"].notna(), "minutes"].sum() / frame["minutes"].sum()),
+        "minutes_covered": float(frame.loc[matched, "minutes"].sum() / frame["minutes"].sum()),
         "with_age": float(frame["age"].notna().mean()),
         "with_market_value": float(frame["market_value_eur"].notna().mean()),
     }
-    return frame.drop(columns=["key", "height", "tm_id"], errors="ignore"), coverage
+    return frame.drop(columns=["key", "tm_id", "how"], errors="ignore"), coverage
+
+
+# The name-season-club matcher is shared with the Premier League source.
+_match_by_season = tm_history.link_by_season
 
 
 def _age(frame: pd.DataFrame) -> pd.Series:
@@ -225,53 +223,53 @@ def _age(frame: pd.DataFrame) -> pd.Series:
     return ((reference - born).dt.days / 365.25).round(1)
 
 
-def _attach_values(frame: pd.DataFrame, values: Path) -> pd.DataFrame:
-    """Market value as at each season, not a single scrape-time snapshot.
+def _attach_values(frame: pd.DataFrame, cache: Path, progress=print) -> pd.DataFrame:
+    """Market value as each season closed, plus his latest one.
 
-    Transfermarkt revalues players a few times a year, so the history can be
-    read at the right moment: the most recent valuation on or before 1 January
-    inside that season. That is what the player was considered worth *then*,
-    which is the only version of the number worth putting next to that season's
-    output.
+    Transfermarkt revalues players a few times a year, so the history is read
+    at a stated moment rather than one scrape applied to every season: the
+    valuation in force on 1 July after the season ends - what he was worth as
+    it closed - which is the same rule the big-five source uses, so a price
+    means one thing wherever it appears. A season still in progress gets the
+    latest valuation there is. `latest_value_eur` and its date are the price
+    a scout reads as today's.
     """
-    history = pd.read_csv(values, low_memory=False)
-    history["date"] = pd.to_datetime(history["date_unix"], errors="coerce")
-    history = history.dropna(subset=["date", "value"]).sort_values("date")
-    history["tm_id"] = pd.to_numeric(history["player_id"], errors="coerce")
-    history = history.dropna(subset=["tm_id"])
-    history["tm_id"] = history["tm_id"].astype("int64")
-
+    history = tm_history.load_valuations(cache, progress=progress)
     frame = frame.copy()
-    frame["_asof"] = pd.to_datetime(
-        (frame["season"].str.slice(0, 4).astype(int) + 1).astype(str) + "-01-01")
-    left = frame[["tm_id", "_asof"]].copy()
-    left["tm_id"] = pd.to_numeric(left["tm_id"], errors="coerce")
-    # merge_asof needs the `by` key to be the same dtype on both sides.
-    left = left.reset_index().dropna(subset=["tm_id"]).sort_values("_asof")
-    left["tm_id"] = left["tm_id"].astype("int64")
-
-    merged = pd.merge_asof(
-        left, history[["tm_id", "date", "value"]].rename(columns={"date": "_asof"}),
-        on="_asof", by="tm_id", direction="backward",
-    )
-    frame["market_value_eur"] = np.nan
-    frame.loc[merged["index"], "market_value_eur"] = merged["value"].to_numpy()
-    return frame.drop(columns=["_asof"])
+    asof = pd.to_datetime(
+        (frame["season"].str.slice(0, 4).astype(int) + 1).astype(str) + "-07-01")
+    frame["market_value_eur"] = tm_history.value_asof(frame["tm_id"], asof, history)
+    latest = tm_history.latest_values(history)
+    joined = frame[["tm_id"]].merge(latest, on="tm_id", how="left")
+    frame["latest_value_eur"] = joined["latest_value_eur"].to_numpy()
+    frame["latest_value_date"] = joined["latest_value_date"].to_numpy()
+    return frame
 
 
 def build_dataset(cache: Path, seasons: list[str] | None = None,
-                  enrich: bool = True, progress=print) -> tuple[pd.DataFrame, dict]:
+                  enrich: bool = True, include_partial: bool = False,
+                  progress=print) -> tuple[pd.DataFrame, dict]:
     """Build the six-league dataset. Returns the frame and a coverage summary."""
     progress("fetching the Understat mirror")
     frame = pd.read_csv(download(RAW, cache, "understat_players_aggregated.csv"))
+    if LIVE_CSV.exists():
+        live = pd.read_csv(LIVE_CSV)
+        progress(f"  + {len(live):,} rows fetched from understat.com for "
+                 + ", ".join(sorted(live["season"].unique())))
+        frame = pd.concat([frame[~frame["season"].isin(set(live["season"]))], live],
+                          ignore_index=True)
     raw_rows = len(frame)
 
     frame = frame[frame["league"].isin(LEAGUES)].copy()
     frame["league"] = frame["league"].map(LEAGUES)
 
     if seasons is None:
+        # The season in progress is built in the same pass when asked for, so a
+        # player's Transfermarkt match - voted on across his seasons - reaches
+        # it too; Transfermarkt's minutes for it do not exist yet.
         seasons = [s for s in sorted(frame["season"].unique())
-                   if s not in PARTIAL_SEASONS and FIRST_SEASON <= s <= LAST_SEASON]
+                   if FIRST_SEASON <= s and (s <= LAST_SEASON or
+                                             (include_partial and s in PARTIAL_SEASONS))]
     frame = frame[frame["season"].isin(seasons)]
 
     mapped = [_position(row) for _, row in frame.iterrows()]
@@ -298,9 +296,7 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
     frame = _collapse_transfers(frame)
 
     if enrich:
-        profiles = download(TM_PROFILES, cache, "tm_player_profiles.csv")
-        history = download(TM_VALUES, cache, "tm_market_values.csv")
-        frame, matched = attach_transfermarkt(frame, profiles, history, progress=progress)
+        frame, matched = attach_transfermarkt(frame, cache, progress=progress)
     else:
         matched = {}
 

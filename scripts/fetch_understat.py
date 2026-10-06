@@ -34,7 +34,7 @@ def main() -> int:
                         help="Understat form, e.g. 2024/25")
     parser.add_argument("--include-partial", action="store_true",
                         help=f"also include {', '.join(sorted(PARTIAL_SEASONS))}, "
-                             "which the mirror never finished")
+                             "the season in progress")
     parser.add_argument("--no-enrich", action="store_true",
                         help="skip the Transfermarkt join (ages, heights, feet, values)")
     parser.add_argument("--out", type=Path, default=UNDERSTAT_CSV)
@@ -43,17 +43,9 @@ def main() -> int:
     print(ATTRIBUTION)
     started = time.time()
 
-    seasons = args.seasons
-    if seasons is None and args.include_partial:
-        seasons = None   # build_dataset drops partials; pass them explicitly below
-
-    frame, coverage = build_dataset(args.cache, seasons=seasons,
-                                    enrich=not args.no_enrich)
-    if args.include_partial and not args.seasons:
-        extra, _ = build_dataset(args.cache, seasons=sorted(PARTIAL_SEASONS))
-        frame = __import__("pandas").concat([frame, extra], ignore_index=True)
-        coverage["seasons"] = sorted(frame["season"].unique())
-        coverage["player_seasons"] = len(frame)
+    frame, coverage = build_dataset(args.cache, seasons=args.seasons,
+                                    enrich=not args.no_enrich,
+                                    include_partial=args.include_partial)
 
     if frame.empty:
         print("no data built")
@@ -67,7 +59,7 @@ def main() -> int:
     print(f"{coverage['players']:,} unique players, "
           f"{len(coverage['seasons'])} seasons, {len(coverage['leagues'])} leagues")
     if "matched_players" in coverage:
-        print(f"\nTransfermarkt join (names, 1:1 only)")
+        print(f"\nTransfermarkt join (name + season + club, then unique name)")
         print(f"  players matched      {coverage['matched_players']:,} of "
               f"{coverage['total_players']:,}")
         print(f"  minutes covered      {coverage['minutes_covered']:.1%}")

@@ -43,7 +43,10 @@ from .config import UNDERSTAT_POSITIONS
 REPO_URL = "https://github.com/vaastav/Fantasy-Premier-League"
 ATTRIBUTION = (
     "Fantasy Premier League and Understat data, mirrored by the open-source "
-    f"Fantasy-Premier-League repository ({REPO_URL})."
+    f"Fantasy-Premier-League repository ({REPO_URL}). Market values, heights and "
+    "feet from Transfermarkt, via dcaribou/transfermarkt-datasets "
+    "(https://github.com/dcaribou/transfermarkt-datasets, CC0) and "
+    "salimt/football-datasets."
 )
 
 SEASONS = [
@@ -161,6 +164,9 @@ def load_fpl_season(repo: Path, season: str, team_names: dict) -> pd.DataFrame:
         raw["first_name"].astype(str).str.strip() + " " + raw["second_name"].astype(str).str.strip()
     ).str.strip()
     frame["known_as"] = raw["web_name"].astype(str)
+    # FPL's `code` is the player's own id and survives a change in how his
+    # name is written; the season-level `id` does not.
+    frame["fpl_code"] = pd.to_numeric(raw["code"], errors="coerce") if "code" in raw else np.nan
     frame["season"] = season
     frame["position_group"] = raw["element_type"].map(ELEMENT_TYPE_TO_GROUP)
     frame["team"] = [team_names.get((season, int(t)), f"Team {t}") for t in raw["team"]]
@@ -312,8 +318,12 @@ def _age_lookup(seasons: list[pd.DataFrame]) -> dict[str, pd.Timestamp]:
     return lookup
 
 
+TM_CACHE = Path("/tmp/transfermarkt-mirror")
+
+
 def build_dataset(
-    repo: Path, seasons: list[str] | None = None, progress=print
+    repo: Path, seasons: list[str] | None = None, progress=print,
+    tm_cache: Path = TM_CACHE,
 ) -> pd.DataFrame:
     """Assemble the ten-season Premier League player-season table."""
     repo = Path(repo)
@@ -390,7 +400,12 @@ def build_dataset(
     born = data["key"].map(births)
     data["age"] = ((reference - born).dt.days / 365.25).round(1)
     data["height_cm"] = np.nan
-    data["player_id"] = "PL" + pd.Series(data["key"].factorize()[0], index=data.index).astype(str).str.zfill(5)
+    # One id per person across seasons: FPL's stable code where the season has
+    # one, so "Raúl Jiménez" and "Raúl Alonso Jiménez Rodríguez" are one
+    # player, falling back to the normalised name.
+    by_name = "PL" + pd.Series(data["key"].factorize()[0], index=data.index).astype(str).str.zfill(5)
+    by_code = "PLC" + data["fpl_code"].astype("Int64").astype(str)
+    data["player_id"] = by_code.where(data["fpl_code"].notna(), by_name)
     # A player's line-up position is only published up to the last season the
     # Understat mirror covers. For later seasons his most recent known position
     # is carried forward and labelled as such - positions do change, so the
@@ -424,6 +439,57 @@ def build_dataset(
         pd.to_numeric(data.get("threat"), errors="coerce").fillna(0)
 
     data = data[data["minutes"] > 0].reset_index(drop=True)
-    drop = ["key", "season_year", "fpl_element", "birth_date", "lineup_code", "known_as",
-            "pens_missed", "pens_saved", "own_goals"]
+    data = attach_transfermarkt(data, tm_cache, progress=progress)
+    drop = ["key", "season_year", "fpl_element", "fpl_code", "birth_date", "lineup_code",
+            "known_as", "pens_missed", "pens_saved", "own_goals"]
     return data.drop(columns=[c for c in drop if c in data.columns])
+
+
+def attach_transfermarkt(data: pd.DataFrame, cache: Path, progress=print) -> pd.DataFrame:
+    """Real market values, and the profile fields FPL does not publish.
+
+    FPL's price is a fantasy-game setting, not a valuation. Each player is
+    matched to Transfermarkt by name, season and club (then a unique name),
+    the same matcher the six-league source uses, and gets the valuation in
+    force on 1 July after each season plus his latest one. Age stays FPL's
+    where FPL published a birth date (it does only from 2022/23) and comes
+    from Transfermarkt's date of birth otherwise, at the same reference date;
+    height, foot and nationality come only from Transfermarkt.
+    """
+    from . import tm_history
+
+    profiles = tm_history.load_profiles(cache, progress=progress)
+    frame = data.assign(league="Premier League")
+    link = tm_history.link_players(frame, profiles)
+    # FPL writes full legal names ("Frederico Rodrigues de Paula Santos");
+    # its short name ("Fred") is what Transfermarkt uses, so the players the
+    # first pass missed are tried again on that.
+    rest = frame[~frame["player_id"].isin(link["player_id"])].copy()
+    rest["key"] = rest["known_as"].map(tm_history.normalise_name)
+    again = tm_history.link_players(rest, profiles)
+    again = again[~again["tm_id"].isin(link["tm_id"])]
+    link = pd.concat([link, again], ignore_index=True)
+    data = data.merge(link[["player_id", "tm_id"]], on="player_id", how="left")
+    found = data[["tm_id"]].merge(
+        profiles[["tm_id", "date_of_birth", "height_cm", "foot", "nationality"]],
+        on="tm_id", how="left")
+    reference = pd.to_datetime(data["season_year"].astype(str) + "-12-31")
+    tm_age = ((reference - pd.to_datetime(found["date_of_birth"]).to_numpy())
+              .dt.days / 365.25).round(1)
+    data["age"] = data["age"].combine_first(tm_age)
+    data["height_cm"] = found["height_cm"].to_numpy()
+    data["foot"] = found["foot"].to_numpy()
+    data["nationality"] = found["nationality"].to_numpy()
+
+    history = tm_history.load_valuations(cache, progress=progress)
+    asof = pd.to_datetime((data["season_year"] + 1).astype(str) + "-07-01")
+    data["market_value_eur"] = tm_history.value_asof(data["tm_id"], asof, history)
+    latest = tm_history.latest_values(history)
+    joined = data[["tm_id"]].merge(latest, on="tm_id", how="left")
+    data["latest_value_eur"] = joined["latest_value_eur"].to_numpy()
+    data["latest_value_date"] = joined["latest_value_date"].to_numpy()
+    played = data["minutes"] >= 900
+    progress(f"  Transfermarkt matched {data.loc[played, 'tm_id'].notna().mean():.0%} of "
+             f"player-seasons above 900 minutes; values on "
+             f"{data.loc[played, 'market_value_eur'].notna().mean():.0%}")
+    return data.drop(columns=["tm_id"])

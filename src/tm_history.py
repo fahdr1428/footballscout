@@ -20,6 +20,7 @@ someone who no longer exists.
 
 from __future__ import annotations
 
+import http.client
 import time
 import urllib.error
 import urllib.request
@@ -43,17 +44,24 @@ SALIMT_PROFILES = f"{SALIMT_BASE}/player_profiles/player_profiles.csv"
 MAX_VALUE_AGE = pd.Timedelta(days=548)
 
 
+_NETWORK_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError,
+                   http.client.IncompleteRead)
+
+
 def _download(url: str, cache: Path, name: str, retries: int = 4) -> Path:
+    """Fetch once into the cache; a cut-off transfer is retried, never kept."""
     target = cache / name
     if target.exists() and target.stat().st_size > 0:
         return target
     cache.mkdir(parents=True, exist_ok=True)
+    partial = target.with_suffix(target.suffix + ".part")
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(url, timeout=300) as response:
-                target.write_bytes(response.read())
+                partial.write_bytes(response.read())
+            partial.replace(target)
             return target
-        except (urllib.error.URLError, TimeoutError):
+        except _NETWORK_ERRORS:
             if attempt == retries - 1:
                 raise
             time.sleep(2.0 * (2 ** attempt))
@@ -85,7 +93,7 @@ def load_valuations(cache: Path, progress=print) -> pd.DataFrame:
             "value": pd.to_numeric(s["value"], errors="coerce"),
             "source": "salimt",
         }))
-    except (urllib.error.URLError, TimeoutError) as error:
+    except _NETWORK_ERRORS as error:
         progress(f"  salimt valuations unavailable: {error}")
     if not frames:
         return pd.DataFrame(columns=["tm_id", "date", "value", "source"])
@@ -107,8 +115,10 @@ def value_asof(tm_ids: pd.Series, asof: pd.Series, history: pd.DataFrame) -> pd.
     if left.empty or history.empty:
         return pd.Series(np.nan, index=tm_ids.index)
     left["tm_id"] = left["tm_id"].astype("int64")
+    right = history[["tm_id", "date", "value"]].rename(columns={"date": "asof"})
+    right = right.astype({"tm_id": "int64"}).sort_values("asof")
     merged = pd.merge_asof(
-        left, history[["tm_id", "date", "value"]].rename(columns={"date": "asof"}),
+        left, right,
         on="asof", by="tm_id", direction="backward", tolerance=MAX_VALUE_AGE,
     )
     out = pd.Series(np.nan, index=tm_ids.index)
@@ -152,7 +162,7 @@ def load_profiles(cache: Path, progress=print) -> pd.DataFrame:
             "foot": s["foot"],
             "nationality": s["citizenship"].astype(str).str.split(r"\s{2,}", regex=True).str[0],
         }))
-    except (urllib.error.URLError, TimeoutError) as error:
+    except _NETWORK_ERRORS as error:
         progress(f"  salimt profiles unavailable: {error}")
     if not frames:
         return pd.DataFrame(columns=["tm_id", "tm_name", "date_of_birth", "height_cm",
@@ -165,3 +175,109 @@ def load_profiles(cache: Path, progress=print) -> pd.DataFrame:
     # A field one build lacks is taken from the other, never invented.
     profiles = profiles.groupby("tm_id", sort=False).first().reset_index()
     return profiles
+
+
+# --------------------------------------------------------------------------
+# Matching a source's players to Transfermarkt
+# --------------------------------------------------------------------------
+
+def normalise_name(value) -> str:
+    """The platform's one name normaliser (premier_league.normalise_name)."""
+    from .premier_league import normalise_name as canonical
+
+    return canonical(value)
+
+
+# Transfermarkt's ids for the six leagues, as in scripts/refresh_sources.py.
+TM_COMPETITIONS = {"GB1": "Premier League", "ES1": "La Liga", "IT1": "Serie A",
+                   "L1": "Bundesliga", "FR1": "Ligue 1", "RU1": "Russian Premier League"}
+_CLUB_STOPWORDS = {"fc", "cf", "ac", "as", "sc", "club", "de", "afc", "ssc", "us", "sv", "vfl",
+                   "vfb", "rc", "ud", "cd", "rcd", "ogc", "fk", "tsg", "and", "calcio"}
+
+
+def _club_tokens(name) -> set[str]:
+    return {t for t in normalise_name(name).split() if t not in _CLUB_STOPWORDS and len(t) > 1}
+
+
+def _initial_and_surname(key: str) -> str:
+    parts = key.split()
+    return f"{parts[0][0]} {parts[-1]}" if len(parts) > 1 else key
+
+
+def link_by_season(frame: pd.DataFrame, tm: pd.DataFrame | None = None) -> pd.Series:
+    """Understat player_id -> Transfermarkt id, from same league-season rows."""
+    if tm is None:
+        path = DCARIBOU_DIR / "tm_season_minutes.csv.gz"
+        if not path.exists():
+            return pd.Series(dtype="int64", name="tm_id", index=pd.Index([], name="player_id"))
+        tm = pd.read_csv(path)
+    tm = tm.copy()
+    tm["league"] = tm["competition_id"].map(TM_COMPETITIONS)
+    tm = tm.dropna(subset=["league", "player_name"])
+    tm["key"] = tm["player_name"].map(normalise_name)
+    tm["start"] = tm["season"].astype(int)
+    tm["short"] = tm["key"].map(_initial_and_surname)
+    tm = tm.rename(columns={"player_id": "tm_player", "minutes": "tm_minutes"})[
+        ["tm_player", "start", "league", "key", "short", "club_name", "tm_minutes"]]
+
+    us = frame[["player_id", "season", "league", "team", "minutes", "key"]].copy()
+    us["start"] = us["season"].str.slice(0, 4).astype(int)
+    us["short"] = us["key"].map(_initial_and_surname)
+    candidates = pd.concat([
+        us.merge(tm.drop(columns="short"), on=["start", "league", "key"]).assign(exact=True),
+        us.merge(tm.drop(columns="key"), on=["start", "league", "short"]).assign(exact=False),
+    ], ignore_index=True)
+    if candidates.empty:
+        return pd.Series(dtype="int64", name="tm_id", index=pd.Index([], name="player_id"))
+    candidates["same_club"] = [bool(_club_tokens(a) & _club_tokens(b))
+                               for a, b in zip(candidates["team"], candidates["club_name"])]
+    # A surname-and-initial match must also agree on the club.
+    candidates = candidates[candidates["exact"] | candidates["same_club"]].copy()
+    candidates["gap"] = (candidates["minutes"] - candidates["tm_minutes"]).abs()
+    candidates = candidates.sort_values(["exact", "same_club", "gap"],
+                                        ascending=[False, False, True])
+    best = candidates.drop_duplicates(["player_id", "season"])
+
+    # Names written differently on each side ("Kylian Mbappe-Lottin" against
+    # "Kylian Mbappé"): same league-season, same club, a shared name token of
+    # four letters or more, and minutes within 15% of each other.
+    rest = us[~us.set_index(["player_id", "season"]).index.isin(
+        best.set_index(["player_id", "season"]).index)]
+    loose = rest.merge(tm.drop(columns=["key", "short"]).merge(
+        tm[["tm_player", "start", "key"]].rename(columns={"key": "tm_key"}),
+        on=["tm_player", "start"]).drop_duplicates(["tm_player", "start", "league", "club_name"]),
+        on=["start", "league"])
+    if not loose.empty:
+        shared = [bool({t for t in a.split() if len(t) >= 4} & set(b.split()))
+                  for a, b in zip(loose["key"], loose["tm_key"])]
+        loose = loose[shared].copy()
+        loose["same_club"] = [bool(_club_tokens(a) & _club_tokens(b))
+                              for a, b in zip(loose["team"], loose["club_name"])]
+        loose["gap"] = (loose["minutes"] - loose["tm_minutes"]).abs()
+        loose = loose[loose["same_club"] & (loose["gap"] <= 0.15 * loose["minutes"].clip(lower=600))]
+        # Only when exactly one Transfermarkt player fits.
+        loose = loose[~loose.duplicated(["player_id", "season"], keep=False)]
+        best = pd.concat([best, loose.assign(exact=False)], ignore_index=True)
+    # One Transfermarkt id per Understat player: the one most seasons agree on...
+    votes = best.groupby(["player_id", "tm_player"]).size().rename("n").reset_index()
+    votes = votes.sort_values("n", ascending=False).drop_duplicates("player_id")
+    # ...and never the same Transfermarkt player for two Understat players.
+    votes = votes[~votes["tm_player"].duplicated(keep=False)]
+    return votes.set_index("player_id")["tm_player"].astype("int64")
+
+
+def link_players(frame: pd.DataFrame, profiles: pd.DataFrame) -> pd.DataFrame:
+    """player_id -> tm_id, by name-season-club first and a unique name after.
+
+    `frame` needs player_id, season ("2024-25"), league, team, minutes and a
+    normalised-name `key`. The second pass matches only a name held by one
+    player on both sides: a wrong match is worse than none.
+    """
+    link = link_by_season(frame).rename("tm_id").reset_index()
+    names = profiles[["tm_id", "tm_name"]].dropna().copy()
+    names["key"] = names["tm_name"].map(normalise_name)
+    names = names[~names["key"].duplicated(keep=False)]
+    keys = frame[["player_id", "key"]].drop_duplicates("player_id")
+    keys = keys[~keys["key"].duplicated(keep=False) & ~keys["player_id"].isin(link["player_id"])]
+    unique = keys.merge(names, on="key", how="inner")[["player_id", "tm_id"]]
+    return pd.concat([link.assign(how="season"), unique.assign(how="name")], ignore_index=True)

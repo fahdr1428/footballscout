@@ -25,8 +25,8 @@ def test_season_label_matches_the_rest_of_the_platform():
 
 def test_the_unfinished_season_is_not_a_default():
     """The mirror froze in September 2025, leaving about ten rounds of 2025/26."""
-    assert "2025/26" in PARTIAL_SEASONS
-    assert LAST_SEASON == "2024/25"
+    assert "2026/27" in PARTIAL_SEASONS
+    assert LAST_SEASON == "2025/26"
     assert LAST_SEASON not in PARTIAL_SEASONS
     assert FIRST_SEASON < LAST_SEASON
 
@@ -143,17 +143,75 @@ def test_only_names_unique_on_both_sides_are_matched():
 
     from src import understat
 
-    source = inspect.getsource(understat.attach_transfermarkt)
+    from src import tm_history
+
+    source = inspect.getsource(tm_history.link_players)
     assert source.count("duplicated(keep=False)") >= 2
+    assert "link_players" in inspect.getsource(understat.attach_transfermarkt)
 
 
 def test_market_value_is_read_as_at_the_season():
-    """Not one scrape applied to eleven years: Transfermarkt revalues players
-    several times a year and the history can be read at the right moment."""
-    import inspect
+    """Not one scrape applied to eleven years: the valuation in force on the
+    date asked for, never a later one, and nothing stale."""
+    import numpy as np
+    import pandas as pd
 
-    from src import understat
+    from src.tm_history import value_asof
 
-    source = inspect.getsource(understat._attach_values)
-    assert "merge_asof" in source
-    assert 'direction="backward"' in source
+    history = pd.DataFrame({
+        "tm_id": [1, 1, 1, 2],
+        "date": pd.to_datetime(["2023-02-01", "2024-06-15", "2025-01-10", "2019-01-01"]),
+        "value": [10e6, 30e6, 50e6, 5e6],
+    })
+    ids = pd.Series([1, 1, 2, 3])
+    asof = pd.Series(pd.to_datetime(["2024-07-01", "2023-07-01", "2024-07-01", "2024-07-01"]))
+    got = value_asof(ids, asof, history)
+    assert got.iloc[0] == 30e6          # the June 2024 valuation, not January 2025's
+    assert got.iloc[1] == 10e6
+    assert np.isnan(got.iloc[2])        # five years old: describes someone else
+    assert np.isnan(got.iloc[3])        # never valued
+
+
+def test_a_name_written_two_ways_matches_on_club_season_and_minutes():
+    import pandas as pd
+
+    from src.premier_league import normalise_name
+    from src.understat import _match_by_season
+
+    us = pd.DataFrame({
+        "player_id": ["3423", "3423", "77", "88"],
+        "player": ["Kylian Mbappe-Lottin", "Kylian Mbappe-Lottin", "Rodri", "Rodri"],
+        "season": ["2024-25", "2025-26", "2024-25", "2024-25"],
+        "league": ["La Liga", "La Liga", "Premier League", "La Liga"],
+        "team": ["Real Madrid", "Real Madrid", "Manchester City", "Real Betis"],
+        "minutes": [2938, 2623, 300, 2000],
+    })
+    us["key"] = us["player"].map(normalise_name)
+    tm = pd.DataFrame({
+        "player_id": [342229, 342229, 357565, 999],
+        "season": [2024, 2025, 2024, 2024],
+        "competition_id": ["ES1", "ES1", "GB1", "ES1"],
+        "club_name": ["Real Madrid", "Real Madrid", "Manchester City", "Real Betis Balompié"],
+        "minutes": [2917, 2606, 290, 1980],
+        "player_name": ["Kylian Mbappé", "Kylian Mbappé", "Rodri", "Rodri"],
+    })
+    link = _match_by_season(us, tm)
+    assert link["3423"] == 342229
+    # Two players called Rodri, told apart by league and club, not by name.
+    assert link["77"] == 357565 and link["88"] == 999
+
+
+def test_a_loose_name_match_needs_the_club_and_the_minutes_to_agree():
+    import pandas as pd
+
+    from src.premier_league import normalise_name
+    from src.understat import _match_by_season
+
+    us = pd.DataFrame({"player_id": ["1"], "player": ["Kylian Mbappe-Lottin"],
+                       "season": ["2024-25"], "league": ["La Liga"],
+                       "team": ["Real Madrid"], "minutes": [2938]})
+    us["key"] = us["player"].map(normalise_name)
+    tm = pd.DataFrame({"player_id": [5], "season": [2024], "competition_id": ["ES1"],
+                       "club_name": ["Real Madrid"], "minutes": [600],
+                       "player_name": ["Ethan Mbappé"]})
+    assert _match_by_season(us, tm).empty

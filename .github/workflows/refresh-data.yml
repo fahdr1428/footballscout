@@ -44,7 +44,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Rebuild the site
-        run: python scripts/export_static.py
+        run: python scripts/export_static.py --sources understat_big6
 
       - name: Check nothing was lost
         run: python scripts/check_site.py

@@ -34,10 +34,11 @@ ranked here purely on what they contribute going forward. For defending, use
 the big-five (FBref) source, which has 44 metrics including all of the above.
 
 **Four positional buckets, not ten.** Understat's season aggregate records only
-GK / D / M / F. There is no centre-back versus full-back, no left versus right
-wing. Inferring a finer position from the same statistics the models then read
-would be circular, so this source uses the four-bucket taxonomy, which the
-platform treats as first class.
+the roles a player appeared in - GK / D / M / F - and lists them alphabetically,
+not by how often he played each. Transfermarkt's position picks among the roles
+he actually played that season (`assign_positions`); inferring anything finer
+from the statistics the models then read would be circular, so this source uses
+the four-bucket taxonomy, which the platform treats as first class.
 
 **The season being played** is built and flagged, but is not in the default
 pool: a few rounds in, nobody has 900 minutes, and pooling it with whole
@@ -169,10 +170,9 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
        two players in either dataset is left unmatched rather than guessed at:
        a wrong age on a shortlist is worse than a missing one.
 
-    Position is deliberately NOT taken from here, even though Transfermarkt has
-    a specific one. It would not arrive for everyone, so a player's peer group
-    would depend on whether his name matched rather than on football. Grouping
-    stays on Understat's own four buckets.
+    Position comes from here only as a choice among the roles Understat says
+    he played that season (`assign_positions`): Understat lists those roles
+    alphabetically, so on its own it cannot say which one he mostly played.
     """
     frame = frame.copy()
     frame["key"] = frame["player"].map(tm_history.normalise_name)
@@ -182,6 +182,7 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
     link = tm_history.link_players(frame, profiles)
 
     frame = frame.merge(link[["player_id", "tm_id", "how"]], on="player_id", how="left")
+    frame = assign_positions(frame, profiles)
     frame = frame.merge(
         profiles[["tm_id", "date_of_birth", "height_cm", "foot", "nationality"]],
         on="tm_id", how="left")
@@ -211,6 +212,42 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
         "with_market_value": float(frame["market_value_eur"].notna().mean()),
     }
     return frame.drop(columns=["key", "tm_id", "how"], errors="ignore"), coverage
+
+
+# Transfermarkt's buckets, and the Understat role letter each one corresponds to.
+TM_BUCKETS = {"Goalkeeper": "GK", "Defender": "DEF", "Midfield": "MID", "Attack": "FWD"}
+ROLE_LETTER = {"GK": "GK", "DEF": "D", "MID": "M", "FWD": "F"}
+
+
+def assign_positions(frame: pd.DataFrame, profiles: pd.DataFrame) -> pd.DataFrame:
+    """Each player's bucket: Transfermarkt's, among the roles he played that season.
+
+    Understat records the roles a player appeared in during a season - "D M S"
+    - but lists them **alphabetically**, not by how often he played each, so
+    taking the first one puts every midfielder who ever dropped into defence
+    in the defenders' pool (Declan Rice, "D M S", read as a defender). Which
+    role he mostly played is not in the feed at all.
+
+    Transfermarkt's position answers that, and it is a separate source, so the
+    grouping is still not inferred from the statistics the models read. It is
+    used only when it names a role Understat says he played *that* season, so
+    a player whose position changed over his career is never put somewhere
+    he did not play. Where it does not - or he is unmatched - the first role
+    listed stands, and `position_source` says which rule decided.
+    """
+    frame = frame.copy()
+    found = frame[["tm_id"]].merge(profiles[["tm_id", "tm_bucket", "tm_detail"]],
+                                   on="tm_id", how="left")
+    bucket = found["tm_bucket"].map(TM_BUCKETS).to_numpy()
+    detail = found["tm_detail"].to_numpy()
+    roles = frame["roles"].fillna("").astype(str).str.split()
+    use = np.array([isinstance(b, str) and ROLE_LETTER[b] in r for b, r in zip(bucket, roles)])
+    frame.loc[use, "position_group"] = bucket[use]
+    frame.loc[use, "position"] = [d if isinstance(d, str) else b for d, b in zip(detail[use], bucket[use])]
+    frame.loc[use, "position_source"] = "Transfermarkt, among the roles he played that season"
+    listed = ~use & frame["position_source"].eq("Understat line-ups")
+    frame.loc[listed, "position_source"] = "Understat, first role listed (alphabetical)"
+    return frame
 
 
 # The name-season-club matcher is shared with the Premier League source.
@@ -283,6 +320,8 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
                    if FIRST_SEASON <= s and (s in complete or (include_partial and s in partial))]
     frame = frame[frame["season"].isin(seasons)]
 
+    # Understat's role string, kept so Transfermarkt can choose among it later.
+    frame["roles"] = frame["position"].astype(str)
     mapped = [_position(row) for _, row in frame.iterrows()]
     frame["position_group"] = [m[0] for m in mapped]
     frame["position"] = [m[1] for m in mapped]
@@ -295,7 +334,7 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
     # self-season-recall checks need to recognise the same player twice.
     frame["player_id"] = frame["id"].astype(str)
 
-    keep = ["player", "player_id", "team", "league", "season", "position",
+    keep = ["roles", "player", "player_id", "team", "league", "season", "position",
             "position_group", "position_source", "gender", "minutes", "matches",
             "goals", "np_goals", "assists", "xg", "npxg", "xa", "shots",
             "key_passes", "xg_chain", "xg_buildup", "yellow_cards", "red_cards"]
@@ -311,6 +350,7 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
     else:
         matched = {}
 
+    frame = frame.drop(columns=["roles"], errors="ignore")
     frame = frame.sort_values(["season", "league", "team", "player"]).reset_index(drop=True)
     coverage = {
         "rows_in": raw_rows,

@@ -1094,10 +1094,11 @@ DATA_SOURCES: dict[str, DataSource] = {
             "pressures or blocks. Just under half the pool are defenders, and here they are "
             "ranked purely on what they contribute going forward. For defending, switch to the "
             "big-five (FBref) source, which carries 44 metrics including all of those.",
-            "**Four positional buckets, not ten.** The season aggregate records only GK / D / "
-            "M / F - no centre-back against full-back, no left against right wing. Deriving a "
-            "finer position from the same statistics the models then read would be circular, "
-            "so this source uses the four-bucket taxonomy.",
+            "**Four positional buckets, not ten.** The season aggregate records only the roles "
+            "a player appeared in - GK / D / M / F - listed alphabetically, not by how often he "
+            "played each. Transfermarkt's position chooses among the roles he played that "
+            "season (96% of regular players); deriving anything finer from the statistics the "
+            "models read would be circular, so this source uses the four-bucket taxonomy.",
             "**What it is unmatched at**: recency and reach. Twelve seasons is enough to follow "
             "a career, and **xGChain** and **xGBuildup** credit every player in a move that "
             "ended in a shot - xGBuildup excluding the shot and the assist, which is the closest "
@@ -1107,7 +1108,7 @@ DATA_SOURCES: dict[str, DataSource] = {
             "read rates over a handful of games as form rather than a profile.",
             "**Similarity percentages read high here, and mean less.** Every metric this source "
             "has is measuring attacking output, so they move together and two players look "
-            "alike easily: the median closest match scores **95.5%**, against **76.3%** on the "
+            "alike easily: the median closest match scores **96.0%**, against **81.8%** on the "
             "big-five source with its 15-24 more varied metrics. Read the ranking, not the "
             "number - and do not compare a percentage here with a percentage there.",
             "**Goalkeepers have no model.** None of the 17 metrics a goalkeeper is ranked on "

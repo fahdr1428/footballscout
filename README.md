@@ -141,12 +141,18 @@ Goalkeepers get **no model at all** — none of the seventeen metrics a keeper i
 this feed — so they stay listed everywhere with no similarity score, and the app says how many
 that is. For either job, switch to the big-five FBref source below.
 
-Positions are only **GK / DEF / MID / FWD**. Deriving something finer from the same statistics the
-models then read would be circular, so this source uses the four-bucket taxonomy.
+Positions are only **GK / DEF / MID / FWD**. Understat records the roles a player appeared in that
+season but lists them **alphabetically** ("D M S"), so taking the first put every midfielder who
+ever dropped into defence among the defenders — Declan Rice included. Transfermarkt's position now
+chooses among the roles he actually played that season (96% of regular players; the first listed
+role stands for the rest, and each row says which rule decided). That moved 12% of player-seasons,
+all of them later in the alphabet — D→M, D→F, F→M — which is the old rule's signature. Deriving
+anything finer from the statistics the models read would be circular, so this source keeps the
+four-bucket taxonomy.
 
 **Similarity percentages read high here and mean less.** Every metric measures attacking output,
 so they move together and two players look alike easily: the median closest match scores
-**95.5%**, against **76.3%** on the FBref source with its more varied 15–24 metrics. Read the
+**96.0%**, against **81.8%** on the FBref source with its more varied 15–24 metrics. Read the
 ranking, not the number, and never compare a percentage here with a percentage there.
 
 **Ages, heights, feet, nationalities and market values** come from Transfermarkt, because

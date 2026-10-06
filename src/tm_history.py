@@ -147,11 +147,14 @@ def load_profiles(cache: Path, progress=print) -> pd.DataFrame:
             "height_cm": pd.to_numeric(d.get("height_in_cm"), errors="coerce"),
             "foot": d.get("foot"),
             "nationality": d.get("country_of_citizenship"),
+            "tm_bucket": d.get("position"),
+            "tm_detail": d.get("sub_position"),
         }))
     try:
         s = pd.read_csv(_download(SALIMT_PROFILES, cache, "tm_player_profiles.csv"),
                         low_memory=False, usecols=["player_id", "player_name", "date_of_birth",
-                                                   "height", "foot", "citizenship"])
+                                                   "height", "foot", "citizenship",
+                                                   "position", "main_position"])
         height = pd.to_numeric(s["height"].astype(str).str.replace(",", ".")
                                .str.extract(r"([\d.]+)")[0], errors="coerce")
         frames.append(pd.DataFrame({
@@ -161,17 +164,22 @@ def load_profiles(cache: Path, progress=print) -> pd.DataFrame:
             "height_cm": np.where(height < 3, height * 100, height).round(),
             "foot": s["foot"],
             "nationality": s["citizenship"].astype(str).str.split(r"\s{2,}", regex=True).str[0],
+            "tm_bucket": s["main_position"],
+            # "Defender - Centre-Back" -> "Centre-Back"
+            "tm_detail": s["position"].astype(str).str.split(" - ").str[-1].replace("nan", np.nan),
         }))
     except _NETWORK_ERRORS as error:
         progress(f"  salimt profiles unavailable: {error}")
     if not frames:
         return pd.DataFrame(columns=["tm_id", "tm_name", "date_of_birth", "height_cm",
-                                     "foot", "nationality"])
+                                     "foot", "nationality", "tm_bucket", "tm_detail"])
     profiles = pd.concat(frames, ignore_index=True).dropna(subset=["tm_id"])
     profiles["tm_id"] = profiles["tm_id"].astype("int64")
     profiles["foot"] = profiles["foot"].astype(str).str.lower().replace(
         {"nan": np.nan, "none": np.nan, "": np.nan})
     profiles["nationality"] = profiles["nationality"].replace({"nan": np.nan, "": np.nan})
+    profiles["tm_bucket"] = profiles["tm_bucket"].where(
+        profiles["tm_bucket"].isin(["Goalkeeper", "Defender", "Midfield", "Attack"]))
     # A field one build lacks is taken from the other, never invented.
     profiles = profiles.groupby("tm_id", sort=False).first().reset_index()
     return profiles

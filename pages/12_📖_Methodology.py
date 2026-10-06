@@ -77,7 +77,7 @@ contributing to attacks without finishing them.
 - **Four positional buckets.** GK / DEF / MID / FWD only. Deriving something finer from the same
   statistics the models read would be circular.
 - **Similarity reads high and means less.** Every metric measures attacking output, so they move
-  together: the median closest match scores **95.5%** here against **76.3%** on the FBref source.
+  together: the median closest match scores **96.0%** here against **81.8%** on the FBref source.
   Read the ranking, not the number, and never compare a percentage across the two.
 
 #### The Transfermarkt join
@@ -97,9 +97,15 @@ Transfermarkt's goal count equals Understat's exactly 98.6% of the time and minu
 10% for 98.5%. Where the joined date of birth implies an impossible age the match is treated as
 wrong and the whole enrichment withdrawn for that row.
 
-**Position is deliberately not taken from this join**, even though Transfermarkt has a specific
-one, because it would arrive for two players in three - so a player's peer group would depend on
-whether his name happened to match rather than on football.
+**Position: Transfermarkt, but only among the roles he played.** Understat records the roles a
+player appeared in during a season ("D M S") but lists them **alphabetically**, not by how often he
+played each - so reading the first one put every midfielder who ever dropped into defence in the
+defenders' pool (Declan Rice among them). Transfermarkt's position now chooses among those roles,
+and is used only when it names one Understat says he played that season, so a player whose role
+changed over his career is never put somewhere he did not play. That decides 96% of regular
+players; for the rest the first listed role stands, and every row says which rule decided. The
+correction moved 12% of player-seasons past 900 minutes, every one of them later in the alphabet
+(D to M, D to F, F to M) - the signature of the old rule.
 
 Market value is read **as each season closed** - the valuation in force on 1 July after it, the
 same rule as the other sources (on FBref's seasons it reproduces the squad-record value exactly for

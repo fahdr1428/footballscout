@@ -299,6 +299,21 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
     return payloads
 
 
+def _published_catalog(site: Path) -> dict[str, dict]:
+    """The catalogue entries of the page already built, keyed by source."""
+    page = site / "index.html"
+    if not page.exists():
+        return {}
+    import re
+
+    match = re.search(r"<script>window\.__SCOUT__=(.*?);</script>", page.read_text("utf-8"), re.S)
+    if not match:
+        return {}
+    data = json.loads(match.group(1).replace("<\\/", "</"))
+    return {c["key"]: c for c in data["catalog"]
+            if all((site / s["file"]).exists() for s in c["seasons"])}
+
+
 def _scraped_on(source: str) -> str | None:
     """The day the season in progress was last fetched, for the page to state."""
     meta = RAW_DIR / "live" / "refresh_meta.json"
@@ -342,11 +357,16 @@ def main() -> int:
     wanted = [s for s in SITE_SOURCES if not args.sources or s["key"] in args.sources]
     only = set(args.seasons) if args.seasons else None
     data_dir = args.out / "data"
-    # Everything under data/ is generated here, so a stale season from a
-    # previous build must not linger for the page to find.
-    if data_dir.exists():
+    # Rebuilding some sources keeps the others exactly as they were published:
+    # their files stay and their catalogue entries are read back from the page.
+    # A full rebuild clears data/ first, so a stale season cannot linger.
+    kept = _published_catalog(args.out) if args.sources and not only else {}
+    if not kept and data_dir.exists():
         shutil.rmtree(data_dir)
-    data_dir.mkdir(parents=True)
+    for spec in wanted:
+        for stale in data_dir.glob(f"{spec['key']}__*.json"):
+            stale.unlink()
+    data_dir.mkdir(parents=True, exist_ok=True)
 
     catalog, inline = [], {}
     for spec in wanted:
@@ -377,9 +397,10 @@ def main() -> int:
         (args.out / everything).write_text(json.dumps(
             all_seasons(payloads), separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
         scraped = _scraped_on(spec["key"])
+        when = (pd.Timestamp(scraped).strftime("%-d %b %Y") if scraped else None)
         updated = spec.get("updated") or (
-            f"Season stats: Understat - 2025/26 on fetched from understat.com on {scraped}"
-            if scraped else "Season stats: Understat")
+            f"Season stats: Understat, with 2025/26 onward fetched from understat.com on {when}"
+            if when else "Season stats: Understat")
         catalog.append({"key": spec["key"], "name": spec["name"], "via": spec["via"],
                         "blurb": spec["blurb"], "updated": updated,
                         "attribution": DATA_SOURCES[spec["key"]].attribution,
@@ -388,6 +409,14 @@ def main() -> int:
     if not catalog:
         print("nothing built")
         return 1
+    built = {c["key"] for c in catalog}
+    order = [s["key"] for s in SITE_SOURCES]
+    catalog += [entry for key, entry in kept.items() if key not in built and key in order]
+    catalog.sort(key=lambda c: order.index(c["key"]))
+    source, _, season = DEFAULT_DATASET.partition(":")
+    if not inline and (args.out / f"data/{source}__{season}.json").exists():
+        inline[DEFAULT_DATASET] = json.loads(
+            (args.out / f"data/{source}__{season}.json").read_text(encoding="utf-8"))
     default = DEFAULT_DATASET if inline else f"{catalog[0]['key']}:{catalog[0]['seasons'][-1]['season']}"
     if not inline:
         source, _, season = default.partition(":")

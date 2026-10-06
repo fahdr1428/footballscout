@@ -147,16 +147,33 @@ def test_plausible_age_bounds_are_a_career_not_a_lifetime():
     assert 42 <= MAX_PLAUSIBLE_AGE <= 50
 
 
-def test_position_is_never_taken_from_the_join():
-    """It would arrive for two players in three, so a player's peer group would
-    depend on whether his name matched rather than on football."""
-    import inspect
+def test_position_comes_from_transfermarkt_only_among_roles_he_played():
+    """Understat lists roles alphabetically, so "D M S" is not "a defender".
+    Transfermarkt picks among them - and never moves a player somewhere
+    Understat says he did not play that season."""
+    import pandas as pd
 
-    from src import understat
+    from src.understat import assign_positions
 
-    source = inspect.getsource(understat.attach_transfermarkt)
-    assert '"position"' not in source
-    assert "position_group" not in source
+    frame = pd.DataFrame({
+        "tm_id": [1, 2, 3, None],
+        "roles": ["D M S", "M S", "D", "D M S"],
+        "position_group": ["DEF", "MID", "DEF", "DEF"],
+        "position": ["DEF", "MID", "DEF", "DEF"],
+        "position_source": ["Understat line-ups"] * 4,
+    })
+    profiles = pd.DataFrame({
+        "tm_id": [1, 2, 3],
+        "tm_bucket": ["Midfield", "Attack", "Midfield"],
+        "tm_detail": ["Defensive Midfield", "Left Winger", "Central Midfield"],
+    })
+    out = assign_positions(frame, profiles)
+    assert out.loc[0, "position_group"] == "MID"            # Rice: a midfielder who also played D
+    assert out.loc[0, "position"] == "Defensive Midfield"
+    assert out.loc[1, "position_group"] == "MID"            # Attack, but he never played F that season
+    assert out.loc[2, "position_group"] == "DEF"            # only ever played D that season
+    assert out.loc[3, "position_group"] == "DEF"            # unmatched: the listed role stands
+    assert out.loc[3, "position_source"].startswith("Understat, first role listed")
 
 
 def test_only_names_unique_on_both_sides_are_matched():

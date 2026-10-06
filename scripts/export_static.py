@@ -42,7 +42,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import (  # noqa: E402
     COUNTING_STATS, DATA_SOURCES, LOWER_IS_BETTER, METRIC_LABELS, PERCENT_METRICS,
-    POSITION_GROUP_NAMES, ROOT_DIR, TEAM_CONTEXT_METRICS, categories_for,
+    DEFAULT_WEIGHTS, POSITION_GROUP_NAMES, RAW_DIR, ROOT_DIR, TEAM_CONTEXT_METRICS,
+    categories_for,
 )
 from src.feature_engineering import metrics_for_percentiles  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
@@ -57,25 +58,38 @@ MIN_MINUTES = 900
 # can be selected deliberately, rather than offered next to whole seasons.
 SITE_SOURCES = [
     {
+        "key": "understat_big6", "name": "Top leagues", "via": "Understat",
+        "skip": set(),
+        "blurb": "The most current: the big five plus Russia, 2014/15 to 2025/26 and the season "
+                 "in progress, every player priced by Transfermarkt. Attacking output only - "
+                 "xG, xA, xGChain, xGBuildup - so no defending, and goalkeepers have no model.",
+    },
+    {
+        "key": "fbref_big5", "name": "Big five, in depth", "via": "FBref",
+        "skip": {"2025-26"},
+        "updated": "Season stats: FBref, via a public mirror last updated 18 Sep 2025",
+        "blurb": "The deepest: up to 44 metrics and ten specific positions, 2017/18 to 2024/25, "
+                 "priced by Transfermarkt. 2023/24 is the last season every block measured in "
+                 "full - the public mirror of FBref stopped in September 2025.",
+    },
+    {
         "key": "premier_league", "name": "Premier League", "via": "FPL + Understat",
         "skip": set(),
-        "blurb": "The most current: every season to a complete 2025/26. One league, and a "
-                 "summary feed - no progressive passes, no duels, no pass completion.",
-    },
-    {
-        "key": "fbref_big5", "name": "Big five leagues", "via": "FBref",
-        "skip": {"2025-26"},
-        "blurb": "The deepest by far - up to 44 metrics and ten specific positions. 2023/24 is "
-                 "the latest season every block measured in full.",
-    },
-    {
-        "key": "understat_big6", "name": "Six leagues", "via": "Understat",
-        "skip": {"2025-26"},
-        "blurb": "The longest run - eleven seasons, the big five plus Russia. xG, xA, xGChain "
-                 "and xGBuildup only: no defending, and goalkeepers have no model.",
+        "updated": "Season stats: Fantasy Premier League, complete to 2025/26",
+        "blurb": "Ten complete seasons to 2025/26: FPL's ICT and defensive-contribution numbers "
+                 "with Understat's xG, real Transfermarkt prices beside the fantasy price. One "
+                 "league and a summary feed - no progressive passes, duels or pass completion.",
     },
 ]
-DEFAULT_DATASET = "premier_league:2025-26"
+DEFAULT_DATASET = "understat_big6:2025-26"
+
+# A season still being played cannot use the 900-minute floor - nobody has
+# played it yet. Each league's floor is half the minutes its busiest player has
+# had so far (never under two full games), so a league four rounds in and one
+# eight rounds in are both measured on regular starters.
+IN_PROGRESS_MAX_MINUTES = 1800
+IN_PROGRESS_SHARE = 0.5
+IN_PROGRESS_MIN_FLOOR = 180
 
 
 def _num(value, places: int = 1):
@@ -118,8 +132,12 @@ def export(platform, season: str) -> dict:
         # z already multiplied by them would lose precision to rounding and
         # turn every z-gap on the page into something other than SDs.
         weights = model.engine.weights / model.engine.weights.mean()
+        # The position's default category weights - the same ones the app's
+        # role fit uses - so the page's rating is that number, shown working.
+        default = DEFAULT_WEIGHTS.get(group, {})
         groups[group] = {
             "f": list(model.features), "d": display, "c": names, "w": membership,
+            "rw": [int(default.get(c, 0)) for c in names],
             "r": [round(float(w), 3) for w in weights],
             "rr": [model.reliability.get(f) for f in model.features],
         }
@@ -155,6 +173,10 @@ def export(platform, season: str) -> dict:
             # The fantasy price, where a source has that instead of a valuation.
             # It is a popularity signal, not a fee, and the page labels it so.
             "pr": _num(row.get("price_m"), 1),
+            # His most recent Transfermarkt valuation and its date - today's
+            # price, where "v" is what he was worth as this season closed.
+            "lv": None if pd.isna(row.get("latest_value_eur")) else int(row["latest_value_eur"]),
+            "ld": row.get("latest_value_date") if pd.notna(row.get("latest_value_date")) else None,
             "ar": row.get("archetype") if pd.notna(row.get("archetype")) else None,
             "cv": [_num(categories.loc[index].get(f"cat_{c}"))
                    for c in (spec["c"] if spec else [])],
@@ -197,6 +219,9 @@ def export(platform, season: str) -> dict:
             "lacks": [_label(c) for c in thin],
             # Which filters mean anything here. A value slider on a season with no
             # valuations would filter nobody while looking like it worked.
+            "valuesAsOf": (str(pool["latest_value_date"].dropna().max())
+                           if "latest_value_date" in pool.columns
+                           and pool["latest_value_date"].notna().any() else None),
             "has": {
                 "age": count("age") > 0, "value": count("market_value_eur") > 0,
                 "price": count("price_m") > 0, "height": count("height_cm") > 0,
@@ -236,13 +261,32 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
 
     payloads: dict[str, dict] = {}
     for season in seasons:
-        platform = build_platform(features, report, source=used,
-                                  seasons=[season], min_minutes=MIN_MINUTES)
+        rows = features[features["season"] == season]
+        in_progress = rows["minutes"].max() < IN_PROGRESS_MAX_MINUTES
+        floors = {}
+        source_rows = features
+        if in_progress:
+            for league, block in rows.groupby("league"):
+                floor = int(block["minutes"].max() * IN_PROGRESS_SHARE // 90 * 90)
+                floors[league] = max(IN_PROGRESS_MIN_FLOOR, floor)
+            keep = (features["season"] != season) | (
+                features["minutes"] >= features["league"].map(floors).fillna(MIN_MINUTES))
+            source_rows = features[keep]
+        platform = build_platform(source_rows, report, source=used, seasons=[season],
+                                  min_minutes=min(floors.values()) if floors else MIN_MINUTES)
         if platform.pool.empty or not platform.models:
             progress(f"  {season}: nothing to model - skipped")
             continue
         payloads[season] = export(platform, season)
-        progress(f"  {season}: {len(payloads[season]['players']):,} players")
+        if in_progress:
+            payloads[season]["meta"].update({
+                "inProgress": True, "floors": floors,
+                "asOf": _scraped_on(spec["key"]),
+                "rounds": {lg: int(b["matches"].max()) for lg, b in rows.groupby("league")
+                           if "matches" in b and b["matches"].notna().any()},
+            })
+        progress(f"  {season}: {len(payloads[season]['players']):,} players"
+                 + (f" (in progress, floors {floors})" if in_progress else ""))
 
     # Which other seasons each player appears in, so the page can follow him.
     appears: dict[str, list[str]] = defaultdict(list)
@@ -253,6 +297,36 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
         for player in payload["players"]:
             player["os"] = [s for s in appears[player["id"]] if s != season]
     return payloads
+
+
+def _scraped_on(source: str) -> str | None:
+    """The day the season in progress was last fetched, for the page to state."""
+    meta = RAW_DIR / "live" / "refresh_meta.json"
+    if source != "understat_big6" or not meta.exists():
+        return None
+    stamp = json.loads(meta.read_text()).get("understat", {}).get("fetched_at")
+    return str(stamp)[:10] if stamp else None
+
+
+def all_seasons(payloads: dict[str, dict]) -> dict:
+    """Every player-season of a source in one compact file, for comparing across years.
+
+    Only what a cross-season search needs: who, where, when, and the z-vector
+    with its feature names and weights. Each z is standardised inside its own
+    season, so comparing two seasons compares each player *against his own
+    peers* - which is what makes a 2018 season and a 2025 one comparable at
+    all. The page aligns two vectors on the metrics both seasons measured.
+    """
+    seasons = sorted(payloads)
+    groups = {s: {g: {"f": spec["f"], "r": spec["r"]} for g, spec in payloads[s]["meta"]["groups"].items()}
+              for s in seasons}
+    rows = []
+    for i, season in enumerate(seasons):
+        for p in payloads[season]["players"]:
+            if p["z"]:
+                rows.append([p["id"], p["n"], p["t"], p["l"], i, p["g"], p["a"], p["m"], p["v"], p["z"],
+                             p["h"], p["ft"], p["fl"]])
+    return {"seasons": seasons, "groups": groups, "players": rows}
 
 
 def main() -> int:
@@ -295,10 +369,21 @@ def main() -> int:
                 "season": season, "file": path, "players": len(payload["players"]),
                 "lacks": len(payload["meta"]["lacks"]),
             })
+            if payload["meta"].get("inProgress"):
+                entries[-1]["inProgress"] = True
             if key == DEFAULT_DATASET:
                 inline[key] = payload
+        everything = f"data/{spec['key']}__all.json"
+        (args.out / everything).write_text(json.dumps(
+            all_seasons(payloads), separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+        scraped = _scraped_on(spec["key"])
+        updated = spec.get("updated") or (
+            f"Season stats: Understat - 2025/26 on fetched from understat.com on {scraped}"
+            if scraped else "Season stats: Understat")
         catalog.append({"key": spec["key"], "name": spec["name"], "via": spec["via"],
-                        "blurb": spec["blurb"], "seasons": entries})
+                        "blurb": spec["blurb"], "updated": updated,
+                        "attribution": DATA_SOURCES[spec["key"]].attribution,
+                        "seasons": entries, "all": everything})
 
     if not catalog:
         print("nothing built")
@@ -326,7 +411,7 @@ def main() -> int:
     out = args.out / "index.html"
     out.write_text(page, encoding="utf-8")
 
-    files = sorted(data_dir.glob("*.json"))
+    files = sorted(f for f in data_dir.glob("*.json") if not f.name.endswith("__all.json"))
     total = sum(e["players"] for c in catalog for e in c["seasons"])
     size = sum(f.stat().st_size for f in files) / 1e6
     print(f"\n{len(files)} seasons across {len(catalog)} sources, {total:,} player-seasons")

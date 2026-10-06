@@ -10,8 +10,11 @@
     its arithmetic.</p>
   </div>
   <div class="head-side">
-    <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
-      <span aria-hidden="true">&#9680;</span><span id="theme-l">Dark</span></button>
+    <div class="head-btns">
+      <button class="icon-btn" id="about-btn" type="button" aria-haspopup="dialog">About &amp; data</button>
+      <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
+        <span aria-hidden="true">&#9680;</span><span id="theme-l">Dark</span></button>
+    </div>
     <div class="facts">
       <div class="fact"><b id="f-players">&mdash;</b><span>Players</span></div>
       <div class="fact"><b id="f-leagues">&mdash;</b><span>Leagues</span></div>
@@ -30,6 +33,8 @@
     <span class="status" id="ds-status" role="status" aria-live="polite"></span>
   </div>
   <p class="ds-blurb" id="ds-blurb"></p>
+  <p class="ds-fresh" id="ds-fresh"></p>
+  <div class="live" id="live-banner" hidden></div>
   <details class="lacks" id="ds-lacks" hidden><summary id="ds-lacks-s"></summary><p id="ds-lacks-p"></p></details>
 </section>
 
@@ -100,6 +105,7 @@
 
       <section class="panel" id="sw-panel">
         <div class="panel-h"><h3>Where he stands out</h3><span class="eyebrow" id="sw-peers">&mdash;</span></div>
+        <div class="rating" id="rating"></div>
         <div class="sw" id="sw"></div>
         <p class="note">The metrics his position is modelled on, as percentiles against his peers - where a
         scout wants a number low, the percentile is already flipped. Club readings such as goals
@@ -131,6 +137,10 @@
       <section class="panel">
         <div class="panel-h"><h3>Most similar <span class="eyebrow" id="hits">&mdash;</span></h3>
           <div class="tools">
+            <div class="seg" id="scope" role="group" aria-label="Which seasons to search">
+              <button type="button" data-scope="season" class="on">This season</button>
+              <button type="button" data-scope="all">Every season</button></div>
+            <label class="chk" id="own-wrap" hidden><input type="checkbox" id="own"> His other seasons</label>
             <div class="seg" id="listsort" role="group" aria-label="Sort matches">
               <button data-sort="sim" class="on">Similarity</button><button data-sort="age">Age</button>
               <button data-sort="val">Value</button><button data-sort="min">Minutes</button>
@@ -277,6 +287,49 @@
 </footer>
 </div>
 
+<dialog id="about" aria-labelledby="about-h">
+  <div class="dlg-h"><h2 id="about-h">About &amp; data</h2>
+    <button class="mini" id="about-close" type="button">Close</button></div>
+  <div class="dlg-body">
+    <p><b>Who Plays Like Him</b> finds footballers whose statistical profile matches another's, inside
+    the same position, and shows the arithmetic behind every number. It is free, has no sign-in, sends
+    nothing anywhere (your shortlist stays in your browser) and is
+    <a href="https://github.com/fahdr1428/footballscout" target="_blank" rel="noopener">open source</a>.</p>
+    <h3>Where the numbers come from</h3>
+    <div id="about-sources"></div>
+    <h3>How the scores work</h3>
+    <ul>
+      <li><b>Percentile</b> - where he ranks against every player in his position in that season and
+      source, 0 to 100. Where a scout wants a number low (errors, fouls), it is flipped so high is
+      always good.</li>
+      <li><b>Similarity</b> - the cosine between two players' standardised profiles &times; 100. Each
+      metric counts by how well it repeats from one season to the next (its correlation with the
+      same player's figure a year later, squared), so a metric that is mostly one season's noise
+      barely moves a match. Club readings - goals conceded, clean sheets - count at the median.</li>
+      <li><b>Rating</b> - the weighted average of his category percentiles, using his position's
+      default weights (the same ones the full app's role fit uses), with the breakdown shown beside
+      it. A category the source does not measure at all is left out and the rest re-weighted; a gap
+      in one player's record counts as average (50). It ranks him against his peers <em>in that
+      league pool and season</em>; it does not adjust for league strength.</li>
+      <li><b>Price</b> - Transfermarkt's market value, an estimate rather than a fee anyone paid:
+      for each season, the valuation in force on 1 July as it closed; "now" is his latest
+      valuation and its date.</li>
+    </ul>
+    <h3>What it cannot tell you</h3>
+    <ul>
+      <li>Statistics describe output, not decision-making, temperament or injury history.</li>
+      <li>The <em>Top leagues</em> source measures attacking output only - no defending.</li>
+      <li>A season in progress is a few rounds of data: rates swing hard on small samples.</li>
+      <li>Similar styles in different leagues are not equal standards; filter by league to compare like with like.</li>
+    </ul>
+    <h3>Keeping it current</h3>
+    <p>A scheduled job on GitHub re-fetches Understat's season tables and the Transfermarkt dataset
+    every week and rebuilds this page; the date each source was last refreshed is shown under the
+    data picker. Corrections and suggestions:
+    <a href="https://github.com/fahdr1428/footballscout/issues" target="_blank" rel="noopener">open an issue</a>.</p>
+  </div>
+</dialog>
+
 <script>
 "use strict";
 const BUNDLE = window.__SCOUT__;
@@ -305,9 +358,12 @@ const eur = v => v == null ? "—" : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7
 const worth = p => p.v != null ? eur(p.v) : (p.pr != null ? "£" + p.pr.toFixed(1) + "m*" : "—");
 const band = p => p == null ? 3 : p >= 80 ? 5 : p >= 60 ? 4 : p >= 40 ? 3 : p >= 20 ? 2 : 1;
 const chip = p => `<span class="chip c${band(p)}">${p == null ? "—" : p}</span>`;
-const fmt = (key, v) => v == null ? "—" : PCT.has(key) ? v.toFixed(1) + "%"
+const fmt = (key, v) => v == null ? "—" : key === RATING_KEY ? String(Math.round(v)) : PCT.has(key) ? v.toFixed(1) + "%"
   : Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
-const label = k => (M.labels && M.labels[k]) || k;
+// "Overall rating" rides along as a pseudo-metric, so every tool that takes a
+// metric - leaderboard, profile search, explorer - can take it too.
+const RATING_KEY = "__rating";
+const label = k => k === RATING_KEY ? "Overall rating" : (M.labels && M.labels[k]) || k;
 const gname = g => (M.groupNames[g] || g);
 const seasonLabel = s => s.replace("-", "/");
 
@@ -365,7 +421,7 @@ function setData(key, payload){
   renderDatasetBar();
   setupFilters();
   if (!G[searchGroup]) searchGroup = null;
-  criteria = criteria.filter(c => searchGroup && G[searchGroup].d.includes(c.metric));
+  criteria = criteria.filter(c => searchGroup && (c.metric === RATING_KEY || G[searchGroup].d.includes(c.metric)));
 }
 
 function renderDatasetBar(){
@@ -375,10 +431,28 @@ function renderDatasetBar(){
       aria-pressed="${c.key === src}">${esc(c.name)}<span class="via">${esc(c.via)}</span></button>`).join("");
   const cat = BUNDLE.catalog.find(c => c.key === src);
   $("season").innerHTML = cat.seasons.slice().reverse().map(s =>
-    `<option value="${s.season}"${s.season === season ? " selected" : ""}>${seasonLabel(s.season)}</option>`).join("");
+    `<option value="${s.season}"${s.season === season ? " selected" : ""}>${seasonLabel(s.season)}${
+      s.inProgress ? " (in progress)" : ""}</option>`).join("");
   if (!M) return;
-  $("hero-eyebrow").textContent = M.label;
+  $("hero-eyebrow").textContent = M.label + (M.inProgress ? " · in progress" : "");
   $("ds-blurb").textContent = cat.blurb;
+  const day = d => d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB",
+    {day: "numeric", month: "short", year: "numeric", timeZone: "UTC"}) : null;
+  const fresh = [];
+  if (cat.updated) fresh.push(cat.updated);
+  if (M.valuesAsOf) fresh.push(`Transfermarkt values to ${day(M.valuesAsOf)}`);
+  $("ds-fresh").textContent = fresh.join(" · ");
+  $("live-banner").hidden = !M.inProgress;
+  if (M.inProgress){
+    const rounds = Object.values(M.rounds || {});
+    const span = rounds.length ? (Math.min(...rounds) === Math.max(...rounds) ? Math.min(...rounds)
+      : `${Math.min(...rounds)} to ${Math.max(...rounds)}`) : "a few";
+    $("live-banner").innerHTML = `<b>${seasonLabel(M.season)} is being played.</b> ${span} rounds in, as of
+      ${esc(day(M.asOf) || "the last refresh")}. Each league's pool is its regular starters so far - at least half
+      its busiest player's minutes (${Object.entries(M.floors || {}).map(([l, f]) => `${esc(l)} ${f}`).join(", ")}).
+      Rates over a handful of games swing hard: read this as form, not a profile, and check his complete
+      seasons before deciding anything.`;
+  }
   const lacks = M.lacks || [];
   $("ds-lacks").hidden = !lacks.length;
   if (lacks.length){
@@ -515,13 +589,131 @@ function ranked(){
   return out.sort((a, b) => b[1] - a[1]);
 }
 function sortedMatches(rows){
+  // A row is [index into this season, sim] or [a row from another season, sim].
+  const o = r => typeof r[0] === "number" ? P[r[0]] : r[0].o;
   const by = {
-    age: (a, b) => (P[a[0]].a ?? 99) - (P[b[0]].a ?? 99),
-    val: (a, b) => ((P[a[0]].v ?? P[a[0]].pr ?? Infinity) - (P[b[0]].v ?? P[b[0]].pr ?? Infinity)),
-    min: (a, b) => P[b[0]].m - P[a[0]].m,
+    age: (a, b) => (o(a).a ?? 99) - (o(b).a ?? 99),
+    val: (a, b) => ((o(a).v ?? o(a).pr ?? Infinity) - (o(b).v ?? o(b).pr ?? Infinity)),
+    min: (a, b) => o(b).m - o(a).m,
   }[listSort];
   return by ? rows.slice().sort(by) : rows;
 }
+
+// ---- rating ------------------------------------------------------------------
+// His position's default category weights over his category percentiles - the
+// full app's role fit, computed here so it can show its working. A category
+// this season measures for nobody is left out and the rest re-weighted; a gap
+// in his own record counts as average (50), as it does in the app.
+const PRESENT = {};
+function presentCats(meta, players, g){
+  const k = meta.key + "|" + g;
+  if (PRESENT[k]) return PRESENT[k];
+  const spec = meta.groups[g], has = spec ? spec.c.map(() => false) : [];
+  for (const p of players) if (p.g === g && p.cv) p.cv.forEach((v, i) => { if (v != null) has[i] = true; });
+  return (PRESENT[k] = has);
+}
+function ratingParts(p, meta = M, players = P){
+  const spec = meta.groups[p.g];
+  if (!spec || !spec.rw || !p.cv || !p.cv.length) return null;
+  const has = presentCats(meta, players, p.g);
+  const parts = spec.c.map((c, i) => ({c, w: spec.rw[i], v: p.cv[i]}))
+    .filter((x, i) => x.w > 0 && has[i]);
+  const total = parts.reduce((t, x) => t + x.w, 0);
+  if (!total) return null;
+  parts.forEach(x => { x.share = x.w / total; x.used = x.v ?? 50; x.add = x.share * x.used; });
+  return {score: parts.reduce((t, x) => t + x.add, 0), parts};
+}
+const RATING = new Map();
+function ratingOf(p, meta = M, players = P){
+  if (meta === M && RATING.has(p)) return RATING.get(p);
+  const r = ratingParts(p, meta, players), v = r ? r.score : null;
+  if (meta === M) RATING.set(p, v);
+  return v;
+}
+
+// ---- every season ---------------------------------------------------------------
+// One compact file per source holds every player-season's z-vector, so a player
+// can be compared with anyone from any season. Each z is standardised inside its
+// own season, so this compares how far each stood from *his own* peers; two
+// seasons are aligned on the metrics both measured, and a season sharing too
+// few of them is left out rather than compared on a sliver.
+const ALL = {};
+let scope = "season", showOwn = false, xm = null;   // xm: {key, i} - a match from another season
+async function getAll(src){
+  if (ALL[src]) return ALL[src];
+  const cat = BUNDLE.catalog.find(c => c.key === src);
+  if (!cat || !cat.all) throw new Error("no all-seasons file");
+  const res = await fetch(cat.all);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return (ALL[src] = await res.json());
+}
+function aligned(fA, fB){
+  const pos = fA.map(k => fB.indexOf(k));
+  const shared = pos.filter(j => j >= 0).length;
+  return {pos, shared};
+}
+function alignedSim(za, zb, pos, scale){
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < pos.length; i++){
+    const j = pos[i]; if (j < 0) continue;
+    const k = scale ? scale[i] * scale[i] : 1, a = za[i] ?? 0, b = zb[j] ?? 0;
+    dot += a * b * k; na += a * a * k; nb += b * b * k;
+  }
+  return na > 0 && nb > 0 ? Math.max(0, Math.min(100, dot / Math.sqrt(na * nb) * 100)) : 0;
+}
+const MIN_SHARED = 0.6;
+function rankedAll(){
+  const A = ALL[sourceOf(dsKey)], s = P[subject];
+  if (!A || !s || !G[s.g] || !s.z.length) return [];
+  const spec = G[s.g], scale = weightScale(s.g), cur = A.seasons.indexOf(M.season);
+  const maps = A.seasons.map(season => {
+    const sp = (A.groups[season] || {})[s.g];
+    if (!sp) return null;
+    const a = aligned(spec.f, sp.f);
+    return a.shared >= Math.max(3, Math.ceil(spec.f.length * MIN_SHARED)) ? a : null;
+  });
+  const out = [];
+  for (const r of A.players){            // [id, n, t, l, si, g, a, m, v, z, h, ft, fl]
+    if (r[5] !== s.g || !maps[r[4]]) continue;
+    if (r[0] === s.id && (r[4] === cur || !showOwn)) continue;
+    const o = {id: r[0], n: r[1], t: r[2], l: r[3], a: r[6], m: r[7], v: r[8], h: r[10], ft: r[11], fl: r[12]};
+    if (!passes(o, true)) continue;
+    out.push({r, o, si: r[4], sim: alignedSim(s.z, r[9], maps[r[4]].pos, scale),
+              shared: maps[r[4]].shared});
+  }
+  return out.sort((x, y) => y.sim - x.sim);
+}
+
+// The player the subject is being compared with: this season's, or another's.
+function matchRef(){
+  if (xm && CACHE[xm.key]){
+    const d = CACHE[xm.key], p = d.players[xm.i];
+    if (p) return {p, meta: d.meta, players: d.players, spec: d.meta.groups[p.g], key: xm.key, other: true};
+  }
+  if (match != null && P[match]) return {p: P[match], meta: M, players: P, spec: G[P[match].g], key: dsKey, other: false};
+  return null;
+}
+function compareSim(a, ref){
+  const spec = G[a.g];
+  if (!spec || !ref.spec || a.g !== ref.p.g || !a.z.length || !ref.p.z.length) return null;
+  const al = aligned(spec.f, ref.spec.f);
+  if (al.shared < Math.max(3, Math.ceil(spec.f.length * MIN_SHARED))) return null;
+  return {sim: alignedSim(a.z, ref.p.z, al.pos, weightScale(a.g)), al};
+}
+async function setCrossMatch(key, id){
+  if (key === dsKey){ xm = null; match = byId.has(id) ? byId.get(id) : null; drawMatches(); drawRadar(); drawCompare(); writeHash(); return; }
+  status("Loading " + seasonLabel(seasonOf(key)) + "…");
+  try {
+    const d = await getDataset(key);
+    const i = d.players.findIndex(p => p.id === id);
+    status("");
+    if (i < 0) return;
+    xm = {key, i}; match = null;
+    drawMatches(); drawRadar(); drawCompare(); writeHash();
+    $("compare-panel").scrollIntoView({block: "nearest", behavior: "smooth"});
+  } catch (e) { status("Could not load that season (" + e.message + ").", true); }
+}
+const seasonTag = key => `<span class="ssn mono">${esc(seasonLabel(seasonOf(key)))}</span>`;
 
 // ---- subject ---------------------------------------------------------------
 function findByName(name){
@@ -539,7 +731,7 @@ function selectSubject(i, {keepMatch = false, matchName = null} = {}){
   document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b.dataset.sort === "gap"));
   $("q").value = ""; $("picker").hidden = true;
   if (!keepMatch){
-    match = null;
+    match = null; xm = null;
     const m = matchName ? findByName(matchName) : -1;
     if (m >= 0 && m !== subject) match = m;
     else { const first = ranked()[0]; if (first) match = first[0]; }
@@ -552,6 +744,17 @@ function selectSubject(i, {keepMatch = false, matchName = null} = {}){
 }
 
 const badge = (txt, cls = "") => txt ? `<span class="badge ${cls}">${esc(txt)}</span>` : "";
+// Transfermarkt's value as this season closed, his latest one if it has moved
+// since, and the fantasy game's price where the source has one - each labelled,
+// because they are three different things.
+function priceBadges(p){
+  const month = d => d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", {month: "short", year: "numeric", timeZone: "UTC"}) : "";
+  const out = [];
+  if (p.v != null) out.push(badge(eur(p.v) + (M.inProgress ? " now" : " as the season closed"), "key"));
+  if (p.lv != null && p.lv !== p.v) out.push(badge("Now " + eur(p.lv) + " · " + month(p.ld), "key"));
+  if (p.pr != null) out.push(badge("£" + p.pr.toFixed(1) + "m FPL price"));
+  return out.join("");
+}
 function drawSubject(){
   const p = P[subject];
   const others = (p.os || []);
@@ -563,7 +766,7 @@ function drawSubject(){
       ${badge(p.a != null ? "Age " + p.a.toFixed(1) : "")}${badge(p.h ? p.h + " cm" : "")}
       ${badge(p.ft ? p.ft[0].toUpperCase() + p.ft.slice(1) + "-footed" : "")}
       ${badge(p.fs ? p.fs + " on the " + (p.fl || "").toLowerCase() : "")}
-      ${p.v != null ? badge(eur(p.v), "key") : p.pr != null ? badge("£" + p.pr.toFixed(1) + "m FPL price") : ""}
+      ${priceBadges(p)}
       ${badge(p.m.toLocaleString() + " min")}
     </div>
     ${others.length ? `<div class="seasons-line"><span class="eyebrow">Also in</span>${others.map(s =>
@@ -579,7 +782,20 @@ function repeatOf(spec, key){
   const j = spec.f.indexOf(key);
   return j >= 0 && spec.rr ? spec.rr[j] : null;
 }
+function drawRating(){
+  const p = P[subject], r = ratingParts(p);
+  if (!r){ $("rating").innerHTML = ""; return; }
+  $("rating").innerHTML = `<div class="rt-score"><span class="eyebrow">Rating</span>
+      <b class="mono">${Math.round(r.score)}</b><span class="muted">/ 100</span></div>
+    <div class="rt-parts">${r.parts.sort((x, y) => y.add - x.add).map(x =>
+      `<span class="rt-part" title="${esc(x.c)}: ${x.v == null ? "not recorded for him - counted as 50" : x.v + "th percentile"} × ${Math.round(x.share * 100)}% weight">
+        <span class="rt-c">${esc(x.c)}</span><span class="mono">${x.v == null ? "50*" : Math.round(x.v)} × ${Math.round(x.share * 100)}%</span></span>`).join("")}</div>
+    <p class="fnote rt-note">His category percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s,
+      weighted by the position's defaults - the full app's role fit. It ranks him inside this pool and season; it does
+      not adjust for league strength.${r.parts.some(x => x.v == null) ? " * not recorded for him, counted as average." : ""}</p>`;
+}
 function drawSW(){
+  drawRating();
   const p = P[subject], spec = G[p.g], panel = $("sw-panel");
   const club = new Set(M.club || []);
   // His position's model metrics, as in the full app: the metrics chosen to describe the
@@ -635,15 +851,18 @@ function drawRadar(){
   if (!spec){ $("radar").innerHTML = `<div class="empty">No model for ${esc(gname(p.g).toLowerCase())}s this season.</div>`;
     $("radar-legend").innerHTML = ""; $("radar-note").textContent = ""; $("peer-note").textContent = ""; return; }
   const series = [{vals: p.cv, color: "var(--accent)"}];
-  const o = match != null ? P[match] : null;
-  const same = o && o.g === p.g;
-  if (same) series.push({vals: o.cv, color: "var(--second)", dash: true});
+  const ref = matchRef(), o = ref ? ref.p : null;
+  const same = o && o.g === p.g && ref.spec;
+  // Another season's categories are matched by name, not by position.
+  if (same) series.push({vals: spec.c.map(c => { const j = ref.spec.c.indexOf(c); return j < 0 ? null : o.cv[j]; }),
+                         color: "var(--second)", dash: true});
   $("radar").innerHTML = radar(spec.c, series);
-  $("radar-legend").innerHTML = `<span><i style="background:var(--accent)"></i>${esc(p.n)}</span>` +
-    (same ? `<span><i style="background:var(--second)"></i>${esc(o.n)}</span>` : "");
+  $("radar-legend").innerHTML = `<span><i style="background:var(--accent)"></i>${esc(p.n)}${ref && ref.other ? " " + seasonTag(dsKey) : ""}</span>` +
+    (same ? `<span><i style="background:var(--second)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
   $("peer-note").textContent = (M.counts[p.g] || 0) + " peers";
   $("radar-note").textContent = `Each spoke is the mean percentile of a basket of per-90 metrics, against `
-    + `${gname(p.g).toLowerCase()}s this season. Similarity is computed on ${spec.f.length} individual metrics, not on these averages.`;
+    + `${gname(p.g).toLowerCase()}s ${ref && ref.other ? "in each player's own season" : "this season"}. `
+    + `Similarity is computed on ${spec.f.length} individual metrics, not on these averages.`;
 }
 
 // ---- weights ---------------------------------------------------------------
@@ -683,6 +902,8 @@ function drawWeights(){
 // ---- matches ---------------------------------------------------------------
 function drawMatches(){
   const s = P[subject];
+  $("own-wrap").hidden = scope !== "all";
+  document.querySelectorAll("#scope button").forEach(b => b.classList.toggle("on", b.dataset.scope === scope));
   if (!G[s.g] || !s.z.length){
     $("hits").textContent = "";
     $("matches").innerHTML = `<div class="empty">${esc(gname(s.g))}s have no model this season, so there is
@@ -692,44 +913,70 @@ function drawMatches(){
   const has = M.has || {};
   document.querySelector('#listsort [data-sort="val"]').hidden = !(has.value || has.price);
   document.querySelector('#listsort [data-sort="age"]').hidden = !has.age;
+  const priced = has.value || has.price;
+  const meta = o => `<span class="meta mono">${o.a != null ? o.a.toFixed(1) : "—"}${priced ? "<br>" + worth(o) : ""}</span>`;
+  const bar = sc => `<span class="score"><span class="tr"><span class="fl" style="width:${sc}%"></span></span>
+        <span class="pc mono">${sc.toFixed(1)}%</span></span>`;
+  if (scope === "all"){
+    const A = ALL[sourceOf(dsKey)];
+    if (!A){ $("hits").textContent = ""; $("matches").innerHTML = `<div class="empty">Loading every season…</div>`;
+      getAll(sourceOf(dsKey)).then(() => { if (scope === "all") drawMatches(); })
+        .catch(e => { $("matches").innerHTML = `<div class="empty">Could not load every season (${esc(e.message)}).</div>`; });
+      return; }
+    const rows = sortedMatches(rankedAll().map(x => [x, x.sim]));
+    $("hits").textContent = `${rows.length.toLocaleString()} player-seasons, ${A.seasons.length} seasons`;
+    if (!rows.length){ $("matches").innerHTML = `<div class="empty">Nobody clears those filters in any season.</div>`; return; }
+    const curKey = xm ? xm.key : null, curId = xm ? CACHE[xm.key].players[xm.i].id : null;
+    $("matches").innerHTML = rows.slice(0, listLimit).map(([x, sc], n) => {
+      const key = sourceOf(dsKey) + ":" + A.seasons[x.si], o = x.o;
+      const here = key === dsKey;
+      const on = here ? (match != null && P[match].id === o.id) : (curKey === key && curId === o.id);
+      return `<button type="button" class="row" data-xm="${esc(key)}|${esc(o.id)}" aria-current="${on}">
+        <span class="rk mono">${n+1}</span>
+        <span><span class="nm">${esc(o.n)}</span> ${seasonTag(key)}<span class="mt">${esc(o.t)} · ${esc(o.l)}${
+          x.shared < G[P[subject].g].f.length ? ` · ${x.shared} shared metrics` : ""}</span></span>
+        ${meta(o)}${bar(sc)}</button>`;
+    }).join("") + (rows.length > listLimit
+      ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
+    return;
+  }
   const rows = sortedMatches(ranked());
   $("hits").textContent = rows.length.toLocaleString() + " candidates";
   if (!rows.length){ $("matches").innerHTML = `<div class="empty">No ${esc(gname(s.g).toLowerCase())} clears those filters. Loosen one.</div>`; return; }
-  const top = rows.slice(0, listLimit), priced = has.value || has.price;
-  $("matches").innerHTML = top.map(([i, sc], n) => {
+  $("matches").innerHTML = rows.slice(0, listLimit).map(([i, sc], n) => {
     const o = P[i];
-    return `<button type="button" class="row" data-m="${i}" aria-current="${i === match}">
+    return `<button type="button" class="row" data-m="${i}" aria-current="${i === match && !xm}">
       <span class="rk mono">${n+1}</span>
       <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span></span>
-      <span class="meta mono">${o.a != null ? o.a.toFixed(1) : "—"}${priced ? "<br>" + worth(o) : ""}</span>
-      <span class="score"><span class="tr"><span class="fl" style="width:${sc}%"></span></span>
-        <span class="pc mono">${sc.toFixed(1)}%</span></span></button>`;
+      ${meta(o)}${bar(sc)}</button>`;
   }).join("") + (rows.length > listLimit
     ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
 }
 
 // ---- comparison ------------------------------------------------------------
-function cells(p){
-  const spec = G[p.g], out = {};
+function cells(p, spec = G[p.g]){
+  const out = {};
   if (spec) spec.d.forEach((key, i) => { out[key] = p.d[i] || [null, null]; });
   return out;
 }
 function drawCompare(){
-  const panel = $("compare-panel");
-  if (match == null){ panel.hidden = true; return; }
+  const panel = $("compare-panel"), ref = matchRef();
+  if (!ref){ panel.hidden = true; return; }
   panel.hidden = false;
-  const a = P[subject], b = P[match], spec = G[a.g];
-  const same = a.g === b.g && spec && a.z.length && b.z.length;
+  const a = P[subject], b = ref.p, spec = G[a.g];
+  const cmp = compareSim(a, ref), same = !!cmp;
   const scale = same ? weightScale(a.g) : null;
-  const sim = same ? pctSim(a.z, b.z, scale) : null;
-  $("compare-title").textContent = same ? `${a.n} vs ${b.n} — ${sim.toFixed(1)}% alike` : `${a.n} vs ${b.n}`;
-  $("star-match").innerHTML = starBtn(match);
+  const sim = same ? cmp.sim : null;
+  const tagA = ref.other ? " (" + seasonLabel(M.season) + ")" : "", tagB = ref.other ? " (" + seasonLabel(ref.meta.season) + ")" : "";
+  $("compare-title").textContent = `${a.n}${tagA} vs ${b.n}${tagB}` + (same ? ` — ${sim.toFixed(1)}% alike` : "");
+  $("star-match").innerHTML = ref.other ? starBtnFor(ref.key, b) : starBtn(match);
   const zgap = {};
   if (same) spec.f.forEach((key, i) => {
-    const raw = Math.abs((a.z[i] ?? 0) - (b.z[i] ?? 0)), k = scale ? scale[i] : 1;
+    const j = cmp.al.pos[i]; if (j < 0) return;
+    const raw = Math.abs((a.z[i] ?? 0) - (b.z[j] ?? 0)), k = scale ? scale[i] : 1;
     zgap[key] = {raw, w: raw * k, k: k * k};
   });
-  const ca = cells(a), cb = cells(b);
+  const ca = cells(a), cb = cells(b, ref.spec);
   let rows = [...new Set([...Object.keys(ca), ...Object.keys(cb)])].map(key => ({
     key, av: ca[key] ? ca[key][0] : null, ap: ca[key] ? ca[key][1] : null,
     bv: cb[key] ? cb[key][0] : null, bp: cb[key] ? cb[key][1] : null,
@@ -742,8 +989,9 @@ function drawCompare(){
   else rows.sort((x, y) => (x.gap ?? 99) - (y.gap ?? 99));
   const last = n => esc(n.split(" ").slice(-1)[0]);
   const cell = (v, p, key) => `<td class="num">${fmt(key, v)}</td><td class="pcell">${chip(p)}</td>`;
+  const sameGroupOtherSeasonTooThin = !same && a.g === b.g;
   $("compare").innerHTML = `<div class="tablewrap"><table>
-    <thead><tr><th>Metric</th><th class="num" colspan="2">${last(a.n)}</th><th class="num" colspan="2">${last(b.n)}</th><th>Gap</th></tr>
+    <thead><tr><th>Metric</th><th class="num" colspan="2">${last(a.n)}${esc(tagA)}</th><th class="num" colspan="2">${last(b.n)}${esc(tagB)}</th><th>Gap</th></tr>
     <tr class="subh"><th></th><th class="num">per 90</th><th>%ile</th><th class="num">per 90</th><th>%ile</th><th></th></tr></thead>
     <tbody>${rows.map(r => `<tr${r.modelled ? "" : ' class="off"'}>
       <td class="lb">${esc(label(r.key))}${r.modelled ? "" : '<span class="tag">context</span>'}</td>
@@ -754,10 +1002,14 @@ function drawCompare(){
             Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td></tr>`).join("")}</tbody></table></div>
     <p class="note" style="border-top:1px solid var(--line)">${same
       ? `Rows marked <span class="tag">context</span> are measured but are not part of this position's
-         similarity model. The ${spec.f.length} that are drive the ${sim.toFixed(1)}% above, and each gap
-         bar is drawn at the weight that metric carries in it - hover one for the raw gap.`
+         similarity model. The ${Object.keys(zgap).length} that are${ref.other ? " - the ones both seasons measured -" : ""}
+         drive the ${sim.toFixed(1)}% above, and each gap bar is drawn at the weight that metric carries in
+         it - hover one for the raw gap.${ref.other ? " Each percentile is against that player's own season, which is what makes two seasons comparable." : ""}`
+      : sameGroupOtherSeasonTooThin
+      ? `<b>No similarity here.</b> These two seasons share too few of the position's metrics to compare
+         them fairly, so only the columns are shown.`
       : `<b>No similarity here.</b> These two are in different position groups (${esc(gname(a.g))} and
-         ${esc(gname(b.g))}), and similarity is only defined inside one. Each percentile is still against his
+         ${esc((ref.meta.groupNames || {})[b.g] || b.g)}), and similarity is only defined inside one. Each percentile is still against his
          own peers, so the columns read side by side; the gap does not.`}
       Where a scout wants a metric <em>low</em> - errors, miscontrols, fouls - the percentile is already
       flipped, so a high number is always good.</p>`;
@@ -808,8 +1060,17 @@ function groupOptions(sel, current){
   return sel.value;
 }
 function metricOptions(group, chosen){
-  return (G[group] ? G[group].d : []).map(k => [k, label(k)]).sort((a, b) => a[1].localeCompare(b[1]))
-    .map(([k, l]) => `<option value="${k}"${k === chosen ? " selected" : ""}>${esc(l)}</option>`).join("");
+  const spec = G[group];
+  if (!spec) return "";
+  const opts = spec.d.map(k => [k, label(k)]).sort((a, b) => a[1].localeCompare(b[1]));
+  if (spec.rw) opts.unshift([RATING_KEY, "Overall rating"]);
+  return opts.map(([k, l]) => `<option value="${k}"${k === chosen ? " selected" : ""}>${esc(l)}</option>`).join("");
+}
+// [value, percentile] for any metric of a player, the rating included.
+function cellOf(o, key, spec = G[o.g]){
+  if (key === RATING_KEY){ const r = ratingOf(o); return r == null ? [null, null] : [r, Math.round(r)]; }
+  const j = spec ? spec.d.indexOf(key) : -1;
+  return j >= 0 && o.d[j] ? o.d[j] : [null, null];
 }
 function drawSearch(){
   searchGroup = groupOptions($("sgroup"), searchGroup);
@@ -827,14 +1088,14 @@ function drawSearch(){
 function searchRows(){
   const spec = G[searchGroup];
   if (!spec || !criteria.length) return [];
-  const slots = criteria.map(c => spec.d.indexOf(c.metric));
+  const slots = criteria.map(c => c.metric);
   const out = [];
   for (const i of (byGroup[searchGroup] || [])){
     const o = P[i];
     if (!passes(o, false)) continue;
     let ok = true, total = 0;
     const got = slots.map((slot, k) => {
-      const pct = slot >= 0 && o.d[slot] ? o.d[slot][1] : null;
+      const pct = cellOf(o, slot, spec)[1];
       if (pct == null || pct < criteria[k].min) ok = false;
       total += pct ?? 0; return pct;
     });
@@ -870,11 +1131,10 @@ function drawBoardControls(){
 function drawBoard(){
   const metric = $("bmetric").value, group = $("bgroup").value, spec = G[group];
   if (!spec || !metric){ $("board").innerHTML = ""; $("board-hits").textContent = ""; return; }
-  const slot = spec.d.indexOf(metric);
   const rows = [];
   for (const i of (byGroup[group] || [])){
-    const o = P[i], c = o.d[slot];
-    if (c && c[0] != null && passes(o, false)) rows.push([i, c[0], c[1]]);
+    const o = P[i], c = cellOf(o, metric, spec);
+    if (c[0] != null && passes(o, false)) rows.push([i, c[0], c[1]]);
   }
   const asc = $("bdir").value === "asc";
   rows.sort((a, b) => asc ? a[1] - b[1] : b[1] - a[1]);
@@ -915,7 +1175,8 @@ function drawExplore(){
   exGroup = groupOptions($("xgroup"), exGroup || (P[subject] ? P[subject].g : null));
   const spec = G[exGroup];
   if (!spec){ $("scatter").innerHTML = `<div class="empty">No position to plot this season.</div>`; return; }
-  if (!spec.d.includes(exX) || !spec.d.includes(exY)) [exX, exY] = exDefaults(exGroup);
+  const known = k => k === RATING_KEY ? !!spec.rw : spec.d.includes(k);
+  if (!known(exX) || !known(exY)) [exX, exY] = exDefaults(exGroup);
   $("xmetric").innerHTML = metricOptions(exGroup, exX);
   $("ymetric").innerHTML = metricOptions(exGroup, exY);
   document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b.dataset.scale === exScale));
@@ -945,8 +1206,8 @@ function drawScatter(){
   const box = $("scatter"), spec = G[exGroup];
   exPts = [];
   if (!spec) return;
-  const xi = spec.d.indexOf(exX), yi = spec.d.indexOf(exY), col = exScale === "p" ? 1 : 0;
-  const val = (o, j) => o.d[j] ? o.d[j][col] : null;
+  const xi = exX, yi = exY, col = exScale === "p" ? 1 : 0;
+  const val = (o, key) => cellOf(o, key, spec)[col];
   const all = [], shown = [];
   for (const i of (byGroup[exGroup] || [])){
     const o = P[i], x = val(o, xi), y = val(o, yi);
@@ -1022,7 +1283,7 @@ function drawScatter(){
 function drawExCard(){
   const o = exSel != null ? P[exSel] : null, spec = G[exGroup];
   if (!o || !spec || o.g !== exGroup){ $("ex-card").innerHTML = ""; return; }
-  const cell = key => o.d[spec.d.indexOf(key)] || [null, null];
+  const cell = key => cellOf(o, key, spec);
   const s = P[subject];
   const sim = s && s.g === o.g && exSel !== subject && s.z.length && o.z.length ? pctSim(s.z, o.z, weightScale(o.g)) : null;
   const priced = (M.has || {}).value || (M.has || {}).price;
@@ -1059,14 +1320,28 @@ function starBtn(i){
   return `<button type="button" class="mini star" data-star="${i}" aria-pressed="${on}"
     aria-label="${on ? "Remove " + esc(P[i].n) + " from" : "Add " + esc(P[i].n) + " to"} the shortlist">${on ? "★ Shortlisted" : "☆ Shortlist"}</button>`;
 }
-function toggleStar(i){
-  const p = P[i], at = slIndex(dsKey, p.id);
-  if (at >= 0) SL.splice(at, 1); else SL.push(entryOf(dsKey, p));
+// A player from another loaded season, starred by dataset key and id.
+function starBtnFor(key, p){
+  const on = slIndex(key, p.id) >= 0;
+  return `<button type="button" class="mini star" data-xstar="${esc(key)}|${esc(p.id)}" aria-pressed="${on}"
+    aria-label="${on ? "Remove " + esc(p.n) + " from" : "Add " + esc(p.n) + " to"} the shortlist">${on ? "★ Shortlisted" : "☆ Shortlist"}</button>`;
+}
+function toggleStarFor(key, p){
+  const at = slIndex(key, p.id);
+  if (at >= 0) SL.splice(at, 1); else SL.push(entryOf(key, p));
   saveSL();
+  refreshStars();
+}
+function toggleStar(i){ toggleStarFor(dsKey, P[i]); }
+function refreshStars(){
   document.querySelectorAll("[data-star]").forEach(b => {
     const q = P[+b.dataset.star];
     if (!q) return;                     // a hidden button left over from another season
     const on = slIndex(dsKey, q.id) >= 0;
+    b.setAttribute("aria-pressed", on); b.textContent = on ? "★ Shortlisted" : "☆ Shortlist";
+  });
+  document.querySelectorAll("[data-xstar]").forEach(b => {
+    const [key, id] = b.dataset.xstar.split("|"), on = slIndex(key, id) >= 0;
     b.setAttribute("aria-pressed", on); b.textContent = on ? "★ Shortlisted" : "☆ Shortlist";
   });
   if (mode === "explore") drawScatter();
@@ -1161,9 +1436,11 @@ function refilter(){
 
 function writeHash(){
   if (!P) return;
-  const p = P[subject], o = match != null ? P[match] : null;
+  const p = P[subject], ref = matchRef();
   const parts = ["d=" + encodeURIComponent(dsKey), "p=" + encodeURIComponent(p.n)];
-  if (o) parts.push("m=" + encodeURIComponent(o.n));
+  if (ref) parts.push("m=" + encodeURIComponent(ref.p.n));
+  if (ref && ref.other) parts.push("ms=" + encodeURIComponent(seasonOf(ref.key)));
+  if (scope === "all") parts.push("sc=all");
   if (mode !== "similar") parts.push("v=" + mode);
   if (!RW) parts.push("rw=0");
   if (mode === "explore" && exGroup) parts.push("ex=" + encodeURIComponent([exGroup, exX, exY, exScale].join("~")));
@@ -1217,15 +1494,43 @@ $("q").addEventListener("keydown", e => {
   if (e.key === "Enter"){ const first = $("picker").querySelector("[data-s]"); if (first) first.click(); }
   if (e.key === "Escape") $("picker").hidden = true;
 });
-$("q2").addEventListener("input", e => {
-  const q = e.target.value.trim().toLowerCase();
+function drawAbout(){
+  const rows = BUNDLE.catalog.map(c => {
+    const first = c.seasons[0].season, last = c.seasons[c.seasons.length - 1];
+    const total = c.seasons.reduce((t, x) => t + x.players, 0);
+    return `<tr><td><b>${esc(c.name)}</b><br><span class="muted">${esc(c.via)}</span></td>
+      <td class="mono">${seasonLabel(first)}&ndash;${seasonLabel(last.season)}${last.inProgress ? "*" : ""}</td>
+      <td class="num">${total.toLocaleString()}</td><td>${esc(c.updated || "")}</td></tr>`;
+  }).join("");
+  $("about-sources").innerHTML = `<div class="tablewrap"><table>
+      <thead><tr><th>Source</th><th>Seasons</th><th class="num">Player-seasons</th><th>Freshness</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <p class="fnote">* in progress. Player-seasons counts everyone past each season's minutes floor.</p>
+    ${BUNDLE.catalog.map(c => `<p class="fnote"><b>${esc(c.name)}:</b> ${esc(c.attribution || "")}</p>`).join("")}`;
+}
+function drawPicker2(){
+  const q = $("q2").value.trim().toLowerCase();
   if (q.length < 2){ $("picker2").hidden = true; return; }
-  const hits = pickerHits(q, subject, 30);
+  const hits = pickerHits(q, subject, 20), src = sourceOf(dsKey), A = ALL[src];
+  const here = hits.map(i => { const o = P[i];
+    return `<button type="button" class="prow" data-m2="${i}"><span class="nm">${esc(o.n)}</span> ${seasonTag(dsKey)}
+      <span class="mt">${esc(o.p)} · ${esc(o.t)}${o.g === P[subject].g ? "" : " · different position group"}</span></button>`; });
+  // Any other season of this source, once its index has loaded.
+  const there = [];
+  if (A) for (const r of A.players){
+    if (there.length >= 25) break;
+    const key = src + ":" + A.seasons[r[4]];
+    if (key === dsKey || !(r[1].toLowerCase().includes(q) || r[2].toLowerCase().includes(q))) continue;
+    there.push(`<button type="button" class="prow" data-xm="${esc(key)}|${esc(r[0])}"><span class="nm">${esc(r[1])}</span> ${seasonTag(key)}
+      <span class="mt">${esc(r[2])} · ${esc(r[3])}${r[5] === P[subject].g ? "" : " · different position group"}</span></button>`);
+  }
   $("picker2").hidden = false;
-  $("picker2").innerHTML = hits.length ? hits.map(i => { const o = P[i];
-    return `<button type="button" class="prow" data-m2="${i}"><span class="nm">${esc(o.n)}</span>
-      <span class="mt">${esc(o.p)} · ${esc(o.t)}${o.g === P[subject].g ? "" : " · different position group"}</span></button>`; }).join("")
-    : `<div class="empty">No player by that name this season.</div>`;
+  $("picker2").innerHTML = (here.join("") + there.join("")) || `<div class="empty">${A ? "Nobody by that name in any season." : "Searching every season…"}</div>`;
+}
+$("q2").addEventListener("input", () => {
+  drawPicker2();
+  const src = sourceOf(dsKey);
+  if (!ALL[src]) getAll(src).then(drawPicker2).catch(() => {});
 });
 
 // ---- events ------------------------------------------------------------------------
@@ -1266,11 +1571,19 @@ document.addEventListener("click", e => {
   if (pick){ const i = +pick.dataset.s;
     if (mode !== "similar") setMode("similar");
     selectSubject(i); window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  const xrow = t.closest("[data-xm]");
+  if (xrow){ const [key, id] = xrow.dataset.xm.split("|"); $("q2").value = ""; $("picker2").hidden = true;
+    setCrossMatch(key, id); return; }
+  const xstar = t.closest("[data-xstar]");
+  if (xstar){ const [key, id] = xstar.dataset.xstar.split("|"), d = CACHE[key], q = d && d.players.find(x => x.id === id);
+    if (q) toggleStarFor(key, q); return; }
+  const sc = t.closest("#scope [data-scope]");
+  if (sc){ scope = sc.dataset.scope; listLimit = 25; drawMatches(); writeHash(); return; }
   const m2 = t.closest("[data-m2]");
-  if (m2){ match = +m2.dataset.m2; $("q2").value = ""; $("picker2").hidden = true;
+  if (m2){ match = +m2.dataset.m2; xm = null; $("q2").value = ""; $("picker2").hidden = true;
     drawMatches(); drawRadar(); drawCompare(); writeHash(); return; }
   const m = t.closest("[data-m]");
-  if (m){ match = +m.dataset.m; drawMatches(); drawRadar(); drawCompare(); writeHash();
+  if (m){ match = +m.dataset.m; xm = null; drawMatches(); drawRadar(); drawCompare(); writeHash();
     $("compare-panel").scrollIntoView({block: "nearest", behavior: "smooth"}); return; }
   const ls = t.closest("#listsort [data-sort]");
   if (ls){ listSort = ls.dataset.sort; listLimit = 25;
@@ -1312,6 +1625,10 @@ $("weights").addEventListener("input", e => {
   $("w-state").textContent = weightState();
   drawMatches(); drawCompare();
 });
+$("own").addEventListener("change", e => { showOwn = e.target.checked; listLimit = 25; drawMatches(); });
+$("about-btn").addEventListener("click", () => { drawAbout(); $("about").showModal(); });
+$("about-close").addEventListener("click", () => $("about").close());
+$("about").addEventListener("click", e => { if (e.target === $("about")) $("about").close(); });
 $("rw").addEventListener("change", e => { RW = e.target.checked; drawWeights(); drawMatches(); drawCompare(); writeHash(); });
 $("wreset").addEventListener("click", () => { W = {}; drawWeights(); drawMatches(); drawCompare(); });
 
@@ -1337,9 +1654,12 @@ $("bgroup").addEventListener("change", () => { boardLimit = 25; drawBoardControl
 ["bmetric", "bdir"].forEach(id => $(id).addEventListener("change", () => { boardLimit = 25; drawBoard(); }));
 
 $("copycsv").addEventListener("click", e => {
-  const rows = sortedMatches(ranked()).slice(0, listLimit).map(([i, sc], n) => { const o = P[i];
-    return [n + 1, o.n, o.p, o.t, o.l, o.a ?? "", o.v ?? o.pr ?? "", o.m, sc.toFixed(1)]; });
-  copyText(csv([["rank","player","position","club","league","age","value","minutes","similarity_pct"], ...rows]),
+  const all = scope === "all" && ALL[sourceOf(dsKey)];
+  const list = all ? sortedMatches(rankedAll().map(x => [x, x.sim])) : sortedMatches(ranked());
+  const rows = list.slice(0, listLimit).map(([r, sc], n) => {
+    const o = all ? r.o : P[r], season = all ? ALL[sourceOf(dsKey)].seasons[r.si] : M.season;
+    return [n + 1, o.n, seasonLabel(season), o.p ?? "", o.t, o.l, o.a ?? "", o.v ?? o.pr ?? "", o.m, sc.toFixed(1)]; });
+  copyText(csv([["rank","player","season","position","club","league","age","value","minutes","similarity_pct"], ...rows]),
     e.target, `Copied ${rows.length} rows`);
 });
 $("rescsv").addEventListener("click", e => {
@@ -1418,8 +1738,18 @@ async function applyHash(asked){
   RW = asked.rw !== "0";
   if (asked.sl){ const items = parseShared(asked.sl); if (items.length){ SHARED = {items, resolved: null}; mode = "shortlist"; } }
   const key = asked.d && entryFor(asked.d) ? asked.d : (dsKey || BUNDLE.default);
-  await loadDataset(key, {name: asked.p, match: asked.m});
+  scope = asked.sc === "all" ? "all" : "season";
+  const otherSeason = asked.ms && asked.ms !== seasonOf(key) && entryFor(sourceOf(key) + ":" + asked.ms);
+  await loadDataset(key, {name: asked.p, match: otherSeason ? null : asked.m});
   if (!P){ await loadDataset(BUNDLE.default); }
+  if (otherSeason && asked.m){
+    // A comparison across seasons: load his season and find him by name there.
+    try {
+      const k2 = sourceOf(dsKey) + ":" + asked.ms, d = await getDataset(k2);
+      const i = d.players.findIndex(x => x.n.toLowerCase() === asked.m.toLowerCase());
+      if (i >= 0){ xm = {key: k2, i}; match = null; }
+    } catch {}
+  }
   if (asked.ex){ const [g, x, y, sc] = asked.ex.split("~");
     if (G[g]){ exGroup = g; exX = x; exY = y; exScale = sc === "p" ? "p" : "v"; } }
   setMode(mode);

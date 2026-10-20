@@ -1,7 +1,7 @@
 {
   "transfermarkt": {
     "source": "dcaribou/transfermarkt-datasets (CC0 1.0)",
-    "fetched_at": "2026-10-13T12:56:57.025879+00:00",
+    "fetched_at": "2026-10-20T10:24:43.436082+00:00",
     "players": 11107,
     "valuations": 244344,
     "latest_valuation": "2026-06-11",
@@ -22,8 +22,8 @@
     ]
   },
   "understat": {
-    "fetched_at": "2026-10-13",
-    "rows": 5788,
+    "fetched_at": "2026-10-20",
+    "rows": 5838,
     "by_league_season": {
       "EPL 2025": {
         "players": 537,
@@ -62,40 +62,40 @@
         "max_minutes": 2778
       },
       "EPL 2026": {
-        "players": 436,
+        "players": 449,
         "route": "getLeagueData",
-        "max_games": 6,
-        "max_minutes": 540
+        "max_games": 7,
+        "max_minutes": 630
       },
       "La_Liga 2026": {
-        "players": 470,
-        "route": "getLeagueData",
-        "max_games": 9,
-        "max_minutes": 810
-      },
-      "Bundesliga 2026": {
-        "players": 384,
-        "route": "getLeagueData",
-        "max_games": 5,
-        "max_minutes": 450
-      },
-      "Serie_A 2026": {
-        "players": 464,
-        "route": "getLeagueData",
-        "max_games": 6,
-        "max_minutes": 540
-      },
-      "Ligue_1 2026": {
-        "players": 411,
-        "route": "getLeagueData",
-        "max_games": 6,
-        "max_minutes": 540
-      },
-      "RFPL 2026": {
-        "players": 378,
+        "players": 475,
         "route": "getLeagueData",
         "max_games": 10,
         "max_minutes": 900
+      },
+      "Bundesliga 2026": {
+        "players": 394,
+        "route": "getLeagueData",
+        "max_games": 6,
+        "max_minutes": 540
+      },
+      "Serie_A 2026": {
+        "players": 474,
+        "route": "getLeagueData",
+        "max_games": 7,
+        "max_minutes": 630
+      },
+      "Ligue_1 2026": {
+        "players": 418,
+        "route": "getLeagueData",
+        "max_games": 7,
+        "max_minutes": 630
+      },
+      "RFPL 2026": {
+        "players": 383,
+        "route": "getLeagueData",
+        "max_games": 11,
+        "max_minutes": 990
       }
     }
   }

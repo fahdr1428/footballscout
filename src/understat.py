@@ -49,6 +49,7 @@ are finished from the data, so a new season needs no change here.
 
 from __future__ import annotations
 
+import html
 import time
 import urllib.error
 import urllib.request
@@ -327,7 +328,7 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
     frame["position"] = [m[1] for m in mapped]
     frame["position_source"] = [m[2] for m in mapped]
 
-    frame = frame.rename(columns=RENAMES)
+    frame = _unescape_names(frame.rename(columns=RENAMES))
     frame["season"] = frame["season"].map(season_label)
     frame["gender"] = "male"
     # Understat ids are stable across seasons, which is what the trajectory and
@@ -361,6 +362,14 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
         **matched,
     }
     return frame, coverage
+
+
+def _unescape_names(frame: pd.DataFrame) -> pd.DataFrame:
+    """Understat serves names HTML-escaped ("N&#039;Golo Kanté"); store them as written."""
+    for column in ("player", "team"):
+        if column in frame:
+            frame[column] = frame[column].map(lambda v: html.unescape(v) if isinstance(v, str) else v)
+    return frame
 
 
 def _collapse_transfers(frame: pd.DataFrame) -> pd.DataFrame:

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://whoplayslikehim.vercel.app/sitemap.xml

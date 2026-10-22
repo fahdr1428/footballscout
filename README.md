@@ -25,6 +25,8 @@ Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
 ### ▶ Live: **[whoplayslikehim.vercel.app](https://whoplayslikehim.vercel.app)**
 
+[![Who Plays Like Him: Lamine Yamal's 2025/26 profile, rating and closest matches](assets/screenshot-site.png)](https://whoplayslikehim.vercel.app)
+
 Public, free, no sign-in, works on a phone, and **kept current by a weekly refresh** (below).
 **31 seasons across three sources** — six leagues 2014/15 to the season being played, the big
 five in depth 2017/18–2024/25, the Premier League 2016/17–2025/26 — every player priced from
@@ -616,6 +618,36 @@ where nobody differs on output, gets no line at all rather than a fitted-looking
 
 ## Validation
 
+### Are the numbers right? The feeds checked against each other
+
+Understat, FBref, Transfermarkt and the Fantasy Premier League feed count the same matches
+independently, so the same player-season should carry the same goals and minutes in each.
+`scripts/cross_check.py` joins every pair on name, season and league — only names that appear once
+on both sides, both past 900 minutes, so the join never chooses between two people — and reports
+how often they agree:
+
+| Feeds | Player-seasons | Seasons | Same goals | Goals within one | Minutes within 5% | xG correlation |
+| --- | ---: | --- | ---: | ---: | ---: | ---: |
+| Understat vs FBref | 11,813 | 2017/18–2024/25 | 99.3% | 100.0% | 99.5% | 0.993 |
+| Understat vs Transfermarkt | 17,773 | 2014/15–2025/26 | 98.9% | 99.8% | 98.2% | — |
+| FBref vs Transfermarkt | 12,079 | 2017/18–2024/25 | 99.3% | 99.8% | 98.3% | — |
+| Understat vs FPL | 2,782 | 2016/17–2025/26 | 99.2% | 99.7% | 98.1% | — |
+| FBref vs FPL | 2,226 | 2017/18–2024/25 | 99.2% | 99.9% | 98.4% | — |
+
+Nearly every disagreement is a single goal. The xG column compares two *different models* —
+Understat's own and the one FBref publishes — and they still rank the same players almost
+identically. (The Premier League dataset takes its xG from Understat where it can, so its xG is
+not compared with Understat's: that would be a feed checked against itself.) Assists are deliberately not a check: Transfermarkt and the
+fantasy game define them their own way (the fantasy game credits winning a penalty, for one), so
+they match Understat only 64–80% of the time, against 97% between Understat and FBref.
+
+These run as tests (`tests/test_cross_check.py`) on every weekly refresh, so a broken scrape or a
+join gone wrong blocks publishing instead of reaching the site. Running the check also found a
+real defect, now fixed: Understat serves names HTML-escaped, so 195 player-seasons —
+N'Golo Kanté's among them — were showing as `N&#039;Golo Kanté`.
+
+### Do the models hold up?
+
 `scripts/validate_models.py` writes a report per dataset:
 [Premier League 2025/26](models/validation_report.md),
 [StatsBomb](models/validation_report_statsbomb.md),
@@ -751,8 +783,12 @@ scripts/
   fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
+  refresh_sources.py        Weekly: fetch the season being played (runs on GitHub Actions)
+  check_site.py             Weekly: refuse to publish a rebuild that lost data
+  cross_check.py            Count the same player-seasons in four feeds and compare them
+  check_parity.py           Compare the page's similarity numbers with the engine's, in a browser
 static/                     Templates, the exported page and data/ (one JSON per season)
-tests/                      144 tests covering the analytics layer and all five ETLs
+tests/                      181 tests: the analytics layer, every ETL, and the feeds against each other
 requirements.txt            Runtime dependencies (what a host installs)
 requirements-dev.txt        The above, plus pytest
 Dockerfile                  Self-contained image for hosts other than Streamlit Cloud
@@ -774,7 +810,9 @@ python scripts/fetch_statsbomb.py                            # rebuild the Stats
 python scripts/build_dataset.py                              # rebuild the simulated universe
 python scripts/validate_models.py --source premier_league --seasons 2025-26
 python scripts/fetch_transfermarkt.py --season 2025           # needs transfermarkt-api running
-python -m pytest tests/ -q                                   # 144 tests
+python scripts/cross_check.py                                # the feeds against each other
+python scripts/check_parity.py                               # the page against the engine
+python -m pytest tests/ -q                                   # 181 tests
 ```
 
 ---
@@ -821,7 +859,9 @@ default season, one file per season fetched only when chosen, and per source one
 all-seasons index for comparing across years. It is a working
 similarity engine rather than a snapshot of one: each player ships as the z-vector the model uses
 and each position as its repeatability weights, so the page computes `100 × cosine` in the browser
-— the same number the Streamlit app reports, to within 0.2 of a percentage point of rounding.
+— the same number the Streamlit app reports: over 1,200 player pairs checked in a real browser
+(`scripts/check_parity.py`), 0.07 of a point apart on average and never more than 0.4, with the
+page's top ten the engine's top ten for 99.7% of places.
 That means:
 
 - rank **every** other player in the position, not a precomputed top six, and **reweight** it by

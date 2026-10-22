@@ -99,6 +99,7 @@
           <input type="search" id="q" placeholder="Name or club &mdash; Rice, Atalanta&hellip;" autocomplete="off"
             aria-controls="picker">
           <div id="picker" class="picker" hidden></div>
+          <div class="quick" id="quick"></div>
         </div>
         <div id="subject-line"></div>
       </section>
@@ -284,6 +285,10 @@
   <div id="fold-note"></div>
   <div>A static extract of a larger Streamlit platform, which adds recruitment briefs, squad
   analysis, archetype maps and a model-validation suite.</div>
+  <div class="credit">Open source:
+  <a href="https://github.com/fahdr1428/footballscout" target="_blank" rel="noopener">github.com/fahdr1428/footballscout</a>
+  · Data: Understat, FBref, Transfermarkt (via the CC0 transfermarkt-datasets) and the Fantasy
+  Premier League API - see <a href="#" id="about-link">About &amp; data</a>.</div>
 </footer>
 </div>
 
@@ -321,6 +326,35 @@
       <li>The <em>Top leagues</em> source measures attacking output only - no defending.</li>
       <li>A season in progress is a few rounds of data: rates swing hard on small samples.</li>
       <li>Similar styles in different leagues are not equal standards; filter by league to compare like with like.</li>
+    </ul>
+    <h3>How the data is checked</h3>
+    <p>The feeds behind this page count the same matches independently, so the same player-season
+    should carry the same numbers in each. Joined on name, season and league - only names that
+    appear once on both sides, past 900 minutes in both:</p>
+    <div class="tablewrap"><table class="checks">
+      <thead><tr><th>Feeds compared</th><th class="num">Player-seasons</th><th class="num">Same goals</th>
+        <th class="num">Minutes within 5%</th></tr></thead>
+      <tbody>
+        <tr><td>Understat &amp; FBref</td><td class="num">11,813</td><td class="num">99.3%</td><td class="num">99.5%</td></tr>
+        <tr><td>Understat &amp; Transfermarkt</td><td class="num">17,773</td><td class="num">98.9%</td><td class="num">98.2%</td></tr>
+        <tr><td>FBref &amp; Transfermarkt</td><td class="num">12,079</td><td class="num">99.3%</td><td class="num">98.3%</td></tr>
+        <tr><td>Understat &amp; Fantasy Premier League</td><td class="num">2,782</td><td class="num">99.2%</td><td class="num">98.1%</td></tr>
+      </tbody></table></div>
+    <ul>
+      <li>Nearly every disagreement is a single goal. Two independent xG models - Understat's and the
+      one FBref publishes - correlate at 0.993 for the same players.</li>
+      <li>Assists are not used as a check: Transfermarkt and the fantasy game define them their own
+      way (the fantasy game credits winning a penalty, for one), so they match Understat's only
+      64-80% of the time, against 97% between Understat and FBref.</li>
+      <li>Transfermarkt's prices and ages are joined by name, club, season and minutes and cover
+      99.3% of the minutes played; a date of birth implying an impossible age withdraws the match
+      instead of keeping it.</li>
+      <li>Similarity is computed in your browser from the same vectors and weights as the Python
+      engine, and reproduces its numbers: across 1,200 pairs checked in a browser, 0.07 of a point apart on
+      average and never more than 0.4. Reproduce with <code>python scripts/check_parity.py</code>.</li>
+      <li>Every weekly refresh runs the test suite and these checks, and refuses to publish if a
+      finished season lost players. Reproduce the table with
+      <code>python scripts/cross_check.py</code>.</li>
     </ul>
     <h3>Keeping it current</h3>
     <p>A scheduled job on GitHub re-fetches Understat's season tables and the Transfermarkt dataset
@@ -406,6 +440,7 @@ async function loadDataset(key, opts = {}){
   let s = -1;
   if (keepId && byId.has(keepId)) s = byId.get(keepId);
   if (s < 0 && keepName) s = findByName(keepName);
+  if (s < 0) s = findByName("Lamine Yamal");
   if (s < 0) s = findByName("Declan Rice");
   if (s < 0) s = defaultSubject();
   selectSubject(s, {keepMatch: false, matchName: opts.match});
@@ -726,6 +761,18 @@ function defaultSubject(){
   const pool = (byGroup[biggest] || []).slice().sort((a, b) => P[b].m - P[a].m);
   return pool.length ? pool[0] : 0;
 }
+// A few names a first-time visitor will know, offered only where this season has them.
+const QUICK = ["Lamine Yamal", "Virgil van Dijk", "Jude Bellingham", "Erling Haaland", "Pedri",
+  "Kylian Mbappé", "Kylian Mbappe-Lottin", "Lionel Messi", "Cristiano Ronaldo", "Kevin De Bruyne", "Mohamed Salah",
+  "N'Golo Kanté", "Harry Kane", "Bukayo Saka", "Florian Wirtz", "Declan Rice"];
+const plain = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+function drawQuick(){
+  const at = new Map(P.map((p, i) => [plain(p.n), i]));
+  const hits = QUICK.map(n => at.get(plain(n)))
+    .filter(i => i != null && i !== subject && G[P[i].g]).slice(0, 5);
+  $("quick").innerHTML = hits.length ? `<span class="lbl">Try</span>` + hits.map(i =>
+    `<button type="button" class="chip-btn" data-quick="${i}">${esc(P[i].n)}</button>`).join("") : "";
+}
 function selectSubject(i, {keepMatch = false, matchName = null} = {}){
   subject = i; sortMode = "gap"; listLimit = 25;
   document.querySelectorAll("#sortseg button").forEach(b => b.classList.toggle("on", b.dataset.sort === "gap"));
@@ -740,6 +787,7 @@ function selectSubject(i, {keepMatch = false, matchName = null} = {}){
   if (G[P[subject].g] && P[subject].g !== exGroup){ exGroup = P[subject].g; exX = exY = null; }
   exSel = null;
   careerOpen = false; $("career-panel").hidden = true;
+  drawQuick();
   drawAll();
 }
 
@@ -1480,6 +1528,10 @@ function pickerHits(q, skip, limit){
   }
   return hits;
 }
+$("quick").addEventListener("click", e => {
+  const b = e.target.closest("[data-quick]");
+  if (b) selectSubject(+b.dataset.quick);
+});
 $("q").addEventListener("input", e => {
   const q = e.target.value.trim().toLowerCase();
   if (q.length < 2){ $("picker").hidden = true; return; }
@@ -1627,6 +1679,7 @@ $("weights").addEventListener("input", e => {
 });
 $("own").addEventListener("change", e => { showOwn = e.target.checked; listLimit = 25; drawMatches(); });
 $("about-btn").addEventListener("click", () => { drawAbout(); $("about").showModal(); });
+$("about-link").addEventListener("click", e => { e.preventDefault(); drawAbout(); $("about").showModal(); });
 $("about-close").addEventListener("click", () => $("about").close());
 $("about").addEventListener("click", e => { if (e.target === $("about")) $("about").close(); });
 $("rw").addEventListener("change", e => { RW = e.target.checked; drawWeights(); drawMatches(); drawCompare(); writeHash(); });

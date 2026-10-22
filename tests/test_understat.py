@@ -14,7 +14,7 @@ import pytest
 
 from src.understat import (
     FIRST_SEASON, LAST_SEASON, LEAGUES, PARTIAL_SEASONS, POSITIONS,
-    _collapse_transfers, _position, season_label,
+    _collapse_transfers, _position, _unescape_names, season_label,
 )
 
 
@@ -93,6 +93,14 @@ def _two_club_season():
         {"player_id": "2", "season": "2024-25", "team": "Empoli", "player": "Stayer",
          "minutes": 2400.0, "goals": 9.0, "xg": 8.0},
     ])
+
+
+def test_names_are_stored_as_written_not_as_understat_escapes_them():
+    frame = pd.DataFrame({"player": ["N&#039;Golo Kanté", "M&#039;Baye Niang", "Pedri"],
+                          "team": ["Chelsea", "Brighton &amp; Hove Albion", None]})
+    out = _unescape_names(frame)
+    assert out["player"].tolist() == ["N'Golo Kanté", "M'Baye Niang", "Pedri"]
+    assert out["team"].tolist()[:2] == ["Chelsea", "Brighton & Hove Albion"]
 
 
 def test_a_mid_season_move_becomes_one_row_with_the_totals_added():

@@ -5,3 +5,6 @@ pytest>=8.0,<10
 
 # Rebuilding the big-five FBref dataset reads R .rds files.
 pyreadr>=0.5,<1
+
+# The browser checks of the built site (scripts/check_ui.py, check_parity.py).
+playwright>=1.40,<2

@@ -1,7 +1,8 @@
 # Keep the public site current. Every week this fetches the seasons the GitHub
 # mirrors stopped short of from the primary sources (understat.com, and the
 # CC0 Transfermarkt dataset), rebuilds the six-league dataset, runs the tests,
-# rebuilds the site, checks nothing was lost, and commits - which redeploys it.
+# rebuilds the site, checks nothing was lost and that the page works in a real
+# browser, and commits - which redeploys it.
 # Runs on GitHub's runners because they can reach those hosts; see
 # scripts/refresh_sources.py. Disable it from the Actions tab at any time.
 name: Refresh data
@@ -32,7 +33,9 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -r requirements-dev.txt
+        run: |
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
 
       - name: Fetch Understat and Transfermarkt
         run: python scripts/refresh_sources.py --out data/raw
@@ -51,6 +54,9 @@ jobs:
 
       - name: Check nothing was lost
         run: python scripts/check_site.py
+
+      - name: Check the site in a browser
+        run: python scripts/check_ui.py
 
       - name: Commit and publish
         run: |

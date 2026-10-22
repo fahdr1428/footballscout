@@ -103,8 +103,14 @@ POSITION_PARENT = {"SS": "AM", "WM": "W"}
 FLANKS = {
     "LB": "Left", "LW": "Left", "LM": "Left",
     "RB": "Right", "RW": "Right", "RM": "Right",
+    # Transfermarkt's own names, which the six-league source carries.
+    "Left-Back": "Left", "Left Winger": "Left", "Left Midfield": "Left",
+    "Right-Back": "Right", "Right Winger": "Right", "Right Midfield": "Right",
 }
 DEFAULT_FLANK = "Central"
+# A row known only by its bucket has no known side: leaving it out of a side
+# filter is honest, calling it central is not.
+UNKNOWN_FLANK_POSITIONS = {"DEF", "MID", "FWD"}
 
 # Groups where being on the "wrong" foot for your flank is a real distinction:
 # a right-footed left winger cuts inside, a left-footed one goes outside.

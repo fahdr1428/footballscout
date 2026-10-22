@@ -21,7 +21,7 @@ import pandas as pd
 
 from .config import (
     COUNTING_STATS, DATA_SOURCES, DEFAULT_FLANK, DEFAULT_SOURCE, FLANKS, POSITION_TO_GROUP,
-    RAW_DIR, RAW_PLAYERS_CSV, TRANSFERMARKT_MARKET_CSV, WIDE_GROUPS,
+    RAW_DIR, RAW_PLAYERS_CSV, TRANSFERMARKT_MARKET_CSV, UNKNOWN_FLANK_POSITIONS, WIDE_GROUPS,
 )
 
 MAX_MINUTES = 38 * 90  # a full domestic league season
@@ -477,11 +477,15 @@ def add_flank(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     df["flank"] = df["position"].map(FLANKS).fillna(DEFAULT_FLANK)
+    df.loc[df["position"].isin(UNKNOWN_FLANK_POSITIONS), "flank"] = None
 
     if "foot" not in df.columns or df["foot"].isna().all():
         return df
     foot = df["foot"].astype(str).str.strip().str.lower()
-    wide = df["position_group"].isin(WIDE_GROUPS) if "position_group" in df.columns else False
+    # A wide group, or a wide position inside a four-bucket source's DEF/MID/FWD.
+    wide = df["flank"].isin(["Left", "Right"])
+    if "position_group" in df.columns:
+        wide |= df["position_group"].isin(WIDE_GROUPS)
     opposite = ((df["flank"].eq("Left") & foot.eq("right"))
                 | (df["flank"].eq("Right") & foot.eq("left")))
     same = ((df["flank"].eq("Left") & foot.eq("left"))

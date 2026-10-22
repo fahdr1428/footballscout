@@ -1,0 +1,42 @@
+# Every push and pull request: the test suite, the four-feed cross-check, and
+# the built site opened in a real browser (scripts/check_ui.py), so a change
+# that breaks the page is caught before it reaches main and Vercel.
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Test
+        run: python -m pytest -q
+
+      - name: Cross-check the feeds
+        run: python scripts/cross_check.py >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the site in a browser
+        run: python scripts/check_ui.py

@@ -535,6 +535,23 @@ def test_inverted_is_a_wide_player_on_the_opposite_foot():
     assert pd.isna(out["footed_side"].iloc[3]) or out["footed_side"].iloc[3] is None
 
 
+def test_transfermarkt_position_names_have_a_side_too():
+    # The six-league source carries Transfermarkt's names, not codes; before
+    # this every one of its players read as central.
+    from src.data_processing import add_flank
+
+    out = add_flank(pd.DataFrame({
+        "position": ["Right Winger", "Left-Back", "Centre-Back", "Right Midfield", "FWD"],
+        "position_group": ["FWD", "DEF", "DEF", "MID", "FWD"],
+        "foot": ["left", "left", "left", "right", "left"],
+    }))
+    assert list(out["flank"][:4]) == ["Right", "Left", "Central", "Right"]
+    # A row known only by its bucket has no known side.
+    assert pd.isna(out["flank"].iloc[4])
+    # Wide inside a bucket is still wide: a left-footed right winger is inverted.
+    assert [None if pd.isna(x) else x for x in out["footed_side"][:4]] == ["Inverted", "Natural", None, "Natural"]
+
+
 def test_flank_survives_a_source_with_no_footedness():
     from src.data_processing import add_flank
 

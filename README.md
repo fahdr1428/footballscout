@@ -25,30 +25,50 @@ Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
 ### ▶ Live: **[whoplayslikehim.vercel.app](https://whoplayslikehim.vercel.app)**
 
+[![CI](https://github.com/fahdr1428/footballscout/actions/workflows/ci.yml/badge.svg)](https://github.com/fahdr1428/footballscout/actions/workflows/ci.yml)
+[![Weekly data refresh](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml/badge.svg)](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml)
+
 [![Who Plays Like Him: Lamine Yamal's 2025/26 profile, rating and closest matches](assets/screenshot-site.png)](https://whoplayslikehim.vercel.app)
 
 Public, free, no sign-in, works on a phone, and **kept current by a weekly refresh** (below).
 **31 seasons across three sources** — six leagues 2014/15 to the season being played, the big
 five in depth 2017/18–2024/25, the Premier League 2016/17–2025/26 — every player priced from
-Transfermarkt. Five tools on one page:
+Transfermarkt. Search any player from the top of the page (accents optional, every season of
+the source), and six tools open up:
 
-- **Similar players** — pick anyone and every other player in his position is ranked by how closely
-  his profile matches, **reweighted by the categories you care about**, with his **rating**, where
-  he stands out and falls short, a side-by-side radar and a metric-by-metric account of why.
-  Search **this season or every season**, so a 2025/26 winger can be matched against 2017/18's,
-  and compare any two player-seasons; follow him through **every season he played**.
-- **Profile search** — describe the player you want as percentile conditions ("at least the 80th
+- **Similar players** — every other player in his position ranked by how closely his profile
+  matches, **reweighted by the categories you care about**, with his **rating**, where he stands
+  out and falls short, a side-by-side radar and a metric-by-metric account of why — opening with
+  **a sentence saying what the two share and where they differ most**. **Like him, for less** picks
+  out the closest matches at half his price or less and three or more years younger. Search
+  **this season or every season**, so a 2025/26 winger can be matched against 2017/18's; follow
+  him through **every season he played**; turn any of it into a **share card** (a 1200×630 image
+  drawn in the browser).
+- **Find a profile** — describe the player you want as percentile conditions ("at least the 80th
   for progressive passes, the 70th for tackles") and get everyone who meets them all.
-- **Leaderboard** — rank a position on any metric.
-- **Explorer** — plot a position on any two metrics, with the player you are looking at, his
-  closest matches and your shortlist picked out; tap a dot for his numbers.
+- **Rankings** — rank a position on any metric, his rating, market value, age or **value for
+  money**: his rating minus the rating his price predicts, from a least-squares fit of rating on
+  log price across the position, with the fit and its r² printed beside it.
+- **Charts** — plot a position on any two metrics, rating against price on a log scale with that
+  fitted line drawn, and the player you are looking at, his closest matches and your shortlist
+  picked out.
+- **Clubs** — any club's players in the pool, back to front, with ratings, prices, value for money
+  and the squad's combined value and minutes-weighted age.
 - **Shortlist** — star players from any source and season, add notes, copy it as CSV or share it
   as a link. It lives in your browser; nothing is sent anywhere.
+
+Jargon has a plain-English explanation on hover and a glossary under **About & data**, and every
+calculation has a "how is this worked out?" note one tap away rather than in the way.
 
 Every tool shares one set of filters: leagues, side, age range, market value, height, preferred
 foot, minutes. A filter only appears where the season actually has the data behind it, each
 season says what it does not measure, and **About & data** on the page lists every source, its
 licence and how fresh it is.
+
+**Every push is checked in a real browser**: CI runs the test suite, the four-feed cross-check
+and `scripts/check_ui.py`, which opens the built site in Chromium, loads all 31 seasons, uses every
+tool, draws a share card and checks phones 360–414px wide never scroll sideways. The weekly
+refresh runs the same check and will not publish a page that fails it.
 
 **The rating** is the full app's role fit, shown working: the player's category percentiles
 against his position, weighted by that position's defaults (a centre-back's defending counts
@@ -486,6 +506,13 @@ It is only set for wide groups, because a left-footed centre-back is not "invert
 dataset 72% of left wingers are right-footed against 41% of right wingers being left-footed —
 which is what you would expect, given how much more common right-footers are.
 
+The six-league source carries Transfermarkt's own position names ("Right Winger", "Left-Back")
+rather than codes, and until a fix in this release none of them mapped to a side, so every one
+of its players read as central and the side filter did nothing there. They now map the same way
+(2025/26: 264 right, 256 left), wide players inside its DEF/MID/FWD buckets get inverted or
+natural too, and a row known only by its bucket has no side at all rather than a guessed
+"central" - leaving it out of a side filter is honest, including it is not.
+
 ### Position-specific models — not one model for every footballer
 
 There is **no single model comparing every player to every other player.** Each of the eight
@@ -787,8 +814,9 @@ scripts/
   check_site.py             Weekly: refuse to publish a rebuild that lost data
   cross_check.py            Count the same player-seasons in four feeds and compare them
   check_parity.py           Compare the page's similarity numbers with the engine's, in a browser
+  check_ui.py               Open the built site in Chromium and use every part of it
 static/                     Templates, the exported page and data/ (one JSON per season)
-tests/                      181 tests: the analytics layer, every ETL, and the feeds against each other
+tests/                      182 tests: the analytics layer, every ETL, and the feeds against each other
 requirements.txt            Runtime dependencies (what a host installs)
 requirements-dev.txt        The above, plus pytest
 Dockerfile                  Self-contained image for hosts other than Streamlit Cloud
@@ -812,7 +840,8 @@ python scripts/validate_models.py --source premier_league --seasons 2025-26
 python scripts/fetch_transfermarkt.py --season 2025           # needs transfermarkt-api running
 python scripts/cross_check.py                                # the feeds against each other
 python scripts/check_parity.py                               # the page against the engine
-python -m pytest tests/ -q                                   # 181 tests
+python scripts/check_ui.py                                   # the page, used in a real browser
+python -m pytest tests/ -q                                   # 182 tests
 ```
 
 ---

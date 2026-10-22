@@ -28,9 +28,7 @@ jobs:
           cache: pip
 
       - name: Install
-        run: |
-          pip install -r requirements-dev.txt
-          python -m playwright install --with-deps chromium
+        run: pip install -r requirements-dev.txt
 
       - name: Test
         run: python -m pytest -q
@@ -39,4 +37,5 @@ jobs:
         run: python scripts/cross_check.py >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check the site in a browser
-        run: python scripts/check_ui.py
+        # GitHub's runners ship Google Chrome, so no browser download is needed.
+        run: python scripts/check_ui.py --channel chrome

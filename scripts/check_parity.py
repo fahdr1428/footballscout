@@ -51,12 +51,14 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--chromium", help="path to a Chromium executable, if Playwright has none")
+    parser.add_argument("--channel", help="use an installed browser instead, e.g. 'chrome' on GitHub's runners")
     args = parser.parse_args()
 
     url = serve(SITE_DIR)
     gaps, shared, compared = [], 0, 0
     with sync_playwright() as p:
-        browser = p.chromium.launch(**({"executable_path": args.chromium} if args.chromium else {}))
+        browser = p.chromium.launch(**({"executable_path": args.chromium} if args.chromium
+                                      else {"channel": args.channel} if args.channel else {}))
         page = browser.new_page()
         for source, season in CASES:
             features, report, used = build_features(source)

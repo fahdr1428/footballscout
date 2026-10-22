@@ -15,7 +15,7 @@ serves `static/`, then in Chromium:
 - fails on any script error or any request that does not load.
 
     pip install playwright && python -m playwright install chromium
-    python scripts/export_static.py && python scripts/check_ui.py
+    python scripts/export_static.py && python scripts/check_ui.py   # or --channel chrome
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--chromium", help="path to a Chromium executable, if Playwright has none")
+    parser.add_argument("--channel", help="use an installed browser instead, e.g. 'chrome' on GitHub's runners")
     parser.add_argument("--url", help="check a deployed site instead of the local build")
     args = parser.parse_args()
     url = args.url or serve(SITE)
@@ -51,7 +52,8 @@ def main() -> int:
             problems.append(what)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(**({"executable_path": args.chromium} if args.chromium else {}))
+        browser = p.chromium.launch(**({"executable_path": args.chromium} if args.chromium
+                                      else {"channel": args.channel} if args.channel else {}))
         page = browser.new_page(viewport={"width": 1400, "height": 1000})
         errors: list[str] = []
         failed: list[str] = []

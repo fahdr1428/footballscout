@@ -70,6 +70,14 @@ and `scripts/check_ui.py`, which opens the built site in Chromium, loads all 31 
 tool, draws a share card and checks phones 360–414px wide never scroll sideways. The weekly
 refresh runs the same check and will not publish a page that fails it.
 
+**Colour carries meaning, and is checked rather than eyeballed.** Percentiles run blue (top of the
+position) to red (bottom) around a grey middle; age is one blue ramp, light for young and dark for
+old; value for money uses the same blue-red scale either side of the price line. The three chart
+series - the player, his closest matches, the shortlist - are hues validated together for
+colour-blind readers (worst pair ΔE 9.2 in the light theme and 9.4 in the dark, OKLab, simulated
+protanopia and deuteranopia), every text colour clears WCAG AA contrast in both themes, and a number
+is printed beside every colour so colour never carries a value alone.
+
 **The rating** is the full app's role fit, shown working: the player's category percentiles
 against his position, weighted by that position's defaults (a centre-back's defending counts
 30%, a forward's finishing 35%), with the breakdown beside the number. A category the source does

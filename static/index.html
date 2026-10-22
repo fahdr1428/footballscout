@@ -12,47 +12,68 @@
 <meta property="og:title" content="Who Plays Like Him - find players with the same statistical profile">
 <meta property="og:description" content="Big five leagues plus Russia, 2014/15 to the season in progress. Similar players, a transparent rating, Transfermarkt prices and the arithmetic behind every number.">
 <meta property="og:url" content="https://whoplayslikehim.vercel.app/">
-<meta property="og:image" content="https://whoplayslikehim.vercel.app/og.png?v=2">
+<meta property="og:image" content="https://whoplayslikehim.vercel.app/og.png?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Who Plays Like Him: Lamine Yamal's closest statistical profiles in 2025/26 - Kvaratskhelia 98.6%, Doué 96.2%, Rashford 95.7%, Raphinha 95.0%">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Who Plays Like Him">
 <meta name="twitter:description" content="Find players with the same statistical profile - Europe's top leagues, current season, real prices, every number explained.">
-<meta name="twitter:image" content="https://whoplayslikehim.vercel.app/og.png?v=2">
+<meta name="twitter:image" content="https://whoplayslikehim.vercel.app/og.png?v=3">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%2312456B'/%3E%3Cpath d='M16 6l4 3-1.5 5h-5L12 9z M9 14l4 1 1 5-3 3-4-2z M23 14l2 7-4 2-3-3 1-5z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 :root{
-  --ground:#EEF1F0; --surface:#FFFFFF; --raised:#F7F9F8; --sunken:#E6EBE9;
-  --ink:#101816; --ink-2:#3C4A46; --muted:#627570; --line:#D8E0DD; --line-2:#C3CFCB;
-  --accent:#12456B; --accent-soft:#E4EDF4; --on-accent:#FFFFFF;
-  --second:#B4540F; --second-soft:#FBEDE1;
-  --s5:#1B7F4B; --s4:#4E8F3F; --s3:#8A8A5E; --s2:#B26A00; --s1:#B3261E;
-  --shadow:0 1px 2px rgba(16,24,22,.06),0 8px 24px rgba(16,24,22,.07);
-  --r:10px;
+  --ground:#F3F5F2; --surface:#FFFFFF; --raised:#F7F8F6; --sunken:#ECEEEA;
+  --ink:#0F1714; --ink-2:#3E4A45; --muted:#5F6C67; --line:#E1E6E2; --line-2:#C9D1CC;
+  --accent:#1C5CAB; --accent-soft:#E3EEFB; --on-accent:#FFFFFF;
+  --second:#B5461A; --second-soft:#FDEBE3;
+  /* chart marks: the three series validated together (dataviz palette, all-pairs) */
+  --mark-1:#2A78D6; --mark-2:#EB6834; --mark-3:#1BAF7A;
+  /* percentile bands: blue (good) to red (poor) around a grey midpoint - marks and chips */
+  --s5:#1C5CAB; --s4:#6DA7EC; --s3:#B9B8B1; --s2:#EE9A87; --s1:#C2392F;
+  --c5b:#1C5CAB; --c5f:#FFFFFF; --c4b:#D3E4F8; --c4f:#0D366B; --c3b:#ECEBE7; --c3f:#4A4945;
+  --c2b:#F8DCD5; --c2f:#8A2A1E; --c1b:#C2392F; --c1f:#FFFFFF;
+  /* age, ordinal (young light to old dark); value for money, diverging */
+  --q1:#86B6EF; --q2:#5598E7; --q3:#2A78D6; --q4:#1C5CAB; --q5:#0D366B;
+  --v1:#C2392F; --v2:#EE9A87; --v3:#B9B8B1; --v4:#86B6EF; --v5:#1C5CAB;
+  --shadow:0 1px 2px rgba(16,24,22,.05),0 8px 24px rgba(16,24,22,.07);
+  --panel-shadow:0 1px 2px rgba(16,24,22,.04);
+  --r:12px;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --ground:#0C1211; --surface:#131C1A; --raised:#18231F; --sunken:#0F1716;
-  --ink:#E9EFEC; --ink-2:#BCC9C4; --muted:#8CA09A; --line:#243330; --line-2:#33443F;
-  --accent:#69B4DC; --accent-soft:#15303F; --on-accent:#08161D;
-  --second:#F0A15E; --second-soft:#3A2614;
-  --s5:#4FC98A; --s4:#8CC96B; --s3:#B9B57E; --s2:#E0913A; --s1:#E4685C;
+  --ground:#0A110F; --surface:#121A18; --raised:#17211E; --sunken:#0E1513;
+  --ink:#EDF2EF; --ink-2:#C0CBC6; --muted:#8E9E98; --line:#233130; --line-2:#33433F;
+  --accent:#6DA7EC; --accent-soft:#12263D; --on-accent:#08131F;
+  --second:#F08A5D; --second-soft:#3A1F12;
+  --mark-1:#3987E5; --mark-2:#D95926; --mark-3:#199E70;
+  --s5:#6DA7EC; --s4:#2F6FBF; --s3:#5C5B55; --s2:#A04A40; --s1:#E66767;
+  --c5b:#1C5CAB; --c5f:#FFFFFF; --c4b:#173356; --c4f:#B7D3F6; --c3b:#2B302E; --c3f:#C3C2B7;
+  --c2b:#4A211B; --c2f:#F5B3A8; --c1b:#B23229; --c1f:#FFFFFF;
+  --q1:#184F95; --q2:#256ABF; --q3:#3987E5; --q4:#6DA7EC; --q5:#9EC5F4;
+  --v1:#E66767; --v2:#A04A40; --v3:#57564F; --v4:#256ABF; --v5:#6DA7EC;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  --panel-shadow:none;
   color-scheme:dark;
 }
-:root:not([data-theme="light"]) .avatar{background:hsl(var(--h) 30% 21%);color:hsl(var(--h) 60% 82%)}}
+:root:not([data-theme="light"]) .avatar{background:hsl(var(--h) 32% 20%);color:hsl(var(--h) 70% 82%)}}
 :root[data-theme="dark"]{
-  --ground:#0C1211; --surface:#131C1A; --raised:#18231F; --sunken:#0F1716;
-  --ink:#E9EFEC; --ink-2:#BCC9C4; --muted:#8CA09A; --line:#243330; --line-2:#33443F;
-  --accent:#69B4DC; --accent-soft:#15303F; --on-accent:#08161D;
-  --second:#F0A15E; --second-soft:#3A2614;
-  --s5:#4FC98A; --s4:#8CC96B; --s3:#B9B57E; --s2:#E0913A; --s1:#E4685C;
+  --ground:#0A110F; --surface:#121A18; --raised:#17211E; --sunken:#0E1513;
+  --ink:#EDF2EF; --ink-2:#C0CBC6; --muted:#8E9E98; --line:#233130; --line-2:#33433F;
+  --accent:#6DA7EC; --accent-soft:#12263D; --on-accent:#08131F;
+  --second:#F08A5D; --second-soft:#3A1F12;
+  --mark-1:#3987E5; --mark-2:#D95926; --mark-3:#199E70;
+  --s5:#6DA7EC; --s4:#2F6FBF; --s3:#5C5B55; --s2:#A04A40; --s1:#E66767;
+  --c5b:#1C5CAB; --c5f:#FFFFFF; --c4b:#173356; --c4f:#B7D3F6; --c3b:#2B302E; --c3f:#C3C2B7;
+  --c2b:#4A211B; --c2f:#F5B3A8; --c1b:#B23229; --c1f:#FFFFFF;
+  --q1:#184F95; --q2:#256ABF; --q3:#3987E5; --q4:#6DA7EC; --q5:#9EC5F4;
+  --v1:#E66767; --v2:#A04A40; --v3:#57564F; --v4:#256ABF; --v5:#6DA7EC;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  --panel-shadow:none;
   color-scheme:dark;
 }
-:root[data-theme="dark"] .avatar{background:hsl(var(--h) 30% 21%);color:hsl(var(--h) 60% 82%)}
+:root[data-theme="dark"] .avatar{background:hsl(var(--h) 32% 20%);color:hsl(var(--h) 70% 82%)}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
@@ -75,36 +96,49 @@ button{font:inherit;color:inherit}
 .muted{color:var(--muted)}
 
 /* ---- hero ------------------------------------------------------------ */
-.hero{padding-bottom:18px;margin-bottom:16px;border-bottom:2px solid var(--ink)}
-.hero-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px}
-.brand{display:inline-flex;align-items:center;gap:8px;font-family:"Saira Condensed","Arial Narrow",sans-serif;
-  font-weight:700;font-size:20px;letter-spacing:.01em}
-.mark{width:28px;height:28px;fill:none;stroke:var(--accent);stroke-width:2.4}
-.mark circle:last-child{stroke:var(--second)}
+/* A floodlit pitch: mown stripes and faint markings over a green-to-night gradient.
+   It is the same in light and dark, so its text colours are fixed rather than themed. */
+.hero{position:relative;border-radius:20px;padding:20px 28px 28px;margin-bottom:16px;color:#F2F7F4;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 390' fill='none' stroke='white' stroke-opacity='.13' stroke-width='2'%3E%3Crect x='3' y='3' width='594' height='384' rx='4'/%3E%3Cline x1='300' y1='3' x2='300' y2='387'/%3E%3Ccircle cx='300' cy='195' r='66'/%3E%3Ccircle cx='300' cy='195' r='3' fill='white' fill-opacity='.25'/%3E%3Crect x='3' y='92' width='92' height='206'/%3E%3Crect x='3' y='150' width='34' height='90'/%3E%3Crect x='505' y='92' width='92' height='206'/%3E%3Crect x='563' y='150' width='34' height='90'/%3E%3Cpath d='M95 160a46 46 0 0 1 0 70'/%3E%3Cpath d='M505 160a46 46 0 0 0 0 70'/%3E%3C/svg%3E") right -70px center / 640px auto no-repeat,
+    repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 64px,rgba(255,255,255,0) 64px 128px),
+    linear-gradient(135deg,#0B2E23 0%,#0F3B2D 46%,#0C2A44 100%);
+  box-shadow:0 12px 32px rgba(8,30,24,.18)}
+.hero-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}
+.brand{display:inline-flex;align-items:center;gap:9px;font-family:"Saira Condensed","Arial Narrow",sans-serif;
+  font-weight:700;font-size:21px;letter-spacing:.01em;color:#fff}
+.mark{width:30px;height:30px;fill:none;stroke-width:2.6}
+.mark circle:first-child{stroke:#6DA7EC}
+.mark circle:last-child{stroke:#F08A5D}
 .head-btns{display:flex;gap:8px}
+.hero .icon-btn{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.24);color:#E6F0EB}
+.hero .icon-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.5);color:#fff}
 .hero-main{max-width:780px}
-.hero h1{font-size:clamp(32px,5.6vw,54px);line-height:1;letter-spacing:-.01em}
-.sub{color:var(--ink-2);max-width:62ch;margin:10px 0 16px;font-size:16px;line-height:1.55}
+.hero h1{font-size:clamp(32px,5.6vw,56px);line-height:1;letter-spacing:-.01em;color:#fff}
+.sub{color:#CFE0D8;max-width:60ch;margin:12px 0 18px;font-size:16px;line-height:1.55}
 .hero-search{position:relative}
-.hero-search input[type=search]{padding:14px 16px 14px 46px;font-size:17px;border-radius:12px;
-  border:2px solid var(--line-2);background:var(--surface);box-shadow:var(--shadow)}
-.hero-search input[type=search]:focus{border-color:var(--accent);outline:none}
-.search-ico{position:absolute;left:15px;top:16px;width:20px;height:20px;fill:none;stroke:var(--muted);
+.hero-search input[type=search]{padding:15px 16px 15px 48px;font-size:17px;border-radius:14px;
+  border:2px solid transparent;background:var(--surface);color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.hero-search input[type=search]:focus{border-color:#6DA7EC;outline:none}
+.search-ico{position:absolute;left:16px;top:17px;width:20px;height:20px;fill:none;stroke:var(--muted);
   stroke-width:2;stroke-linecap:round;pointer-events:none}
-.hero .quick{margin-top:10px}
-.hero-facts{margin:12px 0 0;font-size:13px;color:var(--muted)}
+.hero .quick{margin-top:12px}
+.hero .quick .lbl{color:#A9C2B8}
+.hero .quick .chip-btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.24);color:#F2F7F4}
+.hero .quick .chip-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.55)}
+.hero-facts{margin:14px 0 0;font-size:13px;color:#A9C2B8}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .facts{display:flex;gap:18px;flex-wrap:wrap;justify-content:flex-end}
 .fact{min-width:64px}
 .fact b{display:block;font-family:"IBM Plex Mono",monospace;font-size:21px;font-weight:600;
   line-height:1.15;font-variant-numeric:tabular-nums}
 .fact span{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-@media (max-width:760px){.hero-top{margin-bottom:14px}#theme-l{display:none}.sub{font-size:15px}
-  .fact b{font-size:18px}}
+@media (max-width:760px){.hero{padding:16px 16px 20px;border-radius:16px;
+    background-size:420px auto,auto,auto;background-position:right -150px top 40px,0 0,0 0}
+  .hero-top{margin-bottom:16px}#theme-l{display:none}.sub{font-size:15px}.fact b{font-size:18px}}
 
 .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:28px;align-items:center}
-.hero-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;
-  box-shadow:var(--shadow)}
+.hero-card{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;
+  box-shadow:0 14px 36px rgba(0,0,0,.28)}
 .hc-q{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .hc-name{font-family:"Saira Condensed",sans-serif;font-weight:700;font-size:30px;line-height:1.05;margin-top:2px}
 .hc-meta{font-size:13px;color:var(--muted);margin-bottom:8px}
@@ -135,7 +169,7 @@ button{font:inherit;color:inherit}
 .icon-btn:hover{border-color:var(--accent);color:var(--accent)}
 
 /* ---- panels ---------------------------------------------------------- */
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--panel-shadow)}
 .panel-h{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;
   justify-content:space-between;align-items:center;gap:8px 12px}
 .panel-b{padding:14px}
@@ -184,6 +218,7 @@ button{font:inherit;color:inherit}
 .ti{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;
   stroke-linejoin:round;flex:none}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs button[aria-selected="true"] .ti{stroke:var(--accent)}
 .tabs button:hover{color:var(--ink)}
 /* After the base rules, or they win on equal specificity. */
 @media (max-width:620px){.tabs button{padding:8px 9px 9px;font-size:14px;flex:1 1 auto}}
@@ -247,12 +282,31 @@ details.how[open] > summary::before{content:"\2212"}
 details.how .note{padding-top:0}
 .pct-key{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 14px;
   border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
-.pct-key i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.pct-key .chip{min-width:0;padding:1px 6px;font-size:11px}
 .term{text-decoration:underline dotted var(--muted);text-underline-offset:3px;cursor:help}
 .gloss{display:grid;grid-template-columns:minmax(0,200px) minmax(0,1fr);gap:6px 14px;margin:6px 0}
 .gloss dt{font-weight:600}
 .gloss dd{margin:0;color:var(--ink-2)}
 @media (max-width:620px){.gloss{grid-template-columns:minmax(0,1fr)}.gloss dd{margin-bottom:6px}}
+.ring.b5 .rf{stroke:var(--s5)}.ring.b4 .rf{stroke:var(--s4)}.ring.b3 .rf{stroke:var(--s3)}
+.ring.b2 .rf{stroke:var(--s2)}.ring.b1 .rf{stroke:var(--s1)}
+.clubt tr.grp td{box-shadow:inset 4px 0 0 hsl(var(--h) 62% 46%)}
+.scatter.colored .dot{fill-opacity:.88;stroke:var(--surface);stroke-width:.8}
+.scatter.colored .dot.subj{stroke:var(--ink);stroke-width:3}
+.scatter.colored .dot.close{stroke:var(--mark-2);stroke-width:2.6}
+.scatter.colored .dot.star{stroke:var(--mark-3);stroke-width:2.6}
+.legend i.ring-key{background:none;border:2.5px solid;border-radius:50%}
+.trend-wrap{padding:10px 14px 0}
+.trend-wrap svg{width:100%;height:auto;display:block}
+.trend-wrap .cg{stroke:var(--line);stroke-width:1}
+.trend-wrap .tk{font:11px "IBM Plex Mono",monospace;fill:var(--muted)}
+.trend-wrap .cline{fill:none;stroke:var(--mark-1);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.trend-wrap .cd{fill:var(--mark-1);stroke:var(--surface);stroke-width:2}
+.trend-wrap .cd.here{fill:var(--mark-2)}
+.trend-wrap .cl{font:600 12px "IBM Plex Mono",monospace;fill:var(--ink)}
+.hero-top .brand{white-space:nowrap}
+@media (max-width:600px){.hide-sm{display:none}.brand{font-size:19px}.mark{width:26px;height:26px}
+  .hero-top{flex-wrap:nowrap}}
 .quick{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:4px}
 .quick .lbl{margin-right:2px}
 .quick .chip-btn{font-size:12px;padding:3px 9px}
@@ -333,7 +387,7 @@ details.how .note{padding-top:0}
 .row .meta{font-size:12px;color:var(--ink-2);text-align:right;line-height:1.35;white-space:nowrap}
 .score{display:grid;gap:3px;justify-items:end}
 .score .tr{width:108px;height:6px;border-radius:4px;background:var(--line);overflow:hidden}
-.score .fl{display:block;height:100%;background:var(--accent);border-radius:4px}
+.score .fl{display:block;height:100%;background:var(--mark-1);border-radius:4px}
 .score .pc{font-size:13px;font-weight:600;color:var(--accent)}
 .row.brd{grid-template-columns:26px minmax(0,1fr) auto 46px}
 .row.res{grid-template-columns:26px minmax(0,1fr) auto 56px}
@@ -374,12 +428,13 @@ td.num,th.num{text-align:right;font-family:"IBM Plex Mono",monospace;
 td.pcell{width:44px;padding-left:4px}
 .chip{display:inline-block;min-width:30px;text-align:center;font-family:"IBM Plex Mono",monospace;
   font-size:11.5px;font-weight:600;padding:1px 5px;border-radius:5px;border:1px solid currentColor}
-/* Percentile encoding: red through amber to green. Kept separate from the
-   accent hue, because this scale IS the data rather than decoration. */
-.c5{color:var(--s5)}.c4{color:var(--s4)}.c3{color:var(--s3)}.c2{color:var(--s2)}.c1{color:var(--s1)}
+/* Percentile bands, filled: blue for the top of a position, red for the bottom,
+   grey in the middle (a diverging scale, so the middle reads as "nothing to
+   see"). The number is always printed, so colour never carries it alone. */
+.chip.c5{background:var(--c5b);color:var(--c5f);border-color:transparent}.chip.c4{background:var(--c4b);color:var(--c4f);border-color:transparent}.chip.c3{background:var(--c3b);color:var(--c3f);border-color:transparent}.chip.c2{background:var(--c2b);color:var(--c2f);border-color:transparent}.chip.c1{background:var(--c1b);color:var(--c1f);border-color:transparent}
 td.gap{width:88px}
 .gbar{display:block;height:6px;border-radius:4px;background:var(--line);overflow:hidden}
-.gbar span{display:block;height:100%;background:var(--s2);border-radius:4px}
+.gbar span{display:block;height:100%;background:var(--ink-2);opacity:.55;border-radius:4px}
 .tag{display:inline-block;margin-left:7px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted);border:1px solid var(--line-2);border-radius:4px;padding:0 4px}
 .spark{display:inline-block;width:64px;height:8px;border-radius:4px;background:var(--line);
@@ -402,6 +457,8 @@ td.gap{width:88px}
 
 /* ---- explorer --------------------------------------------------------- */
 .excontrols{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));align-items:end}
+#xcolor{flex-wrap:nowrap}
+#xcolor button{padding:6px 9px}
 #xscale{justify-self:start}
 .scatter{padding:6px 8px 2px}
 .scatter svg{width:100%;height:auto;cursor:crosshair;user-select:none;-webkit-user-select:none}
@@ -409,15 +466,15 @@ td.gap{width:88px}
 .scatter .ax{font:600 12px "IBM Plex Sans",sans-serif;fill:var(--ink-2)}
 .scatter .med{stroke:var(--line-2);stroke-dasharray:4 4}
 .scatter .dot{fill:var(--muted);fill-opacity:.42;stroke:none}
-.scatter .dot.close{fill:var(--second);fill-opacity:.9}
-.scatter .dot.star{fill:var(--s5);fill-opacity:.95}
-.scatter .dot.subj{fill:var(--accent);fill-opacity:1;stroke:var(--surface);stroke-width:2}
+.scatter .dot.close{fill:var(--mark-2);fill-opacity:.95}
+.scatter .dot.star{fill:var(--mark-3);fill-opacity:.95}
+.scatter .dot.subj{fill:var(--mark-1);fill-opacity:1;stroke:var(--surface);stroke-width:2}
 .scatter .sel{fill:none;stroke:var(--ink);stroke-width:1.6}
 .scatter .lab{font:600 12px "IBM Plex Sans",sans-serif;fill:var(--ink-2);paint-order:stroke;
   stroke:var(--surface);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
-.scatter .lab.subj{fill:var(--accent)}
-.scatter .lab.close{fill:var(--second)}
-.scatter .lab.star{fill:var(--s5)}
+.scatter .lab.subj{fill:var(--ink)}
+.scatter .lab.close{fill:var(--ink-2)}
+.scatter .lab.star{fill:var(--ink-2)}
 .excard{margin:10px 14px 4px;padding:12px 14px;border:1px solid var(--line-2);border-radius:8px;
   background:var(--raised);display:grid;gap:9px}
 .excard .nm{font-family:"Saira Condensed",sans-serif;font-size:21px;font-weight:600;line-height:1.1}
@@ -487,7 +544,7 @@ svg{display:block;max-width:100%}
   <div class="hero-top">
     <span class="brand"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="12" cy="16" r="9"/><circle cx="20" cy="16" r="9"/></svg>Who Plays Like Him</span>
     <div class="head-btns">
-      <button class="icon-btn" id="about-btn" type="button" aria-haspopup="dialog">About &amp; data</button>
+      <button class="icon-btn" id="about-btn" type="button" aria-haspopup="dialog"><span>About<span class="hide-sm"> &amp; data</span></span></button>
       <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
         <span aria-hidden="true">&#9680;</span><span id="theme-l">Dark</span></button>
     </div>
@@ -646,10 +703,10 @@ svg{display:block;max-width:100%}
         <div class="panel-h"><h3>Where he stands out</h3><span class="eyebrow" id="sw-peers">&mdash;</span></div>
         <div class="rating" id="rating"></div>
         <div class="sw" id="sw"></div>
-        <div class="pct-key" aria-label="What the colours mean"><span class="eyebrow">Percentile</span>
-          <span><i style="background:var(--s5)"></i>top 20%</span><span><i style="background:var(--s4)"></i>60-80</span>
-          <span><i style="background:var(--s3)"></i>40-60</span><span><i style="background:var(--s2)"></i>20-40</span>
-          <span><i style="background:var(--s1)"></i>bottom 20%</span></div>
+        <div class="pct-key" aria-label="What the colours mean"><span class="eyebrow">Percentile colours</span>
+          <span class="chip c5">80-100</span><span class="chip c4">60-80</span><span class="chip c3">40-60</span>
+          <span class="chip c2">20-40</span><span class="chip c1">0-20</span>
+          <span class="muted">against his position this season</span></div>
         <details class="how"><summary>How to read this</summary>
         <p class="note">Each number is a percentile: 90 means better than 90% of players in his position this
         season. Where a scout wants a number low (errors, cards), it is already flipped, so higher is always
@@ -744,6 +801,11 @@ svg{display:block;max-width:100%}
             <div class="seg" id="xscale" role="group" aria-label="Axis scale">
               <button type="button" data-scale="v" class="on">Per 90</button>
               <button type="button" data-scale="p">Percentile</button></div></div>
+          <div class="field"><span class="lbl">Colour dots by</span>
+            <div class="seg" id="xcolor" role="group" aria-label="Colour the dots by">
+              <button type="button" data-color="hl" class="on">Highlights</button>
+              <button type="button" data-color="age">Age</button>
+              <button type="button" data-color="vfm">vs price</button></div></div>
           <div class="field" id="ex-vfm-wrap"><span class="lbl">Shortcut</span>
             <button class="mini" id="ex-vfm" type="button">Rating against price</button></div>
         </div>
@@ -927,7 +989,7 @@ let W = {};                  // category name -> weight multiplier
 let criteria = [];           // [{metric, min}]
 let searchGroup = null, careerOpen = false, searchCleared = false;
 let RW = true;               // count each metric by its season-to-season repeatability
-let exGroup = null, exX = null, exY = null, exScale = "v", exSel = null, exPts = [];
+let exGroup = null, exX = null, exY = null, exScale = "v", exSel = null, exPts = [], exColor = "hl";
 let SL = [], SHARED = null, slStored = true;   // the shortlist, and a shared one being viewed
 const MODES = ["similar", "search", "board", "explore", "clubs", "shortlist"];
 let clubLeague = null, clubName = null;
@@ -1385,14 +1447,15 @@ function priceBadges(p){
   if (p.pr != null) out.push(badge("£" + p.pr.toFixed(1) + "m FPL price"));
   return out.join("");
 }
-// A colour per position family, for the initials badge: keepers, defence,
-// midfield, attacking midfield, wide, centre-forward.
-const HUE = {GK: 42, CB: 152, FB: 152, DEF: 152, DM: 205, CM: 205, WM: 205, MID: 205, AM: 262, W: 18, SS: 350, FW: 350, FWD: 350};
+// A colour per position family - keepers amber, defence green, midfield blue,
+// attacking midfield violet, wide players magenta, strikers orange - on the
+// initials badge and the club table, so a position reads at a glance.
+const HUE = {GK: 42, CB: 160, FB: 160, DEF: 160, DM: 214, CM: 214, WM: 214, MID: 214, AM: 262, W: 330, SS: 16, FW: 16, FWD: 16};
 const initials = n => n.split(/[\s-]+/).filter(w => /^\p{L}/u.test(w)).map(w => w[0]).slice(0, 2).join("").toUpperCase();
 function drawSubject(){
   const p = P[subject];
   const others = (p.os || []), r = ratingOf(p);
-  const ring = r == null ? "" : `<div class="ring" title="Rating ${Math.round(r)} out of 100 - the breakdown is just below">
+  const ring = r == null ? "" : `<div class="ring b${band(r)}" title="Rating ${Math.round(r)} out of 100 - the breakdown is just below">
       <svg viewBox="0 0 48 48" aria-hidden="true"><circle class="rb" cx="24" cy="24" r="20"/>
         <circle class="rf" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="${Math.round(r)} 100"/></svg>
       <span class="rv mono">${Math.round(r)}</span><span class="rl">rating</span></div>`;
@@ -1523,15 +1586,15 @@ function drawRadar(){
   const p = P[subject], spec = G[p.g];
   if (!spec){ $("radar").innerHTML = `<div class="empty">No model for ${esc(gname(p.g).toLowerCase())}s this season.</div>`;
     $("radar-legend").innerHTML = ""; $("radar-note").textContent = ""; $("peer-note").textContent = ""; return; }
-  const series = [{vals: p.cv, color: "var(--accent)"}];
+  const series = [{vals: p.cv, color: "var(--mark-1)"}];
   const ref = matchRef(), o = ref ? ref.p : null;
   const same = o && o.g === p.g && ref.spec;
   // Another season's categories are matched by name, not by position.
   if (same) series.push({vals: spec.c.map(c => { const j = ref.spec.c.indexOf(c); return j < 0 ? null : o.cv[j]; }),
-                         color: "var(--second)", dash: true});
+                         color: "var(--mark-2)", dash: true});
   $("radar").innerHTML = radar(spec.c, series);
-  $("radar-legend").innerHTML = `<span><i style="background:var(--accent)"></i>${esc(p.n)}${ref && ref.other ? " " + seasonTag(dsKey) : ""}</span>` +
-    (same ? `<span><i style="background:var(--second)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
+  $("radar-legend").innerHTML = `<span><i style="background:var(--mark-1)"></i>${esc(p.n)}${ref && ref.other ? " " + seasonTag(dsKey) : ""}</span>` +
+    (same ? `<span><i style="background:var(--mark-2)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
   $("peer-note").textContent = (M.counts[p.g] || 0) + " peers";
   $("radar-note").textContent = `Each spoke is the mean percentile of a basket of per-90 metrics, against `
     + `${gname(p.g).toLowerCase()}s ${ref && ref.other ? "in each player's own season" : "this season"}. `
@@ -1784,20 +1847,40 @@ async function drawCareer(){
   const bar = v => v == null ? '<span class="muted">—</span>'
     : `<span class="spark"><span style="width:${v}%;background:var(--s${band(v)})"></span></span><span class="mono">${Math.round(v)}</span>`;
   const provider = src === "fbref_big5" && rows.some(r => r.season < "2022-23") && rows.some(r => r.season >= "2022-23");
-  $("career").innerHTML = `<div class="tablewrap"><table>
-    <thead><tr><th>Season</th><th>Club</th><th>Position</th><th class="num">Min</th><th class="num">Age</th>
+  rows.forEach(r => { if (r.q) r.rt = ratingOf(r.q, r.d.meta, r.d.players); });
+  const trend = careerTrend(rows.filter(r => r.q && r.rt != null));
+  $("career").innerHTML = trend + `<div class="tablewrap"><table>
+    <thead><tr><th>Season</th><th>Club</th><th>Position</th><th class="num">Min</th><th class="num">Age</th><th>Rating</th>
       ${cats.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>
     <tbody>${rows.map(r => r.err ? `<tr><td>${seasonLabel(r.season)}</td><td colspan="${4 + cats.length}" class="muted">could not load</td></tr>` : (() => {
       const spec = r.d.meta.groups[r.q.g] || {c: []};
       const val = c => { const i = spec.c.indexOf(c); return i < 0 ? null : r.q.cv[i]; };
       return `<tr class="${r.season === M.season ? "here" : ""}"><td class="mono">${seasonLabel(r.season)}</td>
         <td>${esc(r.q.t)}</td><td>${esc(r.q.p)}</td><td class="num">${r.q.m.toLocaleString()}</td>
-        <td class="num">${r.q.a != null ? r.q.a.toFixed(1) : "—"}</td>${cats.map(c => `<td style="white-space:nowrap">${bar(val(c))}</td>`).join("")}</tr>`;
+        <td class="num">${r.q.a != null ? r.q.a.toFixed(1) : "—"}</td><td>${r.rt != null ? chip(Math.round(r.rt)) : "—"}</td>${cats.map(c => `<td style="white-space:nowrap">${bar(val(c))}</td>`).join("")}</tr>`;
     })()).join("")}</tbody></table></div>
     <p class="note" style="border-top:1px solid var(--line)">Each cell is his category percentile against his
     position <em>that season</em>, so a move up or down is relative to that year's peers. A dash is a
     category that season did not measure.${provider ? " FBref changed data provider in 2022/23 and defines some "
     + "metrics differently either side of it, so read the two eras as separate runs." : ""}</p>`;
+}
+
+// His rating season by season as one line: each point is against that season's
+// position, so the line shows where he stood among his peers year to year.
+function careerTrend(pts){
+  if (pts.length < 2) return "";
+  const Wd = 640, Ht = 150, m = {l: 34, r: 16, t: 18, b: 28};
+  const sx = k => m.l + k / (pts.length - 1) * (Wd - m.l - m.r), sy = v => m.t + (100 - v) / 100 * (Ht - m.t - m.b);
+  const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(v)}" y2="${sy(v)}" class="cg"/>
+    <text x="${m.l - 6}" y="${sy(v) + 4}" text-anchor="end" class="tk">${v}</text>`).join("");
+  const line = pts.map((r, k) => `${k ? "L" : "M"}${sx(k).toFixed(1)} ${sy(r.rt).toFixed(1)}`).join(" ");
+  const best = pts.reduce((a, b) => (b.rt > a.rt ? b : a));
+  const dots = pts.map((r, k) => `<circle cx="${sx(k)}" cy="${sy(r.rt)}" r="${r.season === M.season ? 6 : 4.5}"
+      class="cd${r.season === M.season ? " here" : ""}"><title>${esc(seasonLabel(r.season))}: rated ${Math.round(r.rt)} at ${esc(r.q.t)}</title></circle>`
+    + `<text x="${sx(k)}" y="${Ht - 8}" text-anchor="middle" class="tk">${esc(seasonLabel(r.season).replace(/^20/, "").replace("/", "/"))}</text>`
+    + (r === best || r.season === M.season ? `<text x="${sx(k)}" y="${sy(r.rt) - 10}" text-anchor="middle" class="cl">${Math.round(r.rt)}</text>` : "")).join("");
+  return `<div class="trend-wrap"><svg viewBox="0 0 ${Wd} ${Ht}" role="img" aria-label="Rating by season">${grid}
+    <path d="${line}" class="cline"/>${dots}</svg></div>`;
 }
 
 // ---- profile search ----------------------------------------------------------
@@ -1949,6 +2032,9 @@ function drawExplore(){
   $("xmetric").innerHTML = metricOptions(exGroup, exX, extra);
   $("ymetric").innerHTML = metricOptions(exGroup, exY, extra);
   $("ex-vfm-wrap").hidden = !(has.value && spec.rw && vfmFit(exGroup));
+  document.querySelector('#xcolor [data-color="age"]').hidden = !has.age;
+  document.querySelector('#xcolor [data-color="vfm"]').hidden = !vfmFit(exGroup);
+  document.querySelectorAll("#xcolor button").forEach(b => b.classList.toggle("on", b.dataset.color === exColor));
   document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b.dataset.scale === exScale));
   drawScatter();
 }
@@ -2042,6 +2128,20 @@ function drawScatter(){
       <line x1="${ends[0][0]}" y1="${ends[0][1]}" x2="${ends[1][0]}" y2="${ends[1][1]}" class="trend" clip-path="url(#exclip)"/>`;
   }
 
+  // Optional colour: age on a one-hue ramp (lighter is younger), or value for
+  // money on a diverging one (blue above the price line, red below, grey near it).
+  const colorBy = exColor === "age" && (M.has || {}).age ? "age" : exColor === "vfm" && fit ? "vfm" : "hl";
+  const AGE_BINS = [[21, "under 21"], [24, "21-24"], [27, "24-27"], [30, "27-30"], [Infinity, "30+"]];
+  const VFM_BINS = [[-15, "−15 or less"], [-5, "−15 to −5"], [5, "within 5"], [15, "+5 to +15"], [Infinity, "+15 or more"]];
+  const bins = colorBy === "age" ? AGE_BINS : VFM_BINS, tok = colorBy === "age" ? "q" : "v";
+  const fillOf = i => {
+    if (colorBy === "hl") return "";
+    const v = colorBy === "age" ? P[i].a : cellOf(P[i], VFM_KEY)[0];
+    const k = v == null ? -1 : bins.findIndex(([hi]) => v < hi);
+    return k < 0 ? "" : ` style="fill:var(--${tok}${k + 1})"`;
+  };
+  box.classList.toggle("colored", colorBy !== "hl");
+
   // Who is highlighted: the subject, his closest matches, the shortlist, the selected dot.
   const s = P[subject], mine = s && s.g === exGroup;
   const close = new Set(mine ? ranked().slice(0, 8).map(r => r[0]) : []);
@@ -2050,23 +2150,50 @@ function drawScatter(){
   const tip = i => `${P[i].n} · ${P[i].t} — ${label(exX)} ${fmt(exX, raw(P[i], exX))}, ${label(exY)} ${fmt(exY, raw(P[i], exY))}`;
   const order = shown.slice().sort((a, b) => (kind(a[0]) ? 1 : 0) - (kind(b[0]) ? 1 : 0) || (a[0] === subject) - (b[0] === subject));
   let dots = "", labels = "";
+  // Labels are placed in priority order (him, the selected dot, the shortlist,
+  // his matches); one that would overlap a placed label tries the other side
+  // of its dot and is left off if both collide - the dot keeps its tooltip.
+  const placed = [], prio = i => i === subject ? 0 : i === exSel ? 1 : kind(i) === "star" ? 2 : 3;
+  const want = order.filter(([i]) => { const k = kind(i);
+    return k === "subj" || i === exSel || k === "star" || k === "close"; })
+    .sort((a, b) => prio(a[0]) - prio(b[0])).slice(0, 12);
+  const labelAt = new Map();
+  let closeShown = 0;
+  for (const [i, x, y] of want){
+    if (kind(i) === "close" && i !== exSel && closeShown >= 6) continue;
+    const cx = sx(x), cy = sy(y), text = lastName(P[i].n), w = text.length * 7.4 + 10;
+    const sides = cx > Wd - 110 ? ["end", "start"] : ["start", "end"];
+    for (const side of sides){
+      const x0 = side === "start" ? cx + 9 : cx - 9 - w, box = [x0, cy - 9, x0 + w, cy + 5];
+      if (x0 < m.l || x0 + w > Wd - 2) continue;
+      if (placed.some(b => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]))) continue;
+      placed.push(box); labelAt.set(i, side);
+      if (kind(i) === "close") closeShown++;
+      break;
+    }
+  }
   for (const [i, x, y] of order){
     const cx = sx(x), cy = sy(y), k = kind(i);
     exPts.push([i, cx, cy]);
     const r = k === "subj" ? 7 : k ? 5 : 3.4;
-    dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" class="dot ${k}"><title>${esc(tip(i))}</title></circle>`;
+    dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" class="dot ${k}"${fillOf(i)}><title>${esc(tip(i))}</title></circle>`;
     if (i === exSel) dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r + 4}" class="sel"/>`;
-    if (k === "subj" || i === exSel || k === "star" || (k === "close" && labels.split("<text").length < 7)){
-      const right = cx > Wd - 110;
-      labels += `<text x="${cx + (right ? -9 : 9)}" y="${cy + 4}" text-anchor="${right ? "end" : "start"}" class="lab ${k}">${esc(lastName(P[i].n))}</text>`;
+    if (labelAt.has(i)){
+      const left = labelAt.get(i) === "end";
+      labels += `<text x="${cx + (left ? -9 : 9)}" y="${cy + 4}" text-anchor="${left ? "end" : "start"}" class="lab ${k}">${esc(lastName(P[i].n))}</text>`;
     }
   }
   box.innerHTML = `<svg viewBox="0 0 ${Wd} ${Ht}" width="${Wd}" height="${Ht}" role="img"
     aria-label="${esc(label(exX))} against ${esc(label(exY))} for ${shown.length} ${esc(gname(exGroup).toLowerCase())}s">
     ${grid}${meds}${trend}${axes}<g>${dots}</g><g>${labels}</g></svg>`;
-  $("ex-legend").innerHTML = (mine ? `<span><i style="background:var(--accent)"></i>${esc(s.n)}</span>
-      <span><i style="background:var(--second)"></i>His closest matches</span>` : "")
-    + (starred.size ? `<span><i style="background:var(--s5)"></i>Shortlisted</span>` : "")
+  $("ex-legend").innerHTML = colorBy !== "hl"
+    ? `<span class="lbl">${colorBy === "age" ? "Age" : "Rating vs price"}</span>` + bins.map(([, name], k) =>
+        `<span><i style="background:var(--${tok}${k + 1})"></i>${name}</span>`).join("")
+      + (mine ? `<span><i class="ring-key" style="border-color:var(--ink)"></i>${esc(s.n)}</span>
+        <span><i class="ring-key" style="border-color:var(--mark-2)"></i>His closest matches</span>` : "")
+    : (mine ? `<span><i style="background:var(--mark-1)"></i>${esc(s.n)}</span>
+      <span><i style="background:var(--mark-2)"></i>His closest matches</span>` : "")
+    + (starred.size ? `<span><i style="background:var(--mark-3)"></i>Shortlisted</span>` : "")
     + `<span><i style="background:var(--muted);opacity:.5"></i>Everyone else</span>`
     + (trend ? `<span><i class="trend-key"></i>Rating his price predicts</span>` : "");
   const r = pearson(shown);
@@ -2076,6 +2203,8 @@ function drawScatter(){
     + (trend ? `The solid line is the rating each price predicts, fitted over all ${fit.n.toLocaleString()} priced ${esc(gname(exGroup).toLowerCase())}s
       (r² = ${fit.r2.toFixed(2)}): a dot above it rates higher than players at his price usually do. The Rankings tab's
       <b>Value for money</b> ranks that gap. ` : "")
+    + (colorBy === "age" ? "Colour is age: lighter is younger. " : colorBy === "vfm"
+      ? "Colour is value for money: blue rates above what his price predicts, red below, grey within five points. " : "")
     + `Click or tap a dot for his numbers.`;
   drawExCard();
 }
@@ -2137,7 +2266,7 @@ function drawClub(){
   const body = rows.map(x => {
     const o = x.o, head = by === "pos" && o.g !== lastGroup;
     lastGroup = o.g;
-    return (head ? `<tr class="grp"><td colspan="${priced ? 7 : 5}">${esc(gname(o.g))}s</td></tr>` : "") + `<tr>
+    return (head ? `<tr class="grp" style="--h:${HUE[o.g] ?? 214}"><td colspan="${priced ? 7 : 5}">${esc(gname(o.g))}s</td></tr>` : "") + `<tr>
       <td><button type="button" class="linkish" data-s="${x.i}">${esc(o.n)}</button><span class="mt">${esc(o.p)}</span></td>
       <td class="num">${o.a != null ? o.a.toFixed(1) : "—"}</td><td class="num">${o.m.toLocaleString()}</td>
       <td>${x.r != null ? chip(Math.round(x.r)) : '<span class="muted">no model</span>'}</td>
@@ -2304,7 +2433,7 @@ function writeHash(){
   if (scope === "all") parts.push("sc=all");
   if (mode !== "similar") parts.push("v=" + mode);
   if (!RW) parts.push("rw=0");
-  if (mode === "explore" && exGroup) parts.push("ex=" + encodeURIComponent([exGroup, exX, exY, exScale].join("~")));
+  if (mode === "explore" && exGroup) parts.push("ex=" + encodeURIComponent([exGroup, exX, exY, exScale, exColor].join("~")));
   if (mode === "clubs" && clubName) parts.push("c=" + encodeURIComponent(clubName));
   if (mode === "shortlist" && SHARED) parts.push("sl=" + encodeURIComponent(shareValue(SHARED.items)));
   history.replaceState(null, "", "#" + parts.join("&"));
@@ -2487,6 +2616,10 @@ document.addEventListener("click", e => {
   if (open){ openEntry(open.dataset.open); return; }
   const sld = t.closest("[data-sldel]");
   if (sld){ SL.splice(+sld.dataset.sldel, 1); saveSL(); drawShortlist(); return; }
+  const xc = t.closest("#xcolor [data-color]");
+  if (xc){ exColor = xc.dataset.color;
+    document.querySelectorAll("#xcolor button").forEach(b => b.classList.toggle("on", b === xc));
+    drawScatter(); writeHash(); return; }
   const xs = t.closest("#xscale [data-scale]");
   if (xs){ exScale = xs.dataset.scale;
     document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b === xs));
@@ -2660,9 +2793,18 @@ async function drawCard(){
     .map(f => document.fonts.load(f))); } catch {}
   const c = document.createElement("canvas"); c.width = 1200; c.height = 630;
   const x = c.getContext("2d");
-  const BG = "#0C1211", INK = "#E9EFEC", SUB = "#BCC9C4", MUTED = "#8FA39C", ACC = "#69B4DC", CARD = "#131C1A", LINE = "#243330";
+  const INK = "#F2F7F4", SUB = "#CFE0D8", MUTED = "#A9C2B8", ACC = "#6DA7EC", BAR = "#3987E5", CARD = "rgba(13,22,20,.9)", LINE = "#2A3A36";
   const spaced = (on) => { if ("letterSpacing" in x) x.letterSpacing = on ? "3px" : "0px"; };
-  x.fillStyle = BG; x.fillRect(0, 0, 1200, 630);
+  // The page's floodlit pitch: gradient, mown stripes, faint markings.
+  const g = x.createLinearGradient(0, 0, 1200, 630);
+  g.addColorStop(0, "#0B2E23"); g.addColorStop(0.46, "#0F3B2D"); g.addColorStop(1, "#0C2A44");
+  x.fillStyle = g; x.fillRect(0, 0, 1200, 630);
+  x.fillStyle = "rgba(255,255,255,.035)";
+  for (let sx = 0; sx < 1200; sx += 128) x.fillRect(sx, 0, 64, 630);
+  x.strokeStyle = "rgba(255,255,255,.07)"; x.lineWidth = 2;
+  x.strokeRect(20, 20, 1160, 590);
+  x.beginPath(); x.moveTo(600, 20); x.lineTo(600, 610); x.stroke();
+  x.beginPath(); x.arc(600, 315, 92, 0, Math.PI * 2); x.stroke();
   // Left: who he is, his rating, his price.
   spaced(true); x.fillStyle = ACC; x.font = SANS(600, 16);
   x.fillText(`WHO PLAYS LIKE HIM · ${seasonLabel(M.season)}${M.inProgress ? " SO FAR" : ""}`, 64, 80); spaced(false);
@@ -2699,8 +2841,8 @@ async function drawCard(){
     x.fillStyle = MUTED; x.font = SANS(400, 15); x.fillText(`${o.t}${o.v != null ? " · " + eur(o.v) : ""}`, cx + 26, ry + 28);
     const bx = cx + cw - 26 - 140;
     x.fillStyle = LINE; x.beginPath(); x.roundRect ? x.roundRect(bx, ry - 14, 140, 9, 5) : x.rect(bx, ry - 14, 140, 9); x.fill();
-    x.fillStyle = ACC; x.beginPath(); x.roundRect ? x.roundRect(bx, ry - 14, 140 * sc / 100, 9, 5) : x.rect(bx, ry - 14, 140 * sc / 100, 9); x.fill();
-    x.font = MONO(600, 19); x.textAlign = "right"; x.fillText(sc.toFixed(1) + "%", cx + cw - 26, ry + 16); x.textAlign = "left";
+    x.fillStyle = BAR; x.beginPath(); x.roundRect ? x.roundRect(bx, ry - 14, 140 * sc / 100, 9, 5) : x.rect(bx, ry - 14, 140 * sc / 100, 9); x.fill();
+    x.fillStyle = ACC; x.font = MONO(600, 19); x.textAlign = "right"; x.fillText(sc.toFixed(1) + "%", cx + cw - 26, ry + 16); x.textAlign = "left";
   });
   if (!top.length){ x.fillStyle = MUTED; x.font = SANS(400, 17); x.fillText("Nobody clears the filters set on the page.", cx + 26, cy + 110); }
   return c;
@@ -2752,6 +2894,7 @@ if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
 
 // ---- first visit ----------------------------------------------------------------------------
 (() => {
+  if (matchMedia("(max-width: 600px)").matches) $("q").placeholder = "Search any player or club";
   const seasons = BUNDLE.catalog.reduce((t, c) => t + c.seasons.length, 0);
   const total = BUNDLE.catalog.reduce((t, c) => t + c.seasons.reduce((u, x) => u + x.players, 0), 0);
   $("hero-facts").textContent = `${total.toLocaleString()} player-seasons · ${seasons} seasons from ${BUNDLE.catalog.length} sources · `
@@ -2786,8 +2929,9 @@ async function applyHash(asked){
     } catch {}
   }
   if (asked.c){ const o = P.find(x => x.t === asked.c); if (o){ clubName = o.t; clubLeague = o.l; } }
-  if (asked.ex){ const [g, x, y, sc] = asked.ex.split("~");
-    if (G[g]){ exGroup = g; exX = x; exY = y; exScale = sc === "p" ? "p" : "v"; } }
+  if (asked.ex){ const [g, x, y, sc, co] = asked.ex.split("~");
+    if (G[g]){ exGroup = g; exX = x; exY = y; exScale = sc === "p" ? "p" : "v";
+      exColor = ["age", "vfm"].includes(co) ? co : "hl"; } }
   setMode(mode);
   if (SHARED && !SHARED.resolved) resolveShared();
 }

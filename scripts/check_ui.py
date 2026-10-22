@@ -98,6 +98,11 @@ def main() -> int:
         check(page.locator("#scatter circle.dot").count() > 50, "explorer")
         page.click("#ex-vfm"); page.wait_for_timeout(500)
         check(page.locator("#scatter line.trend").count() == 1, "explorer: rating against price, with its trend line")
+        for colour in ("vfm", "age"):
+            page.click(f'#xcolor [data-color="{colour}"]'); page.wait_for_timeout(300)
+            painted = page.evaluate("document.querySelectorAll('#scatter circle.dot[style*=\"fill\"]').length")
+            check(painted > 50, f"explorer: dots coloured by {colour} ({painted})")
+        page.click('#xcolor [data-color="hl"]')
         page.click("#tab-clubs"); page.wait_for_timeout(300)
         check(page.locator("#club tbody tr").count() > 5, "clubs")
         page.click("#tab-shortlist"); page.wait_for_timeout(300)
@@ -105,6 +110,9 @@ def main() -> int:
 
         # 3. every season: search, rank, compare across years
         page.click("#tab-similar"); page.wait_for_timeout(300)
+        page.click("#career-btn")
+        page.wait_for_function("document.querySelector('#career .trend-wrap svg circle')", timeout=20000)
+        check(True, "career: rating by season, drawn")
         page.fill("#q", "kante"); page.wait_for_timeout(300)
         page.wait_for_function("document.querySelector('#picker [data-openseason]')", timeout=20000)
         check(True, "search reaches other seasons, accents ignored")

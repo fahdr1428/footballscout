@@ -3,7 +3,7 @@
   <div class="hero-top">
     <span class="brand"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="12" cy="16" r="9"/><circle cx="20" cy="16" r="9"/></svg>Who Plays Like Him</span>
     <div class="head-btns">
-      <button class="icon-btn" id="about-btn" type="button" aria-haspopup="dialog">About &amp; data</button>
+      <button class="icon-btn" id="about-btn" type="button" aria-haspopup="dialog"><span>About<span class="hide-sm"> &amp; data</span></span></button>
       <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
         <span aria-hidden="true">&#9680;</span><span id="theme-l">Dark</span></button>
     </div>
@@ -162,10 +162,10 @@
         <div class="panel-h"><h3>Where he stands out</h3><span class="eyebrow" id="sw-peers">&mdash;</span></div>
         <div class="rating" id="rating"></div>
         <div class="sw" id="sw"></div>
-        <div class="pct-key" aria-label="What the colours mean"><span class="eyebrow">Percentile</span>
-          <span><i style="background:var(--s5)"></i>top 20%</span><span><i style="background:var(--s4)"></i>60-80</span>
-          <span><i style="background:var(--s3)"></i>40-60</span><span><i style="background:var(--s2)"></i>20-40</span>
-          <span><i style="background:var(--s1)"></i>bottom 20%</span></div>
+        <div class="pct-key" aria-label="What the colours mean"><span class="eyebrow">Percentile colours</span>
+          <span class="chip c5">80-100</span><span class="chip c4">60-80</span><span class="chip c3">40-60</span>
+          <span class="chip c2">20-40</span><span class="chip c1">0-20</span>
+          <span class="muted">against his position this season</span></div>
         <details class="how"><summary>How to read this</summary>
         <p class="note">Each number is a percentile: 90 means better than 90% of players in his position this
         season. Where a scout wants a number low (errors, cards), it is already flipped, so higher is always
@@ -260,6 +260,11 @@
             <div class="seg" id="xscale" role="group" aria-label="Axis scale">
               <button type="button" data-scale="v" class="on">Per 90</button>
               <button type="button" data-scale="p">Percentile</button></div></div>
+          <div class="field"><span class="lbl">Colour dots by</span>
+            <div class="seg" id="xcolor" role="group" aria-label="Colour the dots by">
+              <button type="button" data-color="hl" class="on">Highlights</button>
+              <button type="button" data-color="age">Age</button>
+              <button type="button" data-color="vfm">vs price</button></div></div>
           <div class="field" id="ex-vfm-wrap"><span class="lbl">Shortcut</span>
             <button class="mini" id="ex-vfm" type="button">Rating against price</button></div>
         </div>
@@ -443,7 +448,7 @@ let W = {};                  // category name -> weight multiplier
 let criteria = [];           // [{metric, min}]
 let searchGroup = null, careerOpen = false, searchCleared = false;
 let RW = true;               // count each metric by its season-to-season repeatability
-let exGroup = null, exX = null, exY = null, exScale = "v", exSel = null, exPts = [];
+let exGroup = null, exX = null, exY = null, exScale = "v", exSel = null, exPts = [], exColor = "hl";
 let SL = [], SHARED = null, slStored = true;   // the shortlist, and a shared one being viewed
 const MODES = ["similar", "search", "board", "explore", "clubs", "shortlist"];
 let clubLeague = null, clubName = null;
@@ -901,14 +906,15 @@ function priceBadges(p){
   if (p.pr != null) out.push(badge("£" + p.pr.toFixed(1) + "m FPL price"));
   return out.join("");
 }
-// A colour per position family, for the initials badge: keepers, defence,
-// midfield, attacking midfield, wide, centre-forward.
-const HUE = {GK: 42, CB: 152, FB: 152, DEF: 152, DM: 205, CM: 205, WM: 205, MID: 205, AM: 262, W: 18, SS: 350, FW: 350, FWD: 350};
+// A colour per position family - keepers amber, defence green, midfield blue,
+// attacking midfield violet, wide players magenta, strikers orange - on the
+// initials badge and the club table, so a position reads at a glance.
+const HUE = {GK: 42, CB: 160, FB: 160, DEF: 160, DM: 214, CM: 214, WM: 214, MID: 214, AM: 262, W: 330, SS: 16, FW: 16, FWD: 16};
 const initials = n => n.split(/[\s-]+/).filter(w => /^\p{L}/u.test(w)).map(w => w[0]).slice(0, 2).join("").toUpperCase();
 function drawSubject(){
   const p = P[subject];
   const others = (p.os || []), r = ratingOf(p);
-  const ring = r == null ? "" : `<div class="ring" title="Rating ${Math.round(r)} out of 100 - the breakdown is just below">
+  const ring = r == null ? "" : `<div class="ring b${band(r)}" title="Rating ${Math.round(r)} out of 100 - the breakdown is just below">
       <svg viewBox="0 0 48 48" aria-hidden="true"><circle class="rb" cx="24" cy="24" r="20"/>
         <circle class="rf" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="${Math.round(r)} 100"/></svg>
       <span class="rv mono">${Math.round(r)}</span><span class="rl">rating</span></div>`;
@@ -1039,15 +1045,15 @@ function drawRadar(){
   const p = P[subject], spec = G[p.g];
   if (!spec){ $("radar").innerHTML = `<div class="empty">No model for ${esc(gname(p.g).toLowerCase())}s this season.</div>`;
     $("radar-legend").innerHTML = ""; $("radar-note").textContent = ""; $("peer-note").textContent = ""; return; }
-  const series = [{vals: p.cv, color: "var(--accent)"}];
+  const series = [{vals: p.cv, color: "var(--mark-1)"}];
   const ref = matchRef(), o = ref ? ref.p : null;
   const same = o && o.g === p.g && ref.spec;
   // Another season's categories are matched by name, not by position.
   if (same) series.push({vals: spec.c.map(c => { const j = ref.spec.c.indexOf(c); return j < 0 ? null : o.cv[j]; }),
-                         color: "var(--second)", dash: true});
+                         color: "var(--mark-2)", dash: true});
   $("radar").innerHTML = radar(spec.c, series);
-  $("radar-legend").innerHTML = `<span><i style="background:var(--accent)"></i>${esc(p.n)}${ref && ref.other ? " " + seasonTag(dsKey) : ""}</span>` +
-    (same ? `<span><i style="background:var(--second)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
+  $("radar-legend").innerHTML = `<span><i style="background:var(--mark-1)"></i>${esc(p.n)}${ref && ref.other ? " " + seasonTag(dsKey) : ""}</span>` +
+    (same ? `<span><i style="background:var(--mark-2)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
   $("peer-note").textContent = (M.counts[p.g] || 0) + " peers";
   $("radar-note").textContent = `Each spoke is the mean percentile of a basket of per-90 metrics, against `
     + `${gname(p.g).toLowerCase()}s ${ref && ref.other ? "in each player's own season" : "this season"}. `
@@ -1300,20 +1306,40 @@ async function drawCareer(){
   const bar = v => v == null ? '<span class="muted">—</span>'
     : `<span class="spark"><span style="width:${v}%;background:var(--s${band(v)})"></span></span><span class="mono">${Math.round(v)}</span>`;
   const provider = src === "fbref_big5" && rows.some(r => r.season < "2022-23") && rows.some(r => r.season >= "2022-23");
-  $("career").innerHTML = `<div class="tablewrap"><table>
-    <thead><tr><th>Season</th><th>Club</th><th>Position</th><th class="num">Min</th><th class="num">Age</th>
+  rows.forEach(r => { if (r.q) r.rt = ratingOf(r.q, r.d.meta, r.d.players); });
+  const trend = careerTrend(rows.filter(r => r.q && r.rt != null));
+  $("career").innerHTML = trend + `<div class="tablewrap"><table>
+    <thead><tr><th>Season</th><th>Club</th><th>Position</th><th class="num">Min</th><th class="num">Age</th><th>Rating</th>
       ${cats.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>
     <tbody>${rows.map(r => r.err ? `<tr><td>${seasonLabel(r.season)}</td><td colspan="${4 + cats.length}" class="muted">could not load</td></tr>` : (() => {
       const spec = r.d.meta.groups[r.q.g] || {c: []};
       const val = c => { const i = spec.c.indexOf(c); return i < 0 ? null : r.q.cv[i]; };
       return `<tr class="${r.season === M.season ? "here" : ""}"><td class="mono">${seasonLabel(r.season)}</td>
         <td>${esc(r.q.t)}</td><td>${esc(r.q.p)}</td><td class="num">${r.q.m.toLocaleString()}</td>
-        <td class="num">${r.q.a != null ? r.q.a.toFixed(1) : "—"}</td>${cats.map(c => `<td style="white-space:nowrap">${bar(val(c))}</td>`).join("")}</tr>`;
+        <td class="num">${r.q.a != null ? r.q.a.toFixed(1) : "—"}</td><td>${r.rt != null ? chip(Math.round(r.rt)) : "—"}</td>${cats.map(c => `<td style="white-space:nowrap">${bar(val(c))}</td>`).join("")}</tr>`;
     })()).join("")}</tbody></table></div>
     <p class="note" style="border-top:1px solid var(--line)">Each cell is his category percentile against his
     position <em>that season</em>, so a move up or down is relative to that year's peers. A dash is a
     category that season did not measure.${provider ? " FBref changed data provider in 2022/23 and defines some "
     + "metrics differently either side of it, so read the two eras as separate runs." : ""}</p>`;
+}
+
+// His rating season by season as one line: each point is against that season's
+// position, so the line shows where he stood among his peers year to year.
+function careerTrend(pts){
+  if (pts.length < 2) return "";
+  const Wd = 640, Ht = 150, m = {l: 34, r: 16, t: 18, b: 28};
+  const sx = k => m.l + k / (pts.length - 1) * (Wd - m.l - m.r), sy = v => m.t + (100 - v) / 100 * (Ht - m.t - m.b);
+  const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(v)}" y2="${sy(v)}" class="cg"/>
+    <text x="${m.l - 6}" y="${sy(v) + 4}" text-anchor="end" class="tk">${v}</text>`).join("");
+  const line = pts.map((r, k) => `${k ? "L" : "M"}${sx(k).toFixed(1)} ${sy(r.rt).toFixed(1)}`).join(" ");
+  const best = pts.reduce((a, b) => (b.rt > a.rt ? b : a));
+  const dots = pts.map((r, k) => `<circle cx="${sx(k)}" cy="${sy(r.rt)}" r="${r.season === M.season ? 6 : 4.5}"
+      class="cd${r.season === M.season ? " here" : ""}"><title>${esc(seasonLabel(r.season))}: rated ${Math.round(r.rt)} at ${esc(r.q.t)}</title></circle>`
+    + `<text x="${sx(k)}" y="${Ht - 8}" text-anchor="middle" class="tk">${esc(seasonLabel(r.season).replace(/^20/, "").replace("/", "/"))}</text>`
+    + (r === best || r.season === M.season ? `<text x="${sx(k)}" y="${sy(r.rt) - 10}" text-anchor="middle" class="cl">${Math.round(r.rt)}</text>` : "")).join("");
+  return `<div class="trend-wrap"><svg viewBox="0 0 ${Wd} ${Ht}" role="img" aria-label="Rating by season">${grid}
+    <path d="${line}" class="cline"/>${dots}</svg></div>`;
 }
 
 // ---- profile search ----------------------------------------------------------
@@ -1465,6 +1491,9 @@ function drawExplore(){
   $("xmetric").innerHTML = metricOptions(exGroup, exX, extra);
   $("ymetric").innerHTML = metricOptions(exGroup, exY, extra);
   $("ex-vfm-wrap").hidden = !(has.value && spec.rw && vfmFit(exGroup));
+  document.querySelector('#xcolor [data-color="age"]').hidden = !has.age;
+  document.querySelector('#xcolor [data-color="vfm"]').hidden = !vfmFit(exGroup);
+  document.querySelectorAll("#xcolor button").forEach(b => b.classList.toggle("on", b.dataset.color === exColor));
   document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b.dataset.scale === exScale));
   drawScatter();
 }
@@ -1558,6 +1587,20 @@ function drawScatter(){
       <line x1="${ends[0][0]}" y1="${ends[0][1]}" x2="${ends[1][0]}" y2="${ends[1][1]}" class="trend" clip-path="url(#exclip)"/>`;
   }
 
+  // Optional colour: age on a one-hue ramp (lighter is younger), or value for
+  // money on a diverging one (blue above the price line, red below, grey near it).
+  const colorBy = exColor === "age" && (M.has || {}).age ? "age" : exColor === "vfm" && fit ? "vfm" : "hl";
+  const AGE_BINS = [[21, "under 21"], [24, "21-24"], [27, "24-27"], [30, "27-30"], [Infinity, "30+"]];
+  const VFM_BINS = [[-15, "−15 or less"], [-5, "−15 to −5"], [5, "within 5"], [15, "+5 to +15"], [Infinity, "+15 or more"]];
+  const bins = colorBy === "age" ? AGE_BINS : VFM_BINS, tok = colorBy === "age" ? "q" : "v";
+  const fillOf = i => {
+    if (colorBy === "hl") return "";
+    const v = colorBy === "age" ? P[i].a : cellOf(P[i], VFM_KEY)[0];
+    const k = v == null ? -1 : bins.findIndex(([hi]) => v < hi);
+    return k < 0 ? "" : ` style="fill:var(--${tok}${k + 1})"`;
+  };
+  box.classList.toggle("colored", colorBy !== "hl");
+
   // Who is highlighted: the subject, his closest matches, the shortlist, the selected dot.
   const s = P[subject], mine = s && s.g === exGroup;
   const close = new Set(mine ? ranked().slice(0, 8).map(r => r[0]) : []);
@@ -1566,23 +1609,50 @@ function drawScatter(){
   const tip = i => `${P[i].n} · ${P[i].t} — ${label(exX)} ${fmt(exX, raw(P[i], exX))}, ${label(exY)} ${fmt(exY, raw(P[i], exY))}`;
   const order = shown.slice().sort((a, b) => (kind(a[0]) ? 1 : 0) - (kind(b[0]) ? 1 : 0) || (a[0] === subject) - (b[0] === subject));
   let dots = "", labels = "";
+  // Labels are placed in priority order (him, the selected dot, the shortlist,
+  // his matches); one that would overlap a placed label tries the other side
+  // of its dot and is left off if both collide - the dot keeps its tooltip.
+  const placed = [], prio = i => i === subject ? 0 : i === exSel ? 1 : kind(i) === "star" ? 2 : 3;
+  const want = order.filter(([i]) => { const k = kind(i);
+    return k === "subj" || i === exSel || k === "star" || k === "close"; })
+    .sort((a, b) => prio(a[0]) - prio(b[0])).slice(0, 12);
+  const labelAt = new Map();
+  let closeShown = 0;
+  for (const [i, x, y] of want){
+    if (kind(i) === "close" && i !== exSel && closeShown >= 6) continue;
+    const cx = sx(x), cy = sy(y), text = lastName(P[i].n), w = text.length * 7.4 + 10;
+    const sides = cx > Wd - 110 ? ["end", "start"] : ["start", "end"];
+    for (const side of sides){
+      const x0 = side === "start" ? cx + 9 : cx - 9 - w, box = [x0, cy - 9, x0 + w, cy + 5];
+      if (x0 < m.l || x0 + w > Wd - 2) continue;
+      if (placed.some(b => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]))) continue;
+      placed.push(box); labelAt.set(i, side);
+      if (kind(i) === "close") closeShown++;
+      break;
+    }
+  }
   for (const [i, x, y] of order){
     const cx = sx(x), cy = sy(y), k = kind(i);
     exPts.push([i, cx, cy]);
     const r = k === "subj" ? 7 : k ? 5 : 3.4;
-    dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" class="dot ${k}"><title>${esc(tip(i))}</title></circle>`;
+    dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" class="dot ${k}"${fillOf(i)}><title>${esc(tip(i))}</title></circle>`;
     if (i === exSel) dots += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r + 4}" class="sel"/>`;
-    if (k === "subj" || i === exSel || k === "star" || (k === "close" && labels.split("<text").length < 7)){
-      const right = cx > Wd - 110;
-      labels += `<text x="${cx + (right ? -9 : 9)}" y="${cy + 4}" text-anchor="${right ? "end" : "start"}" class="lab ${k}">${esc(lastName(P[i].n))}</text>`;
+    if (labelAt.has(i)){
+      const left = labelAt.get(i) === "end";
+      labels += `<text x="${cx + (left ? -9 : 9)}" y="${cy + 4}" text-anchor="${left ? "end" : "start"}" class="lab ${k}">${esc(lastName(P[i].n))}</text>`;
     }
   }
   box.innerHTML = `<svg viewBox="0 0 ${Wd} ${Ht}" width="${Wd}" height="${Ht}" role="img"
     aria-label="${esc(label(exX))} against ${esc(label(exY))} for ${shown.length} ${esc(gname(exGroup).toLowerCase())}s">
     ${grid}${meds}${trend}${axes}<g>${dots}</g><g>${labels}</g></svg>`;
-  $("ex-legend").innerHTML = (mine ? `<span><i style="background:var(--accent)"></i>${esc(s.n)}</span>
-      <span><i style="background:var(--second)"></i>His closest matches</span>` : "")
-    + (starred.size ? `<span><i style="background:var(--s5)"></i>Shortlisted</span>` : "")
+  $("ex-legend").innerHTML = colorBy !== "hl"
+    ? `<span class="lbl">${colorBy === "age" ? "Age" : "Rating vs price"}</span>` + bins.map(([, name], k) =>
+        `<span><i style="background:var(--${tok}${k + 1})"></i>${name}</span>`).join("")
+      + (mine ? `<span><i class="ring-key" style="border-color:var(--ink)"></i>${esc(s.n)}</span>
+        <span><i class="ring-key" style="border-color:var(--mark-2)"></i>His closest matches</span>` : "")
+    : (mine ? `<span><i style="background:var(--mark-1)"></i>${esc(s.n)}</span>
+      <span><i style="background:var(--mark-2)"></i>His closest matches</span>` : "")
+    + (starred.size ? `<span><i style="background:var(--mark-3)"></i>Shortlisted</span>` : "")
     + `<span><i style="background:var(--muted);opacity:.5"></i>Everyone else</span>`
     + (trend ? `<span><i class="trend-key"></i>Rating his price predicts</span>` : "");
   const r = pearson(shown);
@@ -1592,6 +1662,8 @@ function drawScatter(){
     + (trend ? `The solid line is the rating each price predicts, fitted over all ${fit.n.toLocaleString()} priced ${esc(gname(exGroup).toLowerCase())}s
       (r² = ${fit.r2.toFixed(2)}): a dot above it rates higher than players at his price usually do. The Rankings tab's
       <b>Value for money</b> ranks that gap. ` : "")
+    + (colorBy === "age" ? "Colour is age: lighter is younger. " : colorBy === "vfm"
+      ? "Colour is value for money: blue rates above what his price predicts, red below, grey within five points. " : "")
     + `Click or tap a dot for his numbers.`;
   drawExCard();
 }
@@ -1653,7 +1725,7 @@ function drawClub(){
   const body = rows.map(x => {
     const o = x.o, head = by === "pos" && o.g !== lastGroup;
     lastGroup = o.g;
-    return (head ? `<tr class="grp"><td colspan="${priced ? 7 : 5}">${esc(gname(o.g))}s</td></tr>` : "") + `<tr>
+    return (head ? `<tr class="grp" style="--h:${HUE[o.g] ?? 214}"><td colspan="${priced ? 7 : 5}">${esc(gname(o.g))}s</td></tr>` : "") + `<tr>
       <td><button type="button" class="linkish" data-s="${x.i}">${esc(o.n)}</button><span class="mt">${esc(o.p)}</span></td>
       <td class="num">${o.a != null ? o.a.toFixed(1) : "—"}</td><td class="num">${o.m.toLocaleString()}</td>
       <td>${x.r != null ? chip(Math.round(x.r)) : '<span class="muted">no model</span>'}</td>
@@ -1820,7 +1892,7 @@ function writeHash(){
   if (scope === "all") parts.push("sc=all");
   if (mode !== "similar") parts.push("v=" + mode);
   if (!RW) parts.push("rw=0");
-  if (mode === "explore" && exGroup) parts.push("ex=" + encodeURIComponent([exGroup, exX, exY, exScale].join("~")));
+  if (mode === "explore" && exGroup) parts.push("ex=" + encodeURIComponent([exGroup, exX, exY, exScale, exColor].join("~")));
   if (mode === "clubs" && clubName) parts.push("c=" + encodeURIComponent(clubName));
   if (mode === "shortlist" && SHARED) parts.push("sl=" + encodeURIComponent(shareValue(SHARED.items)));
   history.replaceState(null, "", "#" + parts.join("&"));
@@ -2003,6 +2075,10 @@ document.addEventListener("click", e => {
   if (open){ openEntry(open.dataset.open); return; }
   const sld = t.closest("[data-sldel]");
   if (sld){ SL.splice(+sld.dataset.sldel, 1); saveSL(); drawShortlist(); return; }
+  const xc = t.closest("#xcolor [data-color]");
+  if (xc){ exColor = xc.dataset.color;
+    document.querySelectorAll("#xcolor button").forEach(b => b.classList.toggle("on", b === xc));
+    drawScatter(); writeHash(); return; }
   const xs = t.closest("#xscale [data-scale]");
   if (xs){ exScale = xs.dataset.scale;
     document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b === xs));
@@ -2176,9 +2252,18 @@ async function drawCard(){
     .map(f => document.fonts.load(f))); } catch {}
   const c = document.createElement("canvas"); c.width = 1200; c.height = 630;
   const x = c.getContext("2d");
-  const BG = "#0C1211", INK = "#E9EFEC", SUB = "#BCC9C4", MUTED = "#8FA39C", ACC = "#69B4DC", CARD = "#131C1A", LINE = "#243330";
+  const INK = "#F2F7F4", SUB = "#CFE0D8", MUTED = "#A9C2B8", ACC = "#6DA7EC", BAR = "#3987E5", CARD = "rgba(13,22,20,.9)", LINE = "#2A3A36";
   const spaced = (on) => { if ("letterSpacing" in x) x.letterSpacing = on ? "3px" : "0px"; };
-  x.fillStyle = BG; x.fillRect(0, 0, 1200, 630);
+  // The page's floodlit pitch: gradient, mown stripes, faint markings.
+  const g = x.createLinearGradient(0, 0, 1200, 630);
+  g.addColorStop(0, "#0B2E23"); g.addColorStop(0.46, "#0F3B2D"); g.addColorStop(1, "#0C2A44");
+  x.fillStyle = g; x.fillRect(0, 0, 1200, 630);
+  x.fillStyle = "rgba(255,255,255,.035)";
+  for (let sx = 0; sx < 1200; sx += 128) x.fillRect(sx, 0, 64, 630);
+  x.strokeStyle = "rgba(255,255,255,.07)"; x.lineWidth = 2;
+  x.strokeRect(20, 20, 1160, 590);
+  x.beginPath(); x.moveTo(600, 20); x.lineTo(600, 610); x.stroke();
+  x.beginPath(); x.arc(600, 315, 92, 0, Math.PI * 2); x.stroke();
   // Left: who he is, his rating, his price.
   spaced(true); x.fillStyle = ACC; x.font = SANS(600, 16);
   x.fillText(`WHO PLAYS LIKE HIM · ${seasonLabel(M.season)}${M.inProgress ? " SO FAR" : ""}`, 64, 80); spaced(false);
@@ -2215,8 +2300,8 @@ async function drawCard(){
     x.fillStyle = MUTED; x.font = SANS(400, 15); x.fillText(`${o.t}${o.v != null ? " · " + eur(o.v) : ""}`, cx + 26, ry + 28);
     const bx = cx + cw - 26 - 140;
     x.fillStyle = LINE; x.beginPath(); x.roundRect ? x.roundRect(bx, ry - 14, 140, 9, 5) : x.rect(bx, ry - 14, 140, 9); x.fill();
-    x.fillStyle = ACC; x.beginPath(); x.roundRect ? x.roundRect(bx, ry - 14, 140 * sc / 100, 9, 5) : x.rect(bx, ry - 14, 140 * sc / 100, 9); x.fill();
-    x.font = MONO(600, 19); x.textAlign = "right"; x.fillText(sc.toFixed(1) + "%", cx + cw - 26, ry + 16); x.textAlign = "left";
+    x.fillStyle = BAR; x.beginPath(); x.roundRect ? x.roundRect(bx, ry - 14, 140 * sc / 100, 9, 5) : x.rect(bx, ry - 14, 140 * sc / 100, 9); x.fill();
+    x.fillStyle = ACC; x.font = MONO(600, 19); x.textAlign = "right"; x.fillText(sc.toFixed(1) + "%", cx + cw - 26, ry + 16); x.textAlign = "left";
   });
   if (!top.length){ x.fillStyle = MUTED; x.font = SANS(400, 17); x.fillText("Nobody clears the filters set on the page.", cx + 26, cy + 110); }
   return c;
@@ -2268,6 +2353,7 @@ if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
 
 // ---- first visit ----------------------------------------------------------------------------
 (() => {
+  if (matchMedia("(max-width: 600px)").matches) $("q").placeholder = "Search any player or club";
   const seasons = BUNDLE.catalog.reduce((t, c) => t + c.seasons.length, 0);
   const total = BUNDLE.catalog.reduce((t, c) => t + c.seasons.reduce((u, x) => u + x.players, 0), 0);
   $("hero-facts").textContent = `${total.toLocaleString()} player-seasons · ${seasons} seasons from ${BUNDLE.catalog.length} sources · `
@@ -2302,8 +2388,9 @@ async function applyHash(asked){
     } catch {}
   }
   if (asked.c){ const o = P.find(x => x.t === asked.c); if (o){ clubName = o.t; clubLeague = o.l; } }
-  if (asked.ex){ const [g, x, y, sc] = asked.ex.split("~");
-    if (G[g]){ exGroup = g; exX = x; exY = y; exScale = sc === "p" ? "p" : "v"; } }
+  if (asked.ex){ const [g, x, y, sc, co] = asked.ex.split("~");
+    if (G[g]){ exGroup = g; exX = x; exY = y; exScale = sc === "p" ? "p" : "v";
+      exColor = ["age", "vfm"].includes(co) ? co : "hl"; } }
   setMode(mode);
   if (SHARED && !SHARED.resolved) resolveShared();
 }

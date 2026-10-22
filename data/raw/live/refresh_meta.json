@@ -1,7 +1,7 @@
 {
   "transfermarkt": {
     "source": "dcaribou/transfermarkt-datasets (CC0 1.0)",
-    "fetched_at": "2026-10-20T10:24:43.436082+00:00",
+    "fetched_at": "2026-10-22T20:54:34.956986+00:00",
     "players": 11107,
     "valuations": 244344,
     "latest_valuation": "2026-06-11",
@@ -22,7 +22,7 @@
     ]
   },
   "understat": {
-    "fetched_at": "2026-10-20",
+    "fetched_at": "2026-10-22",
     "rows": 5838,
     "by_league_season": {
       "EPL 2025": {

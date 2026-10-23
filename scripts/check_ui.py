@@ -6,9 +6,11 @@ serves `static/`, then in Chromium:
 
 - loads every season of every source and checks it has a subject, a ranked
   list and a rating wherever the position is modelled;
-- opens every tool - profile search, leaderboard (including value for money),
-  explorer (including rating against price), clubs, shortlist - and checks
-  each draws something;
+- opens every page - Discover with its discovery cards, the head to head (the
+  similarity ring, summary, headline tiles and grouped table), Explore's
+  rankings (including value for money), charts (including rating against
+  price), clubs and profile search, and the shortlist - and checks each draws
+  something;
 - searches every season, compares across seasons, reads the comparison
   summary, the cheaper and younger alternatives, and draws a share card;
 - checks phones 360-414px wide never scroll sideways;
@@ -32,6 +34,7 @@ from check_parity import serve  # noqa: E402
 SITE = ROOT / "static"
 PHONES = (360, 390, 414)
 TABS = ("similar", "search", "board", "explore", "clubs", "shortlist")
+EXPLORE = {"search", "board", "explore", "clubs"}
 
 
 def main() -> int:
@@ -77,24 +80,38 @@ def main() -> int:
                 open_(f"#d={key}")
                 st = page.evaluate("""() => ({key: dsKey, n: P.length, modelled: !!G[P[subject].g],
                     rows: document.querySelectorAll('#matches .row').length,
-                    rating: !!document.querySelector('#rating .rt-score b')})""")
+                    rating: document.querySelectorAll('#rating .attr').length > 0})""")
                 check(st["key"] == key and st["n"] > 0
                       and (not st["modelled"] or (st["rows"] > 0 and st["rating"])),
                       f"{key}: {st['n']} players, {st['rows']} matches, rating {st['rating']}")
 
-        # 2. the default season, every tool
+        def go(tab: str, on=None) -> None:
+            on = on or page
+            if tab in EXPLORE:
+                on.click("#nav-explore"); on.wait_for_timeout(200)
+            on.click(f"#tab-{tab}"); on.wait_for_timeout(300)
+
+        # 2. the default season, every page
         open_()
+        check(page.locator("#discover-grid .dcard").count() >= 3, "discovery cards")
+        check(page.locator("#vs .sim-ring").count() == 1, "head to head: similarity ring")
         summary = page.locator(".cmp-sum")
         check(summary.count() == 1 and "separates them most" in summary.inner_text(), "comparison summary")
+        check(page.locator("#tiles .tile").count() >= 3, "head to head: headline metric tiles")
+        check(page.locator("#compare tr.grp").count() >= 2, "head to head: table grouped by category")
+        page.fill("#mfilter", "xg"); page.wait_for_timeout(200)
+        shown = page.evaluate("[...document.querySelectorAll('#compare tr[data-label]')].filter(r => !r.hidden).length")
+        check(0 < shown < page.locator("#compare tr[data-label]").count(), f"head to head: metric search ({shown} rows)")
+        page.fill("#mfilter", "")
         check(page.locator("#alt .row").count() > 0, "cheaper and younger alternatives")
-        page.click("#tab-search"); page.wait_for_timeout(300)
+        go("search")
         check(page.locator("#results .row").count() > 0, "profile search")
-        page.click("#tab-board"); page.wait_for_timeout(300)
+        go("board")
         check(page.locator("#board .row").count() > 0, "leaderboard")
         page.select_option("#bmetric", "__vfm"); page.wait_for_timeout(300)
         check(page.locator("#board .row").count() > 0 and "least squares" in page.locator("#board-note").inner_text(),
               "leaderboard: value for money")
-        page.click("#tab-explore"); page.wait_for_timeout(500)
+        go("explore"); page.wait_for_timeout(200)
         check(page.locator("#scatter circle.dot").count() > 50, "explorer")
         page.click("#ex-vfm"); page.wait_for_timeout(500)
         check(page.locator("#scatter line.trend").count() == 1, "explorer: rating against price, with its trend line")
@@ -103,19 +120,21 @@ def main() -> int:
             painted = page.evaluate("document.querySelectorAll('#scatter circle.dot[style*=\"fill\"]').length")
             check(painted > 50, f"explorer: dots coloured by {colour} ({painted})")
         page.click('#xcolor [data-color="hl"]')
-        page.click("#tab-clubs"); page.wait_for_timeout(300)
+        go("clubs")
         check(page.locator("#club tbody tr").count() > 5, "clubs")
-        page.click("#tab-shortlist"); page.wait_for_timeout(300)
+        go("shortlist")
         check(page.locator("#shortlist").inner_text().strip() != "", "shortlist")
 
         # 3. every season: search, rank, compare across years
-        page.click("#tab-similar"); page.wait_for_timeout(300)
+        go("similar")
         page.click("#career-btn")
         page.wait_for_function("document.querySelector('#career .trend-wrap svg circle')", timeout=20000)
         check(True, "career: rating by season, drawn")
         page.fill("#q", "kante"); page.wait_for_timeout(300)
         page.wait_for_function("document.querySelector('#picker [data-openseason]')", timeout=20000)
         check(True, "search reaches other seasons, accents ignored")
+        page.keyboard.press("ArrowDown"); page.wait_for_timeout(100)
+        check(page.locator('#picker .prow[aria-selected="true"]').count() == 1, "search: arrow keys move through the results")
         page.keyboard.press("Escape")
         page.locator('#scope [data-scope="all"]').click()
         page.wait_for_function("document.querySelectorAll('#matches .row[data-xm]').length > 0", timeout=20000)
@@ -137,7 +156,7 @@ def main() -> int:
             phone.goto(url, wait_until="networkidle")
             phone.wait_for_function("typeof P !== 'undefined' && P && P.length > 0")
             for tab in TABS:
-                phone.click(f"#tab-{tab}"); phone.wait_for_timeout(300)
+                go(tab, phone)
                 wide = phone.evaluate("document.documentElement.scrollWidth")
                 check(wide <= width, f"{width}px {tab}: page {wide}px wide")
             phone.close()

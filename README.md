@@ -28,55 +28,71 @@ Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 [![CI](https://github.com/fahdr1428/footballscout/actions/workflows/ci.yml/badge.svg)](https://github.com/fahdr1428/footballscout/actions/workflows/ci.yml)
 [![Weekly data refresh](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml/badge.svg)](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml)
 
-[![Who Plays Like Him: Lamine Yamal's 2025/26 profile, rating and closest matches](assets/screenshot-site.png)](https://whoplayslikehim.vercel.app)
+[![Who Plays Like Him: the search hero, dataset bar and discovery cards, in cream and forest green](assets/screenshot-site.png)](https://whoplayslikehim.vercel.app)
 
 Public, free, no sign-in, works on a phone, and **kept current by a weekly refresh** (below).
 **31 seasons across three sources** — six leagues 2014/15 to the season being played, the big
 five in depth 2017/18–2024/25, the Premier League 2016/17–2025/26 — every player priced from
-Transfermarkt. Search any player from the top of the page (accents optional, every season of
-the source), and six tools open up:
+Transfermarkt. Search any player, club or position from the top of the page (accents optional,
+every season of the source, arrow keys and Enter to pick), or start from **Explore the player
+universe** — cards built from the season's own numbers: the highest-rated under-21s, the players
+rated furthest above their price, the best chance creators, the top player in each league and in
+each position. Four places hold everything:
 
-- **Similar players** — every other player in his position ranked by how closely his profile
-  matches, **reweighted by the categories you care about**, with his **rating**, where he stands
-  out and falls short, a side-by-side radar and a metric-by-metric account of why — opening with
-  **a sentence saying what the two share and where they differ most**. **Like him, for less** picks
+- **Discover** — every other player in his position ranked by how closely his profile
+  matches, each row with **the category he is closest on**, **reweighted by the categories you
+  care about**, with his **rating**, where he stands out and falls short, and a head to head: **a similarity ring** (with a note that the score is a
+  profile match, not a probability), **what makes them similar** in plain sentences, a side-by-side
+  radar, three to five **headline tiles** chosen for the position, and every metric **grouped by
+  category** with the difference column and a metric search. **Like him, for less** picks
   out the closest matches at half his price or less and three or more years younger. Search
   **this season or every season**, so a 2025/26 winger can be matched against 2017/18's; follow
   him through **every season he played**; turn any of it into a **share card** (a 1200×630 image
   drawn in the browser).
-- **Find a profile** — describe the player you want as percentile conditions ("at least the 80th
-  for progressive passes, the 70th for tackles") and get everyone who meets them all.
-- **Rankings** — rank a position on any metric, his rating, market value, age or **value for
-  money**: his rating minus the rating his price predicts, from a least-squares fit of rating on
-  log price across the position, with the fit and its r² printed beside it.
-- **Charts** — plot a position on any two metrics, rating against price on a log scale with that
-  fitted line drawn, and the player you are looking at, his closest matches and your shortlist
-  picked out.
-- **Clubs** — any club's players in the pool, back to front, with ratings, prices, value for money
-  and the squad's combined value and minutes-weighted age.
+- **Compare** — the same head to head against anyone, from this season or any other.
+- **Explore** — four views over the season:
+  - **Rankings** — rank a position on any metric, his rating, market value, age or **value for
+    money**: his rating minus the rating his price predicts, from a least-squares fit of rating on
+    log price across the position, with the fit and its r² printed beside it.
+  - **Charts** — plot a position on any two metrics, rating against price on a log scale with that
+    fitted line drawn, and the player you are looking at, his closest matches and your shortlist
+    picked out.
+  - **Clubs** — any club's players in the pool, back to front, with ratings, prices, value for
+    money and the squad's combined value and minutes-weighted age.
+  - **Profile search** — describe the player you want as percentile conditions ("at least the
+    80th for progressive passes, the 70th for tackles") and get everyone who meets them all.
 - **Shortlist** — star players from any source and season, add notes, copy it as CSV or share it
   as a link. It lives in your browser; nothing is sent anywhere.
 
-Jargon has a plain-English explanation on hover and a glossary under **About & data**, and every
-calculation has a "how is this worked out?" note one tap away rather than in the way.
+Jargon has a plain-English explanation on hover, focus or tap and a glossary under
+**Methodology**, and every calculation has a "how is this worked out?" note one tap away rather
+than in the way.
 
 Every tool shares one set of filters: leagues, side, age range, market value, height, preferred
 foot, minutes. A filter only appears where the season actually has the data behind it, each
-season says what it does not measure, and **About & data** on the page lists every source, its
+season says what it does not measure, and **Methodology** on the page lists every source, its
 licence and how fresh it is.
 
 **Every push is checked in a real browser**: CI runs the test suite, the four-feed cross-check
 and `scripts/check_ui.py`, which opens the built site in Chromium, loads all 31 seasons, uses every
-tool, draws a share card and checks phones 360–414px wide never scroll sideways. The weekly
+tool (including the comparison's ring, tiles, grouped table, metric search and keyboard search),
+draws a share card and checks phones 360–414px wide never scroll sideways. The weekly
 refresh runs the same check and will not publish a page that fails it.
 
-**Colour carries meaning, and is checked rather than eyeballed.** Percentiles run blue (top of the
-position) to red (bottom) around a grey middle; age is one blue ramp, light for young and dark for
-old; value for money uses the same blue-red scale either side of the price line. The three chart
-series - the player, his closest matches, the shortlist - are hues validated together for
-colour-blind readers (worst pair ΔE 9.2 in the light theme and 9.4 in the dark, OKLab, simulated
-protanopia and deuteranopia), every text colour clears WCAG AA contrast in both themes, and a number
-is printed beside every colour so colour never carries a value alone.
+**One design system, cream and forest green.** Warm off-white pages and white cards carry most of
+the screen; deep forest green is kept for the search hero, the player's profile and primary
+actions, with a sky-blue accent and faint pitch markings as the one decorative touch. Inter
+throughout on a fixed type scale, a 4px spacing grid, and every colour, radius, shadow and timing
+defined once as a token, with a matching dark theme. Phones get a bottom navigation bar, every
+tooltip works on touch, and motion stops for anyone who asks their system for reduced motion.
+
+**Colour carries meaning, and is checked rather than eyeballed.** Percentiles run from forest
+green (top of the position) through a neutral middle to amber and muted red (bottom); age is one
+blue ramp, light for young and dark for old; value for money is a blue-red scale either side of
+the price line. The three chart series - the player, his closest matches, the shortlist - are hues
+validated together for colour-blind readers (worst pair ΔE 10.9 in the light theme and 9.7 in the
+dark, OKLab, simulated protanopia and deuteranopia), every text colour clears WCAG AA contrast in
+both themes, and a number is printed beside every colour so colour never carries a value alone.
 
 **The rating** is the full app's role fit, shown working: the player's category percentiles
 against his position, weighted by that position's defaults (a centre-back's defending counts

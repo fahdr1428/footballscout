@@ -1,74 +1,114 @@
-<div class="wrap">
-<header class="hero">
-  <div class="hero-top">
-    <span class="brand"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="12" cy="16" r="9"/><circle cx="20" cy="16" r="9"/></svg>Who Plays Like Him</span>
-    <div class="head-btns">
-      <button class="icon-btn" id="about-btn" type="button" aria-haspopup="dialog"><span>About<span class="hide-sm"> &amp; data</span></span></button>
-      <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark">
-        <span aria-hidden="true">&#9680;</span><span id="theme-l">Dark</span></button>
+<a class="skip" href="#main">Skip to content</a>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="simgrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--mark-a)"/><stop offset="1" stop-color="var(--mark-b)"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="#" id="brand" aria-label="Who Plays Like Him - back to the start">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <rect class="lg-bg" x="0" y="0" width="32" height="32" rx="9"/>
+        <path class="lg-l" d="M16 4v24M4 16h4M24 16h4"/>
+        <circle class="lg-a" cx="12.2" cy="16" r="5.6"/><circle class="lg-b" cx="19.8" cy="16" r="5.6"/>
+      </svg>
+      <span class="brand-name">Who Plays Like Him</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <button type="button" class="nav-link" id="tab-similar" data-mode="similar" aria-current="page">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg><span>Discover</span></button>
+      <button type="button" class="nav-link" id="nav-compare">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M17 4v16M3 8h8M13 16h8"/></svg><span>Compare</span></button>
+      <button type="button" class="nav-link" id="nav-explore" data-group="explore">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg><span>Explore</span></button>
+      <button type="button" class="nav-link" id="tab-shortlist" data-mode="shortlist">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg><span>Shortlist</span>
+        <span class="count-pill" id="sl-count" hidden></span></button>
+    </nav>
+    <div class="nav-actions">
+      <button type="button" class="icon-btn" id="nav-search" aria-label="Search players" data-tip="Search players (press /)">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+      <button type="button" class="btn btn-ghost" id="about-btn" aria-haspopup="dialog">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span class="btn-label">Methodology</span></button>
+      <button type="button" class="icon-btn" id="theme" aria-label="Switch between light and dark">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        <span id="theme-l" class="sr-only">Dark</span></button>
     </div>
-  </div>
-  <div class="hero-grid">
-  <div class="hero-main">
-    <h1>Find footballers who play alike</h1>
-    <p class="sub">Search any player in Europe's top leagues and see who has the most similar statistical
-    profile - with a rating, real market values and the working behind every number.</p>
-    <div class="pick hero-search">
-      <label for="q" class="sr-only">Search any player or club</label>
-      <svg class="search-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>
-      <input type="search" id="q" placeholder="Search any player or club - try Pedri, Saka or Atalanta  ( / )" autocomplete="off"
-        aria-controls="picker">
-      <div id="picker" class="picker" hidden></div>
-    </div>
-    <div class="quick" id="quick"></div>
-    <p class="hero-facts" id="hero-facts"></p>
-  </div>
-  <aside class="hero-card" id="hero-card" aria-label="Preview of the closest matches"></aside>
   </div>
 </header>
 
-<section class="how-strip" id="how" aria-label="How it works" hidden>
-  <ol>
-    <li><b>Pick a player</b><span>Search above, or tap one of the names to try.</span></li>
-    <li><b>See who plays like him</b><span>Everyone in his position, ranked by how closely their numbers match.</span></li>
-    <li><b>Narrow it down</b><span>Filter by age, price or league, compare side by side and keep a shortlist.</span></li>
-  </ol>
-  <button class="mini" id="how-close" type="button">Got it</button>
-</section>
+<main id="main" class="container page-top">
 
-<section class="panel dsbar" aria-label="Dataset">
-  <div class="ds-row">
-    <span class="eyebrow">Data</span>
-    <div class="seg" id="srcseg" role="group" aria-label="Choose a data source"></div>
-    <label class="season" for="season"><span class="eyebrow">Season</span>
-      <select id="season"></select></label>
-    <span class="status" id="ds-status" role="status" aria-live="polite"></span>
-  </div>
-  <div class="ds-facts"><span class="eyebrow" id="hero-eyebrow">&nbsp;</span>
-    <span><b id="f-players">&mdash;</b> players</span><span><b id="f-leagues">&mdash;</b> leagues</span>
-    <span><b id="f-metrics">&mdash;</b> metrics</span><span><b id="f-groups">&mdash;</b> position models</span></div>
-  <details class="ds-more"><summary>What is in this data?</summary>
-    <p class="ds-blurb" id="ds-blurb"></p></details>
-  <p class="ds-fresh" id="ds-fresh"></p>
-  <div class="live" id="live-banner" hidden></div>
-  <details class="lacks" id="ds-lacks" hidden><summary id="ds-lacks-s"></summary><p id="ds-lacks-p"></p></details>
-</section>
+  <!-- ================= discover: the hero ================= -->
+  <section class="hero" id="hero" aria-labelledby="hero-h">
+    <div class="hero-inner">
+      <span class="hero-kicker">Football similarity, explained</span>
+      <h1 id="hero-h">Find your next player match.</h1>
+      <p class="hero-sub">Discover footballers with similar playing styles, compare their performances and
+      uncover the numbers behind the match.</p>
+      <div class="search pick" id="search-box">
+        <label for="q" class="sr-only">Search a player, club or position</label>
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Search a player, club or position…" autocomplete="off" spellcheck="false"
+          role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="picker">
+        <span class="kbd" aria-hidden="true">/</span>
+        <div id="picker" class="picker" role="listbox" aria-label="Matching players" hidden></div>
+      </div>
+      <div class="try"><span class="label-caps">Try a player</span><div class="quick" id="quick"></div></div>
+      <p class="hero-facts" id="hero-facts"></p>
+    </div>
+  </section>
 
-<nav class="tabs" role="tablist" aria-label="What to do">
-  <button role="tab" id="tab-similar" data-mode="similar" aria-selected="true" aria-controls="view-similar"><svg class="ti" viewBox="0 0 20 20" aria-hidden="true"><circle cx="7.5" cy="10" r="5"/><circle cx="12.5" cy="10" r="5"/></svg><span>Similar<span class="long"> players</span></span></button>
-  <button role="tab" id="tab-search" data-mode="search" aria-selected="false" aria-controls="view-search"><svg class="ti" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/><circle cx="7" cy="5" r="1.8"/><circle cx="13" cy="10" r="1.8"/><circle cx="9" cy="15" r="1.8"/></svg><span><span class="long">Find a profile</span><span class="short">Profile</span></span></button>
-  <button role="tab" id="tab-board" data-mode="board" aria-selected="false" aria-controls="view-board"><svg class="ti" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 17V9M10 17V4M16 17v-6"/></svg><span>Rankings</span></button>
-  <button role="tab" id="tab-explore" data-mode="explore" aria-selected="false" aria-controls="view-explore"><svg class="ti" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3v14h14"/><circle cx="8" cy="11" r="1.2"/><circle cx="11.5" cy="7.5" r="1.2"/><circle cx="15" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/></svg><span>Charts</span></button>
-  <button role="tab" id="tab-clubs" data-mode="clubs" aria-selected="false" aria-controls="view-clubs"><svg class="ti" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l6 2.2v4.6c0 4-2.6 6.6-6 8.2-3.4-1.6-6-4.2-6-8.2V4.7z"/></svg><span>Clubs</span></button>
-  <button role="tab" id="tab-shortlist" data-mode="shortlist" aria-selected="false" aria-controls="view-shortlist"><svg class="ti" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.8l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z"/></svg><span>Shortlist</span>
-    <span class="count-pill" id="sl-count" hidden></span></button>
-</nav>
+  <!-- ================= explore and shortlist page heads ================= -->
+  <section class="page-head" id="explore-head" hidden>
+    <h1>Explore the numbers</h1>
+    <p>Rank a position on any metric, plot it on two, browse a club's squad or describe the player you are
+    looking for. Tap any player to see who plays like him.</p>
+    <div class="subnav" role="tablist" aria-label="Explore">
+      <button type="button" role="tab" id="tab-board" data-mode="board" aria-selected="false" aria-controls="view-board">Rankings</button>
+      <button type="button" role="tab" id="tab-explore" data-mode="explore" aria-selected="false" aria-controls="view-explore">Charts</button>
+      <button type="button" role="tab" id="tab-clubs" data-mode="clubs" aria-selected="false" aria-controls="view-clubs">Clubs</button>
+      <button type="button" role="tab" id="tab-search" data-mode="search" aria-selected="false" aria-controls="view-search">Profile search</button>
+    </div>
+  </section>
+  <section class="page-head" id="shortlist-head" hidden>
+    <h1>Your shortlist</h1>
+    <p>Players you have starred, from any source and season, with your notes. It lives in this browser only.</p>
+  </section>
 
-<div class="layout">
-  <aside class="panel filters-panel" aria-label="Filters">
-    <details id="filters-box" open>
-      <summary><h3>Filters <span class="count-pill" id="fcount" hidden></span></h3>
-        <span class="chev" aria-hidden="true">&#9662;</span></summary>
+  <!-- ================= which data ================= -->
+  <section class="card databar" id="databar" aria-label="Dataset">
+    <div class="databar-row">
+      <div class="seg" id="srcseg" role="group" aria-label="Choose a data source"></div>
+      <label class="season-pick" for="season"><span>Season</span><select id="season"></select></label>
+      <span class="status" id="ds-status" role="status" aria-live="polite"></span>
+      <div class="databar-facts"><span id="hero-eyebrow"></span>
+        <span><b id="f-players">&mdash;</b> players</span><span><b id="f-leagues">&mdash;</b> leagues</span>
+        <span><b id="f-metrics">&mdash;</b> metrics</span><span><b id="f-groups">&mdash;</b> position models</span></div>
+    </div>
+    <p class="ds-fresh" id="ds-fresh"></p>
+    <div class="live" id="live-banner" hidden></div>
+    <details class="lacks" id="ds-lacks" hidden><summary id="ds-lacks-s"></summary><p id="ds-lacks-p"></p></details>
+    <details class="ds-more"><summary>What is in this data?</summary><p id="ds-blurb"></p><p class="fnote" id="fold-note"></p></details>
+  </section>
+
+  <!-- ================= discovery ================= -->
+  <section class="discover" id="discover" aria-labelledby="discover-h">
+    <div class="section-head"><div><h2 id="discover-h">Explore the player universe</h2>
+      <p>Start with a familiar name and see where the numbers take you.</p></div></div>
+    <div class="discover-grid" id="discover-grid"></div>
+  </section>
+
+  <!-- ================= filters ================= -->
+  <div class="card filters-wrap" id="filters-wrap">
+    <details id="filters-box">
+      <summary><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        Filters <span class="count-pill" id="fcount" hidden></span>
+        <span class="muted">League, side, age, value, height, foot and minutes</span>
+        <svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
       <div class="filters">
         <div class="field" id="f-lg"><span class="lbl">Leagues</span>
           <div class="chips" id="lgchips" role="group" aria-label="Leagues"></div></div>
@@ -76,183 +116,201 @@
           <option value="">Any</option><option>Left</option><option>Right</option><option>Central</option>
         </select></div>
         <div class="field" id="f-age">
-          <span class="lbl">Age &mdash; <span class="mono" id="age-v">any</span></span>
+          <span class="lbl">Age: <b class="tnum" id="age-v">any</b></span>
           <div class="two">
             <input type="range" id="amin" min="16" max="40" value="16" step="1" aria-label="Minimum age">
             <input type="range" id="amax" min="16" max="40" value="40" step="1" aria-label="Maximum age">
           </div>
         </div>
         <div class="field" id="f-val">
-          <label for="val"><span id="val-l">Max value</span> &mdash; <span class="mono" id="val-v">any</span></label>
+          <label for="val"><span id="val-l">Max value</span>: <b class="tnum" id="val-v">any</b></label>
           <input type="range" id="val">
         </div>
         <div class="field" id="f-h">
-          <label for="hmin">Min height &mdash; <span class="mono" id="h-v">any</span></label>
+          <label for="hmin">Min height: <b class="tnum" id="h-v">any</b></label>
           <input type="range" id="hmin" min="160" max="200" value="160" step="1">
         </div>
         <div class="field" id="f-foot"><label for="foot">Preferred foot</label><select id="foot">
           <option value="">Any</option><option value="left">Left</option><option value="right">Right</option>
           <option value="both">Both</option></select></div>
         <div class="field">
-          <label for="mins">Minimum minutes &mdash; <span class="mono" id="mins-v">900</span></label>
+          <label for="mins">Minimum minutes: <b class="tnum" id="mins-v">900</b></label>
           <input type="range" id="mins" min="900" max="3400" value="900" step="90">
         </div>
-        <div class="field" id="f-excl">
+        <div class="field" id="f-excl"><span class="lbl">Closest matches</span>
           <label class="chk"><input type="checkbox" id="xclub"> Exclude his own club</label>
           <label class="chk"><input type="checkbox" id="xleague"> Exclude his own league</label>
         </div>
-        <p class="fnote" id="fnote"></p>
-        <div><button class="mini" id="freset" type="button">Reset filters</button></div>
+        <div class="filters-foot"><p class="fnote" id="fnote"></p>
+          <button class="btn" id="freset" type="button">Reset filters</button></div>
       </div>
     </details>
-  </aside>
+  </div>
 
-  <main>
-    <!-- ================= similar players ================= -->
+  <div class="views">
+    <!-- ================= discover: scouting report ================= -->
     <div class="stack" id="view-similar" role="tabpanel" aria-labelledby="tab-similar">
-      <section class="panel subject">
-        <div id="subject-line"></div>
-      </section>
+      <div class="split">
+        <section class="card profile subject" id="profile-card" aria-label="Player profile">
+          <div id="subject-line"></div>
+          <div class="profile-section"><div class="section-label">Rating and attributes
+            <span class="info" tabindex="0" data-tip="The rating is his category percentiles against his position this season, weighted by the position's default weights. It is this site's model, not an official rating, and it does not adjust for league strength.">i</span></div>
+            <div class="rating" id="rating"></div></div>
+          <div class="profile-section" id="sw-panel">
+            <div class="section-label">Strengths and weaknesses <span class="muted" id="sw-peers"></span></div>
+            <div class="sw" id="sw"></div>
+            <div class="pct-key" aria-label="What the colours mean"><span>Percentile</span>
+              <span class="chip c5">80-100</span><span class="chip c4">60-80</span><span class="chip c3">40-60</span>
+              <span class="chip c2">20-40</span><span class="chip c1">0-20</span>
+              <span class="info" tabindex="0" data-tip="A percentile is where he ranks in his position this season: 90 means a higher figure than about 90% of them. Where a scout wants a number low (errors, cards) it is flipped, so higher always reads better.">i</span></div>
+            <details class="how"><summary>How to read this</summary>
+            <p class="note">Each number is a percentile against his position this season. Club readings such as
+            goals conceded are left out: they describe his team. <span class="tag">noisy</span> marks a metric
+            that barely repeats from one season to the next, so one season of it says less about him.</p></details>
+          </div>
+        </section>
 
-      <section class="panel">
-        <div class="panel-h"><h3>Players most like him <span class="eyebrow" id="hits">&mdash;</span></h3>
-          <div class="tools">
+        <section class="card matches-card" aria-labelledby="matches-h">
+          <div class="card-head">
+            <div><h2 id="matches-h">Closest statistical profiles</h2><p class="card-sub" id="hits">&mdash;</p></div>
+            <div class="tools">
+              <button class="mini" id="copycsv" type="button">Copy CSV</button>
+              <button class="mini" id="sharebtn" type="button">Copy link</button>
+            </div>
+          </div>
+          <div class="matches-tools">
             <div class="seg" id="scope" role="group" aria-label="Which seasons to search">
               <button type="button" data-scope="season" class="on">This season</button>
               <button type="button" data-scope="all">Every season</button></div>
-            <label class="chk" id="own-wrap" hidden><input type="checkbox" id="own"> His other seasons</label>
             <div class="seg" id="listsort" role="group" aria-label="Sort matches">
-              <button data-sort="sim" class="on">Similarity</button><button data-sort="age">Age</button>
-              <button data-sort="val">Value</button><button data-sort="min">Minutes</button>
+              <button type="button" data-sort="sim" class="on">Similarity</button><button type="button" data-sort="age">Age</button>
+              <button type="button" data-sort="val">Value</button><button type="button" data-sort="min">Minutes</button>
             </div>
-            <button class="mini" id="copycsv" type="button">Copy CSV</button>
-            <button class="mini" id="sharebtn" type="button">Copy link</button>
+            <label class="chk" id="own-wrap" hidden><input type="checkbox" id="own"> Include his other seasons</label>
           </div>
-        </div>
-        <div class="list" id="matches"></div>
-      </section>
+          <div class="list" id="matches"></div>
+          <details class="tune" id="weights-panel">
+            <summary><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+              What matters to you <span class="muted" id="w-state">Default weights</span>
+              <svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+            <div class="tune-body">
+              <p class="note" style="padding:0">Slide a category up and it counts for more in every match; slide it to zero and it is ignored.</p>
+              <div class="weights" id="weights"></div>
+              <label class="chk rwrow"><input type="checkbox" id="rw" checked> Count each metric by how well it repeats season to season</label>
+              <p class="note" id="rw-note" style="padding:0"></p>
+              <div><button class="mini" id="wreset" type="button">Reset weights</button></div>
+            </div>
+          </details>
+        </section>
+      </div>
 
-      <section class="panel" id="alt-panel" hidden>
-        <div class="panel-h"><h3>Like him, for less</h3><span class="eyebrow">From his closest matches</span></div>
+      <section class="card" id="alt-panel" hidden aria-labelledby="alt-h">
+        <div class="card-head"><div><h2 id="alt-h">Like him, for less</h2>
+          <p class="card-sub">Picked from his closest matches: cheaper, or younger.</p></div></div>
         <div class="alt" id="alt"></div>
         <details class="how"><summary>How these are picked</summary><p class="note" id="alt-rule"></p></details>
       </section>
 
-      <section class="panel" id="compare-panel" hidden>
-        <div class="panel-h">
-          <h3 id="compare-title">Side by side</h3>
+      <!-- ================= head to head ================= -->
+      <section class="h2h" id="compare-panel" hidden aria-labelledby="compare-title">
+        <div class="section-head">
+          <div><h2 id="compare-title">Head to head</h2><p id="compare-sub"></p></div>
           <div class="tools">
-            <div class="pick" style="min-width:210px">
-              <input type="search" id="q2" placeholder="Compare with anyone&hellip;" autocomplete="off"
+            <div class="pick" style="min-width:240px">
+              <input type="search" id="q2" placeholder="Compare with anyone…" autocomplete="off"
                 aria-label="Compare with another player">
               <div id="picker2" class="picker" hidden></div>
             </div>
             <span id="star-match"></span>
-            <div class="seg" id="sortseg" role="group" aria-label="Sort metrics">
-              <button data-sort="gap" class="on">Biggest gaps</button>
-              <button data-sort="near">Most alike</button>
-              <button data-sort="pct">By percentile</button>
-            </div>
           </div>
         </div>
-        <div id="compare"></div>
+        <div class="card vs" id="vs"></div>
+        <div class="h2h-grid">
+          <div class="card summary-card">
+            <div class="card-head"><h3>What makes them similar?</h3></div>
+            <div class="card-body"><div class="cmp-sum" id="cmp-sum"></div>
+              <p class="calc-note"><svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M4 19h16M7 15l3-4 3 2 4-6"/></svg>
+              Written from the percentiles in the table below - no editorial judgement is added.</p></div>
+          </div>
+          <div class="card radar-card">
+            <div class="card-head"><h3>Profile shape</h3><span class="card-sub" id="peer-note"></span></div>
+            <div class="card-body"><div id="radar"></div><div class="legend" id="radar-legend"></div>
+              <p class="note" id="radar-note" style="padding:10px 0 0"></p></div>
+          </div>
+        </div>
+        <div class="tiles" id="tiles"></div>
+        <div class="view-all"><button type="button" class="btn" id="view-all">View all statistics
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+        <section class="card table-card" id="stats" aria-labelledby="stats-h">
+          <div class="card-head">
+            <div><h3 id="stats-h">Detailed statistical comparison</h3><p class="card-sub" id="stats-sub"></p></div>
+            <div class="table-tools">
+              <input type="search" id="mfilter" placeholder="Find a metric…" aria-label="Find a metric">
+              <div class="seg" id="sortseg" role="group" aria-label="Sort metrics">
+                <button type="button" data-sort="gap" class="on">Biggest gaps</button>
+                <button type="button" data-sort="near">Most alike</button>
+                <button type="button" data-sort="pct">By percentile</button>
+              </div>
+            </div>
+          </div>
+          <div id="compare"></div>
+        </section>
       </section>
 
-      <section class="panel" id="sw-panel">
-        <div class="panel-h"><h3>Where he stands out</h3><span class="eyebrow" id="sw-peers">&mdash;</span></div>
-        <div class="rating" id="rating"></div>
-        <div class="sw" id="sw"></div>
-        <div class="pct-key" aria-label="What the colours mean"><span class="eyebrow">Percentile colours</span>
-          <span class="chip c5">80-100</span><span class="chip c4">60-80</span><span class="chip c3">40-60</span>
-          <span class="chip c2">20-40</span><span class="chip c1">0-20</span>
-          <span class="muted">against his position this season</span></div>
-        <details class="how"><summary>How to read this</summary>
-        <p class="note">Each number is a percentile: 90 means better than 90% of players in his position this
-        season. Where a scout wants a number low (errors, cards), it is already flipped, so higher is always
-        better. Club readings such as goals conceded are left out: they describe his team.
-        <span class="tag">noisy</span> marks a metric that barely repeats from one season to the next, so one
-        season of it says less about him. Hover a metric's name for what it means.</p></details>
-      </section>
-
-      <div class="cols2">
-        <section class="panel">
-          <div class="panel-h"><h3>His profile at a glance</h3><span class="eyebrow" id="peer-note">&mdash;</span></div>
-          <div id="radar" style="padding:6px 4px 4px"></div>
-          <div class="legend" id="radar-legend"></div>
-          <p class="note" id="radar-note"></p>
-        </section>
-        <section class="panel" id="weights-panel">
-          <div class="panel-h"><h3>What matters to you</h3>
-            <div class="tools"><span class="eyebrow" id="w-state">Default weights</span>
-              <button class="mini" id="wreset" type="button">Reset</button></div></div>
-          <div class="weights" id="weights"></div>
-          <label class="chk rwrow"><input type="checkbox" id="rw" checked> Count each metric by how well it
-            repeats season to season</label>
-          <p class="note">Slide a category up and it counts for more in every match below; slide it to
-          zero and it is ignored.</p>
-          <details class="how"><summary>How the weighting works</summary>
-          <p class="note" id="rw-note"></p>
-          <p class="note">Each metric is scaled by the average weight of the categories it sits in - the same
-          arithmetic as the full app.</p></details>
-        </section>
-      </div>
-
-      <section class="panel" id="career-panel" hidden>
-        <div class="panel-h"><h3 id="career-title">Career</h3>
+      <section class="card" id="career-panel" hidden aria-labelledby="career-title">
+        <div class="card-head"><h2 id="career-title">Career</h2>
           <button class="mini" id="career-close" type="button">Close</button></div>
         <div id="career"></div>
       </section>
     </div>
 
-    <!-- ================= profile search ================= -->
+    <!-- ================= explore: profile search ================= -->
     <div class="stack" id="view-search" role="tabpanel" aria-labelledby="tab-search" hidden>
-      <section class="panel">
-        <div class="panel-h"><h3>Describe the player you want</h3>
-          <span class="eyebrow">Every condition is a percentile against his position</span></div>
+      <section class="card">
+        <div class="card-head"><div><h2>Describe the player you want</h2>
+          <p class="card-sub">Every condition is a percentile against his position this season.</p></div></div>
         <div class="builder">
-          <div class="field"><label for="sgroup">Position</label><select id="sgroup"></select></div>
-          <div id="criteria" class="stack" style="gap:10px"></div>
+          <div class="field" style="max-width:320px"><label for="sgroup">Position</label><select id="sgroup"></select></div>
+          <div id="criteria" class="stack" style="gap:12px"></div>
           <div class="tools">
-            <button class="mini" id="addcrit" type="button">+ Add a condition</button>
-            <button class="mini" id="clearcrit" type="button">Clear</button>
+            <button class="btn" id="addcrit" type="button">+ Add a condition</button>
+            <button class="btn btn-ghost" id="clearcrit" type="button">Clear</button>
           </div>
         </div>
       </section>
-      <section class="panel">
-        <div class="panel-h"><h3>Players who fit <span class="eyebrow" id="res-hits">&mdash;</span></h3>
+      <section class="card">
+        <div class="card-head"><div><h2>Players who fit</h2><p class="card-sub" id="res-hits">&mdash;</p></div>
           <button class="mini" id="rescsv" type="button">Copy CSV</button></div>
         <div class="list" id="results"></div>
         <details class="how"><summary>How this works</summary>
-        <p class="note">Ranked by the average of his percentiles on the conditions above. A player
-        whose season did not measure a metric cannot meet a condition on it, so he is left out
-        rather than assumed to pass.</p></details>
+        <p class="note">Ranked by the average of his percentiles on the conditions above. A player whose season did
+        not measure a metric cannot meet a condition on it, so he is left out rather than assumed to pass.</p></details>
       </section>
     </div>
 
-    <!-- ================= leaderboard ================= -->
+    <!-- ================= explore: rankings ================= -->
     <div class="stack" id="view-board" role="tabpanel" aria-labelledby="tab-board" hidden>
-      <section class="panel">
-        <div class="panel-h"><h3>Rankings <span class="eyebrow" id="board-hits">&mdash;</span></h3>
-          <span class="eyebrow">Rank the pool on one metric</span></div>
-        <div class="filters" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+      <section class="card">
+        <div class="card-head"><div><h2>Rankings</h2><p class="card-sub" id="board-hits">&mdash;</p></div></div>
+        <div class="controls">
           <div class="field"><label for="bgroup">Position</label><select id="bgroup"></select></div>
           <div class="field"><label for="bmetric">Metric</label><select id="bmetric"></select></div>
           <div class="field"><label for="bdir">Order</label><select id="bdir">
             <option value="desc">Highest first</option><option value="asc">Lowest first</option></select></div>
         </div>
+        <p class="note" id="board-note" style="padding:0 24px 16px"></p>
         <div class="list" id="board"></div>
-        <p class="note" id="board-note"></p>
-        <p class="note">Tap a row to see players like him. Percentiles are against his own position, so a
-        defender and a forward are never ranked on the same scale.</p>
+        <p class="note">Tap a row to see players like him. Percentiles are against his own position, so a defender
+        and a forward are never ranked on the same scale.</p>
       </section>
     </div>
 
-    <!-- ================= explorer ================= -->
+    <!-- ================= explore: charts ================= -->
     <div class="stack" id="view-explore" role="tabpanel" aria-labelledby="tab-explore" hidden>
-      <section class="panel">
-        <div class="panel-h"><h3>Charts <span class="eyebrow" id="ex-hits">&mdash;</span></h3>
-          <span class="eyebrow">One position, any two metrics</span></div>
-        <div class="filters excontrols">
+      <section class="card">
+        <div class="card-head"><div><h2>Charts</h2><p class="card-sub" id="ex-hits">&mdash;</p></div>
+          <div id="ex-vfm-wrap"><button class="btn" id="ex-vfm" type="button">Rating against price</button></div></div>
+        <div class="controls">
           <div class="field"><label for="xgroup">Position</label><select id="xgroup"></select></div>
           <div class="field"><label for="xmetric">Across</label><select id="xmetric"></select></div>
           <div class="field"><label for="ymetric">Up</label><select id="ymetric"></select></div>
@@ -265,8 +323,6 @@
               <button type="button" data-color="hl" class="on">Highlights</button>
               <button type="button" data-color="age">Age</button>
               <button type="button" data-color="vfm">vs price</button></div></div>
-          <div class="field" id="ex-vfm-wrap"><span class="lbl">Shortcut</span>
-            <button class="mini" id="ex-vfm" type="button">Rating against price</button></div>
         </div>
         <div class="scatter" id="scatter"></div>
         <div class="legend" id="ex-legend"></div>
@@ -275,12 +331,11 @@
       </section>
     </div>
 
-    <!-- ================= clubs ================= -->
+    <!-- ================= explore: clubs ================= -->
     <div class="stack" id="view-clubs" role="tabpanel" aria-labelledby="tab-clubs" hidden>
-      <section class="panel">
-        <div class="panel-h"><h3>Club <span class="eyebrow" id="club-hits">&mdash;</span></h3>
-          <span class="eyebrow">Every player at a club, rated against his position</span></div>
-        <div class="filters" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+      <section class="card">
+        <div class="card-head"><div><h2>Clubs</h2><p class="card-sub" id="club-hits">&mdash;</p></div></div>
+        <div class="controls">
           <div class="field"><label for="cleague">League</label><select id="cleague"></select></div>
           <div class="field"><label for="cclub">Club</label><select id="cclub"></select></div>
           <div class="field"><label for="csort">Sort</label><select id="csort">
@@ -296,56 +351,55 @@
 
     <!-- ================= shortlist ================= -->
     <div class="stack" id="view-shortlist" role="tabpanel" aria-labelledby="tab-shortlist" hidden>
-      <section class="panel shared" id="shared-panel" hidden>
-        <div class="panel-h"><h3 id="shared-title">A shared shortlist</h3>
+      <section class="card shared" id="shared-panel" hidden>
+        <div class="card-head"><h2 id="shared-title">A shared shortlist</h2>
           <div class="tools"><button class="mini primary" id="shared-keep" type="button">Add to my shortlist</button>
             <button class="mini" id="shared-close" type="button">Dismiss</button></div></div>
         <div id="shared-list"></div>
       </section>
-      <section class="panel">
-        <div class="panel-h"><h3>Your shortlist <span class="eyebrow" id="sl-hits">&mdash;</span></h3>
+      <section class="card">
+        <div class="card-head"><div><h2>Saved players</h2><p class="card-sub" id="sl-hits">&mdash;</p></div>
           <div class="tools">
             <button class="mini" id="slcsv" type="button">Copy CSV</button>
             <button class="mini" id="slshare" type="button">Copy share link</button>
             <button class="mini" id="slclear" type="button">Clear</button>
           </div></div>
         <div id="shortlist"></div>
-        <p class="note" id="sl-note">Star a player anywhere on the page to keep him here, from any source and
-        any season, with a note of your own. The list lives in this browser only - nothing is sent anywhere -
-        and <b>Copy share link</b> hands someone else a link that opens the same players.</p>
+        <p class="note" id="sl-note">Star a player anywhere on the page to keep him here, with a note of your own.
+        Nothing is sent anywhere, and <b>Copy share link</b> hands someone a link that opens the same players.</p>
       </section>
     </div>
-  </main>
-</div>
+  </div>
+</main>
 
-<footer>
-  <div><b>How similarity is calculated.</b> Each player is a vector of his position's metrics,
-  standardised against his peers, and similarity is the cosine between two such vectors
-  &times;&nbsp;100. A 90% match means the two profiles point in nearly the same direction. Each
-  metric counts by how well it repeats from one season to the next - its correlation with the same
-  player's figure a year later, squared - so a centre-back's aerial duels, which repeat even when he
-  changes club, outweigh his errors, which barely repeat at all. Comparisons only happen inside a position, because a centre-back
-  and a winger share no meaningful axis.</div>
-  <div><b>What the money means.</b> A figure in euros is Transfermarkt's market value estimate for
-  that season - not a fee anybody paid. A figure in pounds with an asterisk is the <em>fantasy
-  game's</em> price, a popularity signal set by its operator, not a valuation at all.</div>
-  <div><b>What is not guessed.</b> A season that did not measure something shows a dash, not a zero
-  and not an average: no invented ages, heights or tackles. Each season lists what it lacks above.</div>
-  <div><b>Sharing a view.</b> The address bar tracks the dataset, the player, the comparison, the
-  tab and the chart's axes, so <b>Copy link</b> hands someone the exact screen you are looking at;
-  the Shortlist's link hands them your players. Your shortlist and notes stay in this browser.</div>
-  <div id="fold-note"></div>
-  <div>A static extract of a larger Streamlit platform, which adds recruitment briefs, squad
-  analysis, archetype maps and a model-validation suite.</div>
-  <div class="credit">Open source:
-  <a href="https://github.com/fahdr1428/footballscout" target="_blank" rel="noopener">github.com/fahdr1428/footballscout</a>
-  · Data: Understat, FBref, Transfermarkt (via the CC0 transfermarkt-datasets) and the Fantasy
-  Premier League API - see <a href="#" id="about-link">About &amp; data</a>.</div>
+<footer class="site-footer">
+  <div class="container">
+    <div class="foot-grid">
+      <div><h4>How similarity is calculated</h4>
+        <p>Each player is a vector of his position's metrics, standardised against his peers; similarity is the
+        cosine between two such vectors &times;&nbsp;100. Each metric counts by how well it repeats from one season
+        to the next, and players are only compared inside a position.</p></div>
+      <div><h4>What the money means</h4>
+        <p>A figure in euros is Transfermarkt's market value estimate - not a fee anybody paid. A figure in pounds
+        with an asterisk is the fantasy game's price, a popularity signal rather than a valuation.</p></div>
+      <div><h4>What is never guessed</h4>
+        <p>A season that did not measure something shows a dash, not a zero or an average: no invented ages,
+        heights or tackles. Each season says what it does not measure, under the data picker.</p></div>
+      <div><h4>Sharing a view</h4>
+        <p>The address bar tracks the dataset, the player, the comparison and the page, so <b>Copy link</b> hands
+        someone exactly what you are looking at. Your shortlist and notes stay in this browser.</p></div>
+    </div>
+    <div class="foot-base">
+      <span>Open source on <a href="https://github.com/fahdr1428/footballscout" target="_blank" rel="noopener">GitHub</a> ·
+        data from Understat, FBref, Transfermarkt (CC0 transfermarkt-datasets) and the Fantasy Premier League API ·
+        <a href="#" id="about-link">Methodology and sources</a></span>
+      <span>A static extract of a larger Streamlit platform.</span>
+    </div>
+  </div>
 </footer>
-</div>
 
 <dialog id="about" aria-labelledby="about-h">
-  <div class="dlg-h"><h2 id="about-h">About &amp; data</h2>
+  <div class="dlg-h"><h2 id="about-h">Methodology and data</h2>
     <button class="mini" id="about-close" type="button">Close</button></div>
   <div class="dlg-body">
     <p><b>Who Plays Like Him</b> finds footballers whose statistical profile matches another's, inside
@@ -497,9 +551,11 @@ async function loadDataset(key, opts = {}){
   const token = ++loadToken;
   const hit = entryFor(key);
   status(CACHE[key] ? "" : `Loading ${hit ? hit.src.name + " " + seasonLabel(hit.e.season) : key}…`);
+  if (!CACHE[key]) document.body.classList.add("is-loading");
   let payload;
   try { payload = await getDataset(key); }
   catch (e) {
+    document.body.classList.remove("is-loading");
     if (token !== loadToken) return;
     status(location.protocol === "file:"
       ? "Only the first season is built into this file - open the site from a web server to load the others."
@@ -508,6 +564,7 @@ async function loadDataset(key, opts = {}){
     return;
   }
   if (token !== loadToken) return;
+  document.body.classList.remove("is-loading");
   const keepId = opts.id || (P && P[subject] ? P[subject].id : null);
   const keepName = opts.name || (P && P[subject] ? P[subject].n : null);
   setData(key, payload);
@@ -816,7 +873,7 @@ function rankedAll(){
     if (r[0] === s.id && (r[4] === cur || !showOwn)) continue;
     const o = {id: r[0], n: r[1], t: r[2], l: r[3], a: r[6], m: r[7], v: r[8], h: r[10], ft: r[11], fl: r[12]};
     if (!passes(o, true)) continue;
-    out.push({r, o, si: r[4], sim: alignedSim(s.z, r[9], maps[r[4]].pos, scale),
+    out.push({r, o, si: r[4], pos: maps[r[4]].pos, sim: alignedSim(s.z, r[9], maps[r[4]].pos, scale),
               shared: maps[r[4]].shared});
   }
   return out.sort((x, y) => y.sim - x.sim);
@@ -873,8 +930,9 @@ function drawQuick(){
   const at = new Map(P.map((p, i) => [plain(p.n), i]));
   const hits = QUICK.map(n => at.get(plain(n)))
     .filter(i => i != null && i !== subject && G[P[i].g]).slice(0, 5);
-  $("quick").innerHTML = hits.length ? `<span class="lbl">Try</span>` + hits.map(i =>
-    `<button type="button" class="chip-btn" data-quick="${i}">${esc(P[i].n)}</button>`).join("") : "";
+  $("quick").closest(".try").hidden = !hits.length;
+  $("quick").innerHTML = hits.map(i =>
+    `<button type="button" class="chip-btn" data-quick="${i}">${esc(P[i].n)}</button>`).join("");
 }
 function selectSubject(i, {keepMatch = false, matchName = null} = {}){
   subject = i; sortMode = "gap"; listLimit = 25;
@@ -895,50 +953,50 @@ function selectSubject(i, {keepMatch = false, matchName = null} = {}){
 }
 
 const badge = (txt, cls = "") => txt ? `<span class="badge ${cls}">${esc(txt)}</span>` : "";
-// Transfermarkt's value as this season closed, his latest one if it has moved
-// since, and the fantasy game's price where the source has one - each labelled,
-// because they are three different things.
-function priceBadges(p){
-  const month = d => d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", {month: "short", year: "numeric", timeZone: "UTC"}) : "";
-  const out = [];
-  if (p.v != null) out.push(badge(eur(p.v) + (M.inProgress ? " now" : " as the season closed"), "key"));
-  if (p.lv != null && p.lv !== p.v) out.push(badge("Now " + eur(p.lv) + " · " + month(p.ld), "key"));
-  if (p.pr != null) out.push(badge("£" + p.pr.toFixed(1) + "m FPL price"));
-  return out.join("");
-}
+const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t;
 // A colour per position family - keepers amber, defence green, midfield blue,
-// attacking midfield violet, wide players magenta, strikers orange - on the
-// initials badge and the club table, so a position reads at a glance.
+// attacking midfield violet, wide players magenta, strikers orange - on avatars
+// and the club table, so a position reads at a glance.
 const HUE = {GK: 42, CB: 160, FB: 160, DEF: 160, DM: 214, CM: 214, WM: 214, MID: 214, AM: 262, W: 330, SS: 16, FW: 16, FWD: 16};
-const initials = n => n.split(/[\s-]+/).filter(w => /^\p{L}/u.test(w)).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+// First and last name: "Marc-Oliver Kempf" is MK, "Pedri" is P.
+const initials = n => { const w = n.split(/\s+/).filter(x => /^\p{L}/u.test(x));
+  return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || "?")[0]).toUpperCase(); };
+const avatar = (o, size = "") => `<span class="avatar ${size}" style="--h:${HUE[o.g] ?? 214}" aria-hidden="true">${esc(initials(o.n))}</span>`;
 function drawSubject(){
-  const p = P[subject];
+  const p = P[subject], has = M.has || {};
   const others = (p.os || []), r = ratingOf(p);
-  const ring = r == null ? "" : `<div class="ring b${band(r)}" title="Rating ${Math.round(r)} out of 100 - the breakdown is just below">
+  const ring = r == null ? "" : `<div class="ring b${band(r)}" role="img" aria-label="Rating ${Math.round(r)} out of 100"
+      data-tip="His overall rating, ${Math.round(r)} out of 100: his category percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s this season, weighted by the position's defaults. The breakdown is just below.">
       <svg viewBox="0 0 48 48" aria-hidden="true"><circle class="rb" cx="24" cy="24" r="20"/>
         <circle class="rf" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="${Math.round(r)} 100"/></svg>
-      <span class="rv mono">${Math.round(r)}</span><span class="rl">rating</span></div>`;
+      <span class="rv">${Math.round(r)}</span><span class="rl">rating</span></div>`;
+  const month = d => d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", {month: "short", year: "numeric", timeZone: "UTC"}) : "";
+  const fact = (k, v, tipText = "") => `<div${tipText ? ` data-tip="${esc(tipText)}"` : ""}><div class="fact-k">${k}</div><div class="fact-v">${v}</div></div>`;
+  const value = p.v != null ? eur(p.v) + (p.lv != null && p.lv !== p.v ? ` <span class="muted">· ${eur(p.lv)} ${esc(month(p.ld))}</span>` : "")
+    : p.pr != null ? `£${p.pr.toFixed(1)}m <span class="muted">FPL price</span>` : "—";
   $("subject-line").innerHTML = `
-    <div class="who-top">
-      <div class="avatar" style="--h:${HUE[p.g] ?? 205}" aria-hidden="true">${esc(initials(p.n))}</div>
-      <div class="who"><span class="eyebrow">${esc(gname(p.g))} &middot; ${esc(seasonLabel(M.season))}${M.inProgress ? " so far" : ""}</span>
-        <h2>${esc(p.n)}</h2>
-        <div class="who-sub">${esc(p.p)} · ${esc(p.t)} · ${esc(p.l)}</div></div>
-      ${ring}
-      <div class="who-btns">${G[p.g] && p.z.length
-        ? `<button type="button" class="mini" id="cardbtn">Share card</button>` : ""}${starBtn(subject)}</div>
+    <div class="id-band">
+      <div class="id-top">${avatar(p, "lg")}
+        <div class="id-main"><div class="id-kicker">${esc(gname(p.g))} · ${esc(seasonLabel(M.season))}${M.inProgress ? " so far" : ""}</div>
+          <h2 class="id-name">${esc(p.n)}</h2>
+          <div class="id-sub">${esc(p.p)} · ${esc(p.t)} · ${esc(p.l)}</div></div>
+        ${ring}</div>
+      <div class="id-actions">${G[p.g] && p.z.length ? `<button type="button" class="mini" id="cardbtn">Share card</button>` : ""}${starBtn(subject)}
+        ${others.length ? `<button type="button" class="mini" id="career-btn">Career · ${others.length + 1} seasons</button>` : ""}</div>
     </div>
-    <div class="badges">
-      ${badge(p.ar, "arch")}
-      ${badge(p.a != null ? "Age " + p.a.toFixed(1) : "")}${badge(p.h ? p.h + " cm" : "")}
-      ${badge(p.ft ? p.ft[0].toUpperCase() + p.ft.slice(1) + "-footed" : "")}
-      ${badge(p.fs ? p.fs + " on the " + (p.fl || "").toLowerCase() : "")}
-      ${priceBadges(p)}
-      ${badge(p.m.toLocaleString() + " min")}
+    <div class="facts-grid">
+      ${fact("Age", p.a != null ? p.a.toFixed(1) : "—")}
+      ${fact("Minutes", p.m.toLocaleString(), "League minutes this season - the sample every per-90 figure rests on.")}
+      ${has.value || has.price ? fact(M.inProgress ? "Market value now" : "Market value", value,
+        p.pr != null && p.v == null ? "The fantasy game's price - a popularity signal set by its operator, not a valuation."
+          : "Transfermarkt's estimate as the season closed, and his latest value with its date where it has moved - an estimate, not a fee.") : ""}
+      ${has.height ? fact("Height", p.h ? p.h + " cm" : "—") : ""}
+      ${has.foot ? fact("Foot", p.ft ? cap(p.ft) + (p.fs ? ` <span class="muted">· ${esc(p.fs.toLowerCase())}</span>` : "") : "—",
+        p.fs ? `${p.fs}: a wide player whose stronger foot is ${p.fs === "Inverted" ? "on the opposite side to his flank, so he tends to cut inside" : "on the same side as his flank"}.` : "") : ""}
+      ${fact("Playing style", p.ar ? esc(p.ar) : "—", p.ar ? "A style found by clustering this position's statistical profiles - a label from the data, not an official role." : "")}
     </div>
-    ${others.length ? `<div class="seasons-line"><span class="eyebrow">Also in</span>${others.map(s =>
-      `<button type="button" class="chip-btn" data-goseason="${s}">${seasonLabel(s)}</button>`).join("")}
-      <button type="button" class="mini" id="career-btn">Career across ${others.length + 1} seasons</button></div>` : ""}`;
+    ${others.length ? `<div class="seasons-line"><span class="lbl">Also in</span>${others.map(x =>
+      `<button type="button" class="chip-btn" data-goseason="${x}">${seasonLabel(x)}</button>`).join("")}</div>` : ""}`;
 }
 
 // ---- plain English ------------------------------------------------------------
@@ -966,8 +1024,10 @@ function explain(key){
   const hit = GLOSSARY.find(([re]) => re.test(key));
   return hit ? hit[2] + (/per90/.test(key) ? " Per 90 means per full match of minutes." : "") : "";
 }
-const termed = key => { const e = explain(key);
-  return e ? `<span class="term" title="${esc(e)}">${esc(label(key))}</span>` : esc(label(key)); };
+const termed = (key, short = false) => { const e = explain(key), l = short ? shortLabel(key) : label(key);
+  return e ? `<span class="term" tabindex="0" data-tip="${esc(label(key) + ". " + e)}">${esc(l)}</span>` : esc(l); };
+// "xGChain (possessions ending in a shot) per 90" -> "xGChain per 90", for lists
+const shortLabel = key => label(key).replace(/\s*\([^)]*\)/g, "");
 
 // ---- strengths & weaknesses -------------------------------------------------
 // Straight from his percentiles: nothing here is a model output. A metric whose
@@ -979,15 +1039,15 @@ function repeatOf(spec, key){
 }
 function drawRating(){
   const p = P[subject], r = ratingParts(p);
-  if (!r){ $("rating").innerHTML = ""; return; }
-  $("rating").innerHTML = `<div class="rt-score"><span class="eyebrow">Rating</span>
-      <b class="mono">${Math.round(r.score)}</b><span class="muted">/ 100</span></div>
-    <div class="rt-parts">${r.parts.sort((x, y) => y.add - x.add).map(x =>
-      `<span class="rt-part" title="${esc(x.c)}: ${x.v == null ? "not recorded for him - counted as 50" : x.v + "th percentile"} × ${Math.round(x.share * 100)}% weight">
-        <span class="rt-c">${esc(x.c)}</span><span class="mono">${x.v == null ? "50*" : Math.round(x.v)} × ${Math.round(x.share * 100)}%</span></span>`).join("")}</div>
-    <p class="fnote rt-note">His category percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s,
-      weighted by the position's defaults - the full app's role fit. It ranks him inside this pool and season; it does
-      not adjust for league strength.${r.parts.some(x => x.v == null) ? " * not recorded for him, counted as average." : ""}</p>`;
+  if (!r){ $("rating").innerHTML = `<p class="fnote">No rating: this source has no model for ${esc(gname(p.g).toLowerCase())}s.</p>`; return; }
+  $("rating").innerHTML = r.parts.slice().sort((x, y) => y.share - x.share).map(x =>
+    `<div class="attr" data-tip="${esc(x.c)}: ${x.v == null ? "not recorded for him, so counted as average (50)" : "the " + ord(x.v) + " percentile"} against his position. It carries ${Math.round(x.share * 100)}% of his rating.">
+      <div class="attr-n">${esc(x.c)}<small>${Math.round(x.share * 100)}% of the rating</small></div>
+      <div class="attr-bar"><span style="width:${Math.max(2, x.used)}%;background:var(--s${band(x.used)})"></span></div>
+      <div class="attr-v">${x.v == null ? "50*" : Math.round(x.v)}</div></div>`).join("")
+    + `<p class="rt-note">Overall <b>${Math.round(r.score)}</b>/100 - the weighted average of these category percentiles against
+      ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s this season. A model rating from this site, not an
+      official one, and not adjusted for league strength.${r.parts.some(x => x.v == null) ? " * Not recorded for him, counted as average." : ""}</p>`;
 }
 function drawSW(){
   drawRating();
@@ -1000,18 +1060,18 @@ function drawSW(){
     .filter(r => r.pct != null && !club.has(r.k)) : [];
   panel.hidden = !rows.length;
   if (!rows.length) return;
-  $("sw-peers").textContent = `against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s`;
+  $("sw-peers").textContent = `percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s`;
   const item = r => {
     const q = repeatOf(spec, r.k), noisy = q != null && q < 0.3;
-    return `<div class="swr"><span>${termed(r.k)}${noisy
-      ? `<span class="tag" title="Repeats at ${q.toFixed(2)} from one season to the next">noisy</span>` : ""}</span>
+    return `<div class="swr"><span>${termed(r.k, true)}${noisy
+      ? `<span class="tag" data-tip="Repeats at only ${q.toFixed(2)} from one season to the next, so one season of it says less about him.">noisy</span>` : ""}</span>
       <span class="v mono">${fmt(r.k, r.v)}</span>${chip(r.pct)}</div>`;
   };
   const top = rows.filter(r => r.pct >= 70).sort((a, b) => b.pct - a.pct).slice(0, 6);
   const low = rows.filter(r => r.pct <= 30).sort((a, b) => a.pct - b.pct).slice(0, 6);
-  $("sw").innerHTML = `<div><h4>Top of his position</h4>${top.length ? top.map(item).join("")
+  $("sw").innerHTML = `<div><h4>Strongest</h4>${top.length ? top.map(item).join("")
       : '<p class="fnote">Nothing at the 70th percentile or above.</p>'}</div>
-    <div><h4>Bottom of his position</h4>${low.length ? low.map(item).join("")
+    <div><h4>Weakest</h4>${low.length ? low.map(item).join("")
       : '<p class="fnote">Nothing at the 30th percentile or below.</p>'}</div>`;
 }
 
@@ -1034,10 +1094,10 @@ function radar(names, series){
   }).join("");
   const labels = names.map((n,i) => { const [x,y] = pt(i, R+22);
     const anchor = x < C-6 ? "end" : x > C+6 ? "start" : "middle";
-    const nums = series.map(s => `<tspan font-family="IBM Plex Mono,monospace" font-weight="600" fill="${s.color}"> ${
+    const nums = series.map(s => `<tspan font-family="Inter,system-ui,sans-serif" font-weight="600" fill="${s.color}"> ${
       s.vals[i] == null ? "—" : Math.round(s.vals[i])}</tspan>`).join("");
     return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="11"
-      fill="var(--muted)" font-family="IBM Plex Sans,sans-serif">${esc(n)}${nums}</text>`; }).join("");
+      fill="var(--muted)" font-family="Inter,system-ui,sans-serif">${esc(n)}${nums}</text>`; }).join("");
   return `<svg viewBox="-96 -16 ${Wd+192} ${Wd+32}" role="img" aria-label="Category percentile profile">
     ${rings}${spokes}${shapes}${labels}</svg>`;
 }
@@ -1045,16 +1105,19 @@ function drawRadar(){
   const p = P[subject], spec = G[p.g];
   if (!spec){ $("radar").innerHTML = `<div class="empty">No model for ${esc(gname(p.g).toLowerCase())}s this season.</div>`;
     $("radar-legend").innerHTML = ""; $("radar-note").textContent = ""; $("peer-note").textContent = ""; return; }
-  const series = [{vals: p.cv, color: "var(--mark-1)"}];
+  // Only the categories this source measures for the position - a spoke nobody
+  // has would read as a zero.
+  const present = presentCats(M, P, p.g), idx = spec.c.map((c, i) => i).filter(i => present[i]);
+  const series = [{vals: idx.map(i => p.cv[i]), color: "var(--mark-a)"}];
   const ref = matchRef(), o = ref ? ref.p : null;
   const same = o && o.g === p.g && ref.spec;
   // Another season's categories are matched by name, not by position.
-  if (same) series.push({vals: spec.c.map(c => { const j = ref.spec.c.indexOf(c); return j < 0 ? null : o.cv[j]; }),
-                         color: "var(--mark-2)", dash: true});
-  $("radar").innerHTML = radar(spec.c, series);
-  $("radar-legend").innerHTML = `<span><i style="background:var(--mark-1)"></i>${esc(p.n)}${ref && ref.other ? " " + seasonTag(dsKey) : ""}</span>` +
-    (same ? `<span><i style="background:var(--mark-2)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
-  $("peer-note").textContent = (M.counts[p.g] || 0) + " peers";
+  if (same) series.push({vals: idx.map(i => { const j = ref.spec.c.indexOf(spec.c[i]); return j < 0 ? null : o.cv[j]; }),
+                         color: "var(--mark-b)", dash: true});
+  $("radar").innerHTML = radar(idx.map(i => spec.c[i]), series);
+  $("radar-legend").innerHTML = `<span><i style="background:var(--mark-a)"></i>${esc(p.n)}${ref && ref.other ? " " + seasonTag(dsKey) : ""}</span>` +
+    (same ? `<span><i style="background:var(--mark-b)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
+  $("peer-note").textContent = `percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s`;
   $("radar-note").textContent = `Each spoke is the mean percentile of a basket of per-90 metrics, against `
     + `${gname(p.g).toLowerCase()}s ${ref && ref.other ? "in each player's own season" : "this season"}. `
     + `Similarity is computed on ${spec.f.length} individual metrics, not on these averages.`;
@@ -1095,6 +1158,40 @@ function drawWeights(){
 }
 
 // ---- matches ---------------------------------------------------------------
+// Which of the position's categories two players are closest on: the mean gap
+// between their standardised metrics in each category, weighted as in the
+// similarity, smallest first. Read straight off the vectors - nothing new.
+// Which of the position's categories a match is unusually close to him on: the
+// mean weighted gap between their standardised metrics in each category, divided
+// by the same gap averaged over everyone in his position - so the reason is what
+// sets this match apart, not the category every forward is close on.
+function catGaps(a, bz, spec, pos, scale){
+  const sums = spec.c.map(() => [0, 0]);
+  spec.f.forEach((k, i) => {
+    const j = pos ? pos[i] : i;
+    if (j < 0 || a.z[i] == null || bz[j] == null) return;
+    const w = scale ? scale[i] * scale[i] : 1, gap = Math.abs(a.z[i] - bz[j]);
+    spec.w[i].forEach(c => { sums[c][0] += gap * w; sums[c][1] += w; });
+  });
+  return sums.map(([g, w]) => w > 0 ? g / w : null);
+}
+let gapBase = {key: null, base: null};
+function closestOn(a, bz, spec, pos, scale){
+  const key = dsKey + "|" + subject + "|" + JSON.stringify(W) + RW;
+  if (gapBase.key !== key){
+    const tot = spec.c.map(() => [0, 0]);
+    for (const i of (byGroup[a.g] || [])){
+      if (P[i] === a || !P[i].z.length) continue;
+      catGaps(a, P[i].z, spec, null, scale).forEach((g, c) => { if (g != null){ tot[c][0] += g; tot[c][1]++; } });
+    }
+    gapBase = {key, base: tot.map(([g, n]) => n ? g / n : null)};
+  }
+  const mine = catGaps(a, bz, spec, pos, scale);
+  let best = -1, low = Infinity;
+  mine.forEach((g, c) => { const b = gapBase.base[c]; if (g != null && b > 0 && g / b < low){ low = g / b; best = c; } });
+  return best >= 0 ? spec.c[best] : "";
+}
+const whyTag = c => c ? `<span class="why">Closest on ${esc(c.toLowerCase())}</span>` : "";
 function drawMatches(){
   const s = P[subject];
   $("own-wrap").hidden = scope !== "all";
@@ -1109,60 +1206,107 @@ function drawMatches(){
   document.querySelector('#listsort [data-sort="val"]').hidden = !(has.value || has.price);
   document.querySelector('#listsort [data-sort="age"]').hidden = !has.age;
   const priced = has.value || has.price;
-  const meta = o => `<span class="meta mono">${o.a != null ? o.a.toFixed(1) : "—"}${priced ? "<br>" + worth(o) : ""}</span>`;
-  const bar = sc => `<span class="score"><span class="tr"><span class="fl" style="width:${sc}%"></span></span>
-        <span class="pc mono">${sc.toFixed(1)}%</span></span>`;
+  const meta = o => `<span class="meta">${o.a != null ? "Age " + o.a.toFixed(1) : ""}${priced ? "<br>" + worth(o) : ""}</span>`;
+  const bar = sc => `<span class="score"><span class="pc">${sc.toFixed(1)}%</span>
+        <span class="tr"><span class="fl" style="width:${sc}%"></span></span></span>`;
+  const scaleNow = weightScale(s.g), specNow = G[s.g];
   if (scope === "all"){
     const A = ALL[sourceOf(dsKey)];
-    if (!A){ $("hits").textContent = ""; $("matches").innerHTML = `<div class="empty">Loading every season…</div>`;
+    if (!A){ $("hits").textContent = "Searching every season…"; $("matches").innerHTML = `<div class="empty skeleton" style="min-height:240px">Loading every season…</div>`;
       getAll(sourceOf(dsKey)).then(() => { if (scope === "all") drawMatches(); })
         .catch(e => { $("matches").innerHTML = `<div class="empty">Could not load every season (${esc(e.message)}).</div>`; });
       return; }
     const rows = sortedMatches(rankedAll().map(x => [x, x.sim]));
-    drawAlternatives(); drawHeroCard(ranked());
-    $("hits").textContent = `${rows.length.toLocaleString()} player-seasons, ${A.seasons.length} seasons`;
-    if (!rows.length){ $("matches").innerHTML = `<div class="empty">Nobody clears those filters in any season.</div>`; return; }
+    drawAlternatives();
+    $("hits").textContent = `${rows.length.toLocaleString()} player-seasons across ${A.seasons.length} seasons, ranked by similarity to ${s.n}`;
+    if (!rows.length){ $("matches").innerHTML = `<div class="empty"><b>No matches in any season</b>Nobody clears the filters you have set. Loosen one, or reset them.</div>`; return; }
     const curKey = xm ? xm.key : null, curId = xm ? CACHE[xm.key].players[xm.i].id : null;
     $("matches").innerHTML = rows.slice(0, listLimit).map(([x, sc], n) => {
       const key = sourceOf(dsKey) + ":" + A.seasons[x.si], o = x.o;
       const here = key === dsKey;
       const on = here ? (match != null && P[match].id === o.id) : (curKey === key && curId === o.id);
-      return `<button type="button" class="row" data-xm="${esc(key)}|${esc(o.id)}" aria-current="${on}">
-        <span class="rk mono">${n+1}</span>
-        <span><span class="nm">${esc(o.n)}</span> ${seasonTag(key)}<span class="mt">${esc(o.t)} · ${esc(o.l)}${
-          x.shared < G[P[subject].g].f.length ? ` · ${x.shared} shared metrics` : ""}</span></span>
+      return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-xm="${esc(key)}|${esc(o.id)}" aria-current="${on}">
+        <span class="rk">${n+1}</span>${avatar({n: o.n, g: x.r[5]}, "sm")}
+        <span><span class="nm">${esc(o.n)} ${seasonTag(key)}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}${
+          x.shared < specNow.f.length ? ` · ${x.shared} shared metrics` : ""}</span>${whyTag(closestOn(s, x.r[9], specNow, x.pos, scaleNow))}</span>
         ${meta(o)}${bar(sc)}</button>`;
     }).join("") + (rows.length > listLimit
       ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
     return;
   }
   const rows = sortedMatches(ranked());
-  $("hits").textContent = rows.length.toLocaleString() + " candidates";
-  if (!rows.length){ $("matches").innerHTML = `<div class="empty">No ${esc(gname(s.g).toLowerCase())} clears those filters. Loosen one.</div>`; return; }
+  $("hits").textContent = `${rows.length.toLocaleString()} ${gname(s.g).toLowerCase()}s ranked by statistical similarity to ${s.n}`;
+  if (!rows.length){ $("matches").innerHTML = `<div class="empty"><b>No matches with these filters</b>No ${esc(gname(s.g).toLowerCase())} clears them. Loosen one, or reset the filters.</div>`; drawAlternatives(); return; }
   $("matches").innerHTML = rows.slice(0, listLimit).map(([i, sc], n) => {
     const o = P[i];
-    return `<button type="button" class="row" data-m="${i}" aria-current="${i === match && !xm}">
-      <span class="rk mono">${n+1}</span>
-      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span></span>
+    return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-m="${i}" aria-current="${i === match && !xm}">
+      <span class="rk">${n+1}</span>${avatar(o, "sm")}
+      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span>${whyTag(closestOn(s, o.z, specNow, null, scaleNow))}</span>
       ${meta(o)}${bar(sc)}</button>`;
   }).join("") + (rows.length > listLimit
     ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
   drawAlternatives();
-  drawHeroCard(listSort === "sim" ? rows : ranked());
 }
-// The answer in miniature at the top of the page: his three closest matches.
-function drawHeroCard(rows){
-  const s = P[subject], top = (rows || []).slice(0, 3);
-  $("hero-card").hidden = !top.length;
-  if (!top.length) return;
-  $("hero-card").innerHTML = `<div class="hc-q">Who plays like</div>
-    <div class="hc-name">${esc(s.n)}?</div>
-    <div class="hc-meta">${esc(s.t)} · ${esc(seasonLabel(M.season))}</div>
-    ${top.map(([i, sc]) => `<button type="button" class="hc-row" data-m="${i}">
-      <span><span class="nm">${esc(P[i].n)}</span><span class="mt">${esc(P[i].t)}</span></span>
-      <span class="score"><span class="tr"><span class="fl" style="width:${sc}%"></span></span>
-        <span class="pc mono">${sc.toFixed(1)}%</span></span></button>`).join("")}
-    <button type="button" class="mini primary" id="hc-all">See all ${rows.length.toLocaleString()} ranked</button>`;
+// ---- explore the player universe ---------------------------------------------------
+// Ways in for someone without a name in mind. Each card says exactly how it was
+// chosen, from this season's numbers; nothing here is editorial.
+const DICON = {
+  young: '<svg class="i" viewBox="0 0 24 24"><path d="M12 20V10M12 10c0-3 2-5 6-5 0 3-2 5-6 5zM12 13c0-3-2-5-6-5 0 3 2 5 6 5z"/></svg>',
+  value: '<svg class="i" viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-8M15 8h5v5"/></svg>',
+  create: '<svg class="i" viewBox="0 0 24 24"><path d="M5 19c4-1 7-4 9-8l1.5-3.5M15.5 7.5 19 6l-1.5 3.5M5 19l-1-3 3 1"/></svg>',
+  leagues: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>',
+  positions: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M3 9h3v6H3M21 9h-3v6h3"/></svg>',
+};
+function drawDiscover(){
+  if (mode !== "similar") return;
+  const has = M.has || {};
+  const rated = P.map((o, i) => ({o, i, r: ratingOf(o)})).filter(x => x.r != null);
+  const best = (xs, f, n = 3) => xs.slice().sort((a, b) => f(b) - f(a)).slice(0, n);
+  const row = (x, val, sub) => `<button type="button" class="drow" data-s="${x.i}"><span><span class="nm">${esc(x.o.n)}</span>
+    <span class="mt">${esc(sub || `${x.o.p} · ${x.o.t}`)}</span></span><span class="v">${val}</span></button>`;
+  const card = (icon, title, def, rows, go, more) => `<article class="card dcard"><div class="dcard-head"><span class="dicon">${DICON[icon]}</span>
+    <div><h3>${title}</h3><p class="def">${def}</p></div></div><div class="dlist">${rows.join("")}</div>
+    ${go ? `<button type="button" class="btn-link" data-godisc="${go}">${more} →</button>` : ""}</article>`;
+  const cards = [];
+  const young = rated.filter(x => x.o.a != null && x.o.a < 22);
+  if (has.age && young.length >= 3) cards.push(card("young", "Emerging talents", "The highest-rated players aged 21 or under this season, each rated against his own position.",
+    best(young, x => x.r).map(x => row(x, Math.round(x.r), `${x.o.p} · ${x.o.t} · ${x.o.a.toFixed(0)}`)), "young", "All players aged 21 or under"));
+  const priced = has.value ? rated.map(x => ({...x, f: cellOf(x.o, VFM_KEY)[0]})).filter(x => x.f != null) : [];
+  if (priced.length >= 3) cards.push(card("value", "Rated above their price", "The furthest above the rating that players at their Transfermarkt value usually reach.",
+    best(priced, x => x.f).map(x => row(x, "+" + x.f.toFixed(0), `${x.o.p} · ${eur(x.o.v)}`)), "vfm", "The value-for-money ranking"));
+  const cKey = ["xa_per90", "key_passes_per90", "creativity_per90"].find(k => Object.values(G).some(sp => sp.d.includes(k)));
+  if (cKey){
+    const xs = P.map((o, i) => ({o, i, v: cellOf(o, cKey)[0]})).filter(x => x.v != null && x.o.g !== "GK");
+    if (xs.length >= 3) cards.push(card("create", "Chance creators", `The highest ${esc(label(cKey))} this season, across every outfield position.`,
+      best(xs, x => x.v).map(x => row(x, fmt(cKey, x.v))), "metric:" + cKey, "The full ranking"));
+  }
+  if (M.leagues.length > 1){
+    const tops = M.leagues.map(l => best(rated.filter(x => x.o.l === l), x => x.r, 1)[0]).filter(Boolean)
+      .sort((a, b) => b.r - a.r).slice(0, 4);
+    cards.push(card("leagues", "Across the leagues", "The highest-rated player in each league this season.",
+      tops.map(x => row(x, Math.round(x.r), `${x.o.l} · ${x.o.p}`)), "", ""));
+  }
+  const groups = Object.keys(G).sort((a, b) => (byGroup[b] || []).length - (byGroup[a] || []).length);
+  cards.push(`<article class="card dcard wide"><div class="dcard-head"><span class="dicon">${DICON.positions}</span>
+    <div><h3>By position</h3><p class="def">Rank a position by rating - every player compared only with his own position.</p></div></div>
+    <div class="dchips">${groups.map(g => `<button type="button" class="chip-btn" data-godisc="group:${g}">${esc(gname(g))}s
+      <span class="muted">${(byGroup[g] || []).length}</span></button>`).join("")}</div></article>`);
+  $("discover-grid").innerHTML = cards.join("");
+}
+function openDiscovery(what){
+  let g = null, metric = RATING_KEY;
+  if (what === "young"){ F.amax = 21; const top = P.filter(o => o.a != null && o.a < 22 && ratingOf(o) != null)
+    .sort((a, b) => ratingOf(b) - ratingOf(a))[0]; g = top ? top.g : null; }
+  else if (what === "vfm"){ metric = VFM_KEY; const top = P.filter(o => cellOf(o, VFM_KEY)[0] != null)
+    .sort((a, b) => cellOf(b, VFM_KEY)[0] - cellOf(a, VFM_KEY)[0])[0]; g = top ? top.g : null; }
+  else if (what.startsWith("metric:")){ metric = what.slice(7); const top = P.filter(o => o.g !== "GK" && cellOf(o, metric)[0] != null)
+    .sort((a, b) => cellOf(b, metric)[0] - cellOf(a, metric)[0])[0]; g = top ? top.g : null; }
+  else if (what.startsWith("group:")) g = what.slice(6);
+  setMode("board");
+  if (g && G[g]){ $("bgroup").value = g; drawBoardControls(); }
+  if ([...$("bmetric").options].some(o => o.value === metric)) $("bmetric").value = metric;
+  $("bdir").value = "desc"; boardLimit = 25; syncFilterInputs(); drawBoard(); writeHash();
+  window.scrollTo({top: 0, behavior: "smooth"});
 }
 
 // ---- like him, for less --------------------------------------------------------
@@ -1181,11 +1325,11 @@ function drawAlternatives(){
   const young = youngOk ? pick(o => o.a != null && o.a <= s.a - 3) : [];
   const row = ([[i, sc], rank]) => { const o = P[i];
     return `<button type="button" class="row" data-m="${i}">
-      <span class="rk mono">${rank}</span>
+      <span class="rk">${rank}</span>${avatar(o, "sm")}
       <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}</span></span>
-      <span class="meta mono">${o.a != null ? o.a.toFixed(1) : "—"}<br>${worth(o)}</span>
-      <span class="score"><span class="tr"><span class="fl" style="width:${sc}%"></span></span>
-        <span class="pc mono">${sc.toFixed(1)}%</span></span></button>`; };
+      <span class="meta">${o.a != null ? "Age " + o.a.toFixed(1) : "—"}<br>${worth(o)}</span>
+      <span class="score"><span class="pc">${sc.toFixed(1)}%</span>
+        <span class="tr"><span class="fl" style="width:${sc}%"></span></span></span></button>`; };
   const col = (ok, title, list, none) => !ok ? "" : `<div><h4>${title}</h4>${list.length
     ? `<div class="list">${list.map(row).join("")}</div>` : `<p class="fnote">${none}</p>`}</div>`;
   $("alt").innerHTML = col(cheapOk, `At ${eur(s.v / 2)} or less`, cheap, `None of his ${rows.length} closest matches is valued at half his price or less.`)
@@ -1201,6 +1345,35 @@ function cells(p, spec = G[p.g]){
   if (spec) spec.d.forEach((key, i) => { out[key] = p.d[i] || [null, null]; });
   return out;
 }
+// The score in words. The bands are only labels on the cosine - the tooltip
+// says so, and says what the number is not.
+function simLabel(sim){
+  return sim >= 95 ? "Near-identical statistical profiles" : sim >= 90 ? "Very similar statistical profiles"
+    : sim >= 80 ? "Similar statistical profiles" : sim >= 70 ? "Partly similar profiles" : "Different statistical profiles";
+}
+const SIM_TIP = "Similarity is 100 × the cosine between the two players' standardised per-90 profiles, each metric weighted by "
+  + "how well it repeats from season to season. It says how alike their numbers are - not ability, quality, potential or "
+  + "tactical role - and it is not a probability. Labels: 95+ near-identical, 90+ very similar, 80+ similar, 70+ partly similar.";
+const unitOf = key => key === RATING_KEY ? "out of 100" : /_per90$/.test(key) ? "per 90 minutes" : PCT.has(key) ? "percentage" : key === "minutes" ? "minutes this season" : "";
+const bareLabel = key => shortLabel(key).replace(/ per 90$/, "");
+// Headline metrics for the tiles: familiar ones for the position first, then the
+// model's most repeatable metrics, and only ones both players have.
+const TILE_PREFS = {
+  attack: ["npxg_per90", "xg_per90", "xa_per90", "shots_per90", "key_passes_per90", "xgi_per90", "progressive_carries_per90", "touches_att_pen_per90"],
+  mid: ["progressive_passes_per90", "xa_per90", "key_passes_per90", "ball_recoveries_per90", "tackles_per90", "interceptions_per90", "pass_pct", "xgi_per90", "xg_buildup_per90"],
+  def: ["tackles_per90", "interceptions_per90", "aerials_won_per90", "progressive_passes_per90", "clearances_per90", "xa_per90", "xg_buildup_per90", "key_passes_per90", "xgi_per90", "xgc_per90"],
+  gk: ["gk_save_pct", "save_rate", "gk_psxg_minus_ga_per90", "gk_saves_per90", "gk_cross_stop_pct", "clean_sheet_rate"],
+};
+const familyOf = g => g === "GK" ? "gk" : ["CB", "FB", "DEF"].includes(g) ? "def" : ["DM", "CM"].includes(g) ? "mid" : "attack";
+function tileKeys(rows, spec, g){
+  const ok = rows.filter(r => r.av != null && r.bv != null);
+  const have = new Set(ok.map(r => r.key)), out = [];
+  for (const k of TILE_PREFS[familyOf(g)]) if (have.has(k) && out.length < 4) out.push(k);
+  const byRepeat = ok.filter(r => r.modelled && !out.includes(r.key))
+    .sort((x, y) => (repeatOf(spec, y.key) ?? 0) - (repeatOf(spec, x.key) ?? 0));
+  for (const r of byRepeat) if (out.length < 4) out.push(r.key);
+  return out;
+}
 function drawCompare(){
   const panel = $("compare-panel"), ref = matchRef();
   if (!ref){ panel.hidden = true; return; }
@@ -1209,9 +1382,16 @@ function drawCompare(){
   const cmp = compareSim(a, ref), same = !!cmp;
   const scale = same ? weightScale(a.g) : null;
   const sim = same ? cmp.sim : null;
-  const tagA = ref.other ? " (" + seasonLabel(M.season) + ")" : "", tagB = ref.other ? " (" + seasonLabel(ref.meta.season) + ")" : "";
-  $("compare-title").textContent = `${a.n}${tagA} vs ${b.n}${tagB}` + (same ? ` — ${sim.toFixed(1)}% alike` : "");
+  const sA = seasonLabel(M.season), sB = seasonLabel(ref.meta.season);
+  const tagA = ref.other ? " (" + sA + ")" : "", tagB = ref.other ? " (" + sB + ")" : "";
+  $("compare-title").textContent = `${a.n}${tagA} vs ${b.n}${tagB}`;
+  $("compare-sub").textContent = same
+    ? `${sim.toFixed(1)}% statistical similarity · ${gname(a.g).toLowerCase()}s · ${ref.other ? sA + " against " + sB : sA}`
+    : "No similarity score for this pair - see below why.";
   $("star-match").innerHTML = ref.other ? starBtnFor(ref.key, b) : starBtn(match);
+
+  // Every metric either player has, with each one's value and percentile and,
+  // where both are modelled, the weighted standardised gap the similarity uses.
   const zgap = {};
   if (same) spec.f.forEach((key, i) => {
     const j = cmp.al.pos[i]; if (j < 0) return;
@@ -1219,70 +1399,132 @@ function drawCompare(){
     zgap[key] = {raw, w: raw * k, k: k * k};
   });
   const ca = cells(a), cb = cells(b, ref.spec);
-  let rows = [...new Set([...Object.keys(ca), ...Object.keys(cb)])].map(key => ({
+  const rows = [...new Set([...Object.keys(ca), ...Object.keys(cb)])].map(key => ({
     key, av: ca[key] ? ca[key][0] : null, ap: ca[key] ? ca[key][1] : null,
     bv: cb[key] ? cb[key][0] : null, bp: cb[key] ? cb[key][1] : null,
     gap: zgap[key] ? zgap[key].w : null, raw: zgap[key] ? zgap[key].raw : null,
     k: zgap[key] ? zgap[key].k : null, modelled: key in zgap,
   })).filter(r => r.av != null || r.bv != null);
+
+  // ---- the versus card
+  const side = (o, cls, season, mark, who) => `<div class="vs-side ${cls}">${avatar(o, "lg")}<div class="who">
+      <span class="tagline"><i style="background:var(${mark})"></i>${who}</span>
+      <div class="vs-name">${esc(o.n)}</div>
+      <div class="vs-meta">${esc(o.p || gname(o.g))} · ${esc(o.t)}<br>${esc(o.l)} · ${esc(season)}${o.a != null ? " · age " + o.a.toFixed(1) : ""}</div></div></div>`;
+  const C = 2 * Math.PI * 64;
+  $("vs").innerHTML = side(a, "a", sA, "--mark-a", "Player A") + `<div class="vs-mid">${same
+    ? `<div class="sim-ring" role="img" aria-label="${sim.toFixed(1)} per cent statistical similarity">
+        <svg viewBox="0 0 148 148" aria-hidden="true"><circle class="rb" cx="74" cy="74" r="64"/>
+          <circle class="rf" cx="74" cy="74" r="64" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/></svg>
+        <div class="sim-val"><b>${sim.toFixed(1)}%</b><span>similarity</span></div></div>
+      <div class="sim-label">${simLabel(sim)} <span class="info" tabindex="0" data-tip="${esc(SIM_TIP)}">i</span></div>`
+    : `<div class="sim-label">Not comparable <span class="info" tabindex="0" data-tip="${esc(SIM_TIP)}">i</span></div>`}</div>`
+    + side(b, "b", sB, "--mark-b", "Player B");
+  const ring = $("vs").querySelector(".rf");
+  if (ring) requestAnimationFrame(() => requestAnimationFrame(() => { ring.style.strokeDashoffset = (C * (1 - sim / 100)).toFixed(1); }));
+
+  // ---- what makes them similar
+  $("cmp-sum").innerHTML = same ? compareSummary(a, b, rows, spec, ref)
+    : a.g === b.g ? `These two seasons share too few of the position's metrics to compare fairly, so there is no similarity
+      score - only the figures below, each against that player's own season.`
+    : `<b>${esc(a.n)}</b> and <b>${esc(b.n)}</b> are in different position groups (${esc(gname(a.g))} and
+      ${esc((ref.meta.groupNames || {})[b.g] || b.g)}), and similarity is only defined inside one. Each percentile below is still
+      against the player's own position, so the columns read side by side.`;
+
+  // ---- headline tiles
+  const keys = tileKeys(rows, spec, a.g), byKey = Object.fromEntries(rows.map(r => [r.key, r]));
+  const lastA = esc(lastName(a.n)), lastB = esc(lastName(b.n));
+  $("tiles").innerHTML = keys.map(key => {
+    const r = byKey[key], hi = Math.max(Math.abs(r.av), Math.abs(r.bv), 1e-9);
+    const close = Math.abs(r.av - r.bv) <= 0.03 * hi;
+    const lead = close ? "Level" : r.av > r.bv ? `Higher: <b>${lastA}</b>` : `Higher: <b>${lastB}</b>`;
+    const e = explain(key);
+    const line = (who, v, pct, mark) => `<div class="tile-row"><span class="who">${who}</span><span class="val">${fmt(key, v)}</span>
+      <span class="tbar"><span style="width:${Math.max(3, 100 * Math.abs(v) / hi)}%;background:var(${mark})"></span></span></div>`;
+    return `<div class="card tile">
+      <div class="tile-h"><div class="t">${esc(bareLabel(key))}<span class="u">${unitOf(key)}</span></div>
+        ${e ? `<span class="info" tabindex="0" data-tip="${esc(e)}">i</span>` : ""}</div>
+      ${line(esc(a.n), r.av, r.ap, "--mark-a")}${line(esc(b.n), r.bv, r.bp, "--mark-b")}
+      <div class="tile-foot">${lead}${r.ap != null && r.bp != null ? ` · percentiles ${chip(r.ap)} ${chip(r.bp)}` : ""}</div></div>`;
+  }).join("");
+  $("view-all").hidden = !rows.length;
+
+  // ---- the full table, grouped by the position's categories
+  const groupOf = {};
+  if (spec) spec.f.forEach((key, i) => { groupOf[key] = spec.w[i].length ? spec.c[spec.w[i][0]] : "Other modelled metrics"; });
+  const order = same ? [...(spec ? spec.c : []), "Other modelled metrics", "Context and playing time"] : ["All metrics"];
+  const sorter = !same || sortMode === "pct" ? (x, y) => (y.ap ?? -1) - (x.ap ?? -1)
+    : sortMode === "gap" ? (x, y) => (y.gap ?? -1) - (x.gap ?? -1) : (x, y) => (x.gap ?? 99) - (y.gap ?? 99);
+  const grouped = {};
+  rows.forEach(r => { const g = !same ? "All metrics" : r.modelled ? groupOf[r.key] : "Context and playing time";
+    (grouped[g] = grouped[g] || []).push(r); });
   const widest = Math.max(0.001, ...rows.map(r => r.gap ?? 0));
-  if (!same || sortMode === "pct") rows.sort((x, y) => (y.ap ?? -1) - (x.ap ?? -1));
-  else if (sortMode === "gap") rows.sort((x, y) => (y.gap ?? -1) - (x.gap ?? -1));
-  else rows.sort((x, y) => (x.gap ?? 99) - (y.gap ?? 99));
-  const last = n => esc(n.split(" ").slice(-1)[0]);
-  const cell = (v, p, key) => `<td class="num">${fmt(key, v)}</td><td class="pcell">${chip(p)}</td>`;
-  const sameGroupOtherSeasonTooThin = !same && a.g === b.g;
-  $("compare").innerHTML = (same ? `<p class="cmp-sum">${compareSummary(a, b, rows)}</p>` : "") + `<div class="tablewrap"><table>
-    <thead><tr><th>Metric</th><th class="num" colspan="2">${last(a.n)}${esc(tagA)}</th><th class="num" colspan="2">${last(b.n)}${esc(tagB)}</th><th>Gap</th></tr>
-    <tr class="subh"><th></th><th class="num">per 90</th><th>%ile</th><th class="num">per 90</th><th>%ile</th><th></th></tr></thead>
-    <tbody>${rows.map(r => `<tr${r.modelled ? "" : ' class="off"'}>
-      <td class="lb">${termed(r.key)}${r.modelled ? "" : '<span class="tag">context</span>'}</td>
-      ${cell(r.av, r.ap, r.key)}${cell(r.bv, r.bp, r.key)}
-      <td class="gap">${r.gap == null ? '<span class="muted">—</span>'
-        : `<span class="gbar" title="${r.raw.toFixed(2)} standard deviations apart; counts ${
-            r.k.toFixed(2)}× an average metric in this match"><span style="width:${
-            Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td></tr>`).join("")}</tbody></table></div>
-    <p class="note" style="border-top:1px solid var(--line)">${same
-      ? `Rows marked <span class="tag">context</span> are measured but are not part of this position's
-         similarity model. The ${Object.keys(zgap).length} that are${ref.other ? " - the ones both seasons measured -" : ""}
-         drive the ${sim.toFixed(1)}% above, and each gap bar is drawn at the weight that metric carries in
-         it - hover one for the raw gap.${ref.other ? " Each percentile is against that player's own season, which is what makes two seasons comparable." : ""}`
-      : sameGroupOtherSeasonTooThin
-      ? `<b>No similarity here.</b> These two seasons share too few of the position's metrics to compare
-         them fairly, so only the columns are shown.`
-      : `<b>No similarity here.</b> These two are in different position groups (${esc(gname(a.g))} and
-         ${esc((ref.meta.groupNames || {})[b.g] || b.g)}), and similarity is only defined inside one. Each percentile is still against his
-         own peers, so the columns read side by side; the gap does not.`}
-      Where a scout wants a metric <em>low</em> - errors, miscontrols, fouls - the percentile is already
-      flipped, so a high number is always good.</p>`;
+  const cell = (v, pct, key) => `<td class="num"><span class="vcell">${fmt(key, v)} ${chip(pct)}</span></td>`;
+  const diffCell = r => {
+    if (r.av == null || r.bv == null) return `<td class="num diff"><span class="muted">—</span></td>`;
+    const d = r.av - r.bv, near = Math.abs(d) < 1e-9;
+    const shown = PCT.has(r.key) ? (d > 0 ? "+" : "") + d.toFixed(1) + " pts" : (d > 0 ? "+" : d < 0 ? "−" : "") + fmt(r.key, Math.abs(d));
+    return `<td class="num diff"><span class="arr" aria-hidden="true">${near ? "" : d > 0 ? "▲" : "▼"}</span>${near ? "0" : shown}</td>`;
+  };
+  const head = `<thead><tr><th>Metric</th><th class="num">${lastA}${esc(tagA)}</th><th class="num">${lastB}${esc(tagB)}</th>
+    <th class="num"><span data-tip="${lastA} minus ${lastB}, in the metric's own units. A neutral difference, not a judgement: for some metrics lower is better.">Difference</span></th>
+    <th><span data-tip="How far apart they are on this metric, in standard deviations, scaled by how much the metric counts in the similarity.">Gap in this match</span></th></tr></thead>`;
+  const body = order.filter(g => grouped[g]).map(g => `<tbody>${same ? `<tr class="grp"><td colspan="5">${esc(g)}</td></tr>` : ""}${
+    grouped[g].sort(sorter).map(r => `<tr id="m-${esc(r.key)}" data-label="${esc(plain(label(r.key)))}"${r.modelled || !same ? "" : ' class="off"'}>
+      <td class="lb">${termed(r.key)}${r.modelled || !same ? "" : '<span class="tag">context</span>'}</td>
+      ${cell(r.av, r.ap, r.key)}${cell(r.bv, r.bp, r.key)}${diffCell(r)}
+      <td class="gap">${r.gap == null ? '<span class="muted">—</span>' : `<span class="gbar" title="${r.raw.toFixed(2)} SD apart"><span style="width:${
+        Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td></tr>`).join("")}</tbody>`).join("");
+  $("compare").innerHTML = `<div class="tablewrap"><table class="cmp-table">${head}${body}</table></div>
+    <div class="legend-row"><span>Percentile</span><span class="chip c5">80-100</span><span class="chip c4">60-80</span>
+      <span class="chip c3">40-60</span><span class="chip c2">20-40</span><span class="chip c1">0-20</span>
+      <span>· against ${ref.other ? "each player's own season" : (M.counts[a.g] || 0).toLocaleString() + " " + esc(gname(a.g).toLowerCase()) + "s this season"}${
+        same ? ` · <span class="tag">context</span> measured but not part of the similarity` : ""}</span></div>`;
+  $("stats-sub").textContent = `Every metric either player has. Per-90 figures are per 90 minutes played; percentiles are against `
+    + (ref.other ? "each player's own season." : `${(M.counts[a.g] || 0).toLocaleString()} ${gname(a.g).toLowerCase()}s in ${sA}.`)
+    + (same ? ` Grouped by the position's categories and sorted by ${sortMode === "gap" ? "the biggest gaps first" : sortMode === "near" ? "the closest metrics first" : "percentile"}.` : "");
+  filterMetrics();
+}
+function filterMetrics(){
+  const q = plain($("mfilter").value.trim());
+  document.querySelectorAll("#compare tbody").forEach(tb => {
+    let shown = 0;
+    tb.querySelectorAll("tr[data-label]").forEach(tr => { const hit = !q || tr.dataset.label.includes(q); tr.hidden = !hit; if (hit) shown++; });
+    tb.hidden = !shown;
+  });
 }
 
-// The comparison in a sentence or three, read straight off the table: where both
-// are in the top fifth of their position, where both are in the bottom third,
-// and the metric that pulls them furthest apart in this similarity.
+// The comparison in a few sentences, read straight off the numbers: the
+// categories both are strong in, the metrics both are in the top fifth for,
+// the category where they differ most, and the metric that separates them most
+// in this similarity. Each metric links to its row in the table.
 const ord = n => { n = Math.round(n); const t = n % 100, u = n % 10;
   return n + (t > 10 && t < 14 ? "th" : u === 1 ? "st" : u === 2 ? "nd" : u === 3 ? "rd" : "th"); };
 function listing(xs){ return xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1]; }
-function compareSummary(a, b, rows){
-  const A = esc(lastName(a.n)), B = esc(lastName(b.n));
-  const both = rows.filter(r => r.modelled && r.ap != null && r.bp != null);
-  const top = both.filter(r => r.ap >= 80 && r.bp >= 80)
-    .sort((x, y) => Math.min(y.ap, y.bp) - Math.min(x.ap, x.bp)).slice(0, 3);
-  const low = both.filter(r => r.ap <= 30 && r.bp <= 30)
-    .sort((x, y) => Math.max(x.ap, x.bp) - Math.max(y.ap, y.bp)).slice(0, 2);
-  const apart = both.filter(r => r.gap != null).sort((x, y) => y.gap - x.gap)[0];
-  // A metric a scout wants low has its percentile flipped, so "top 20% for
-  // yellow cards" would read backwards: say "few yellow cards" instead.
-  const name = k => { const l = label(k);
-    return esc(LOWER.has(k) ? "few " + (/^[A-Z][a-z]/.test(l) ? l[0].toLowerCase() + l.slice(1) : l) : l); };
-  const pair = r => `${name(r.key)} (${ord(r.ap)} and ${ord(r.bp)})`;
+function compareSummary(a, b, rows, spec, ref){
+  const A = `<b>${esc(lastName(a.n))}</b>`, B = `<b>${esc(lastName(b.n))}</b>`;
+  const metric = k => { const l = label(k);
+    const n = LOWER.has(k) ? "few " + (/^[A-Z][a-z]/.test(l) ? l[0].toLowerCase() + l.slice(1) : l) : l;
+    return `<a href="#m-${esc(k)}" data-jump="${esc(k)}">${esc(n)}</a>`; };
   const out = [];
-  out.push(top.length ? `Both are in the top 20% of their position for ${listing(top.map(pair))}.`
-    : `No metric has both in the top 20% of their position.`);
-  if (low.length) out.push(`Both sit in the bottom 30% for ${listing(low.map(pair))}.`);
-  if (apart) out.push(`What separates them most in this match is ${esc(label(apart.key))}${LOWER.has(apart.key) ? " (fewer ranks higher)" : ""}: `
-    + `${A} at the ${ord(apart.ap)} percentile, ${B} at the ${ord(apart.bp)} - the top row of the table below.`);
-  return out.join(" ");
+  // categories, matched by name so another season's player lines up
+  const cats = spec.c.map((c, i) => { const j = ref.spec.c.indexOf(c);
+    return {c, x: a.cv ? a.cv[i] : null, y: j >= 0 && b.cv ? b.cv[j] : null}; }).filter(q => q.x != null && q.y != null);
+  const strong = cats.filter(q => q.x >= 70 && q.y >= 70).sort((p, q) => Math.min(q.x, q.y) - Math.min(p.x, p.y)).slice(0, 2);
+  if (strong.length) out.push(`Both stand out for <b>${esc(listing(strong.map(q => q.c.toLowerCase())))}</b>: each is in the top 30% of his position there.`);
+  const both = rows.filter(r => r.modelled && r.ap != null && r.bp != null);
+  const top = both.filter(r => r.ap >= 80 && r.bp >= 80).sort((x, y) => Math.min(y.ap, y.bp) - Math.min(x.ap, x.bp)).slice(0, 3);
+  out.push(top.length ? `They are both in the top 20% for ${listing(top.map(r => `${metric(r.key)} (${ord(r.ap)} and ${ord(r.bp)})`))}.`
+    : "No single metric has both of them in the top 20% of their position.");
+  const low = both.filter(r => r.ap <= 30 && r.bp <= 30).sort((x, y) => Math.max(x.ap, x.bp) - Math.max(y.ap, y.bp)).slice(0, 2);
+  if (low.length) out.push(`Both sit in the bottom 30% for ${listing(low.map(r => metric(r.key)))}.`);
+  const apartCat = cats.filter(q => Math.abs(q.x - q.y) >= 15).sort((p, q) => Math.abs(q.x - q.y) - Math.abs(p.x - p.y))[0];
+  if (apartCat) out.push(`The clearest difference is <b>${esc(apartCat.c.toLowerCase())}</b>: ${apartCat.x > apartCat.y ? A : B} rates at the
+    ${ord(Math.max(apartCat.x, apartCat.y))} percentile, ${apartCat.x > apartCat.y ? B : A} at the ${ord(Math.min(apartCat.x, apartCat.y))}.`);
+  const apart = both.filter(r => r.gap != null).sort((x, y) => y.gap - x.gap)[0];
+  if (apart) out.push(`What separates them most in this match is ${metric(apart.key)}${LOWER.has(apart.key) ? " (fewer ranks higher)" : ""}:
+    ${A} at the ${ord(apart.ap)} percentile, ${B} at the ${ord(apart.bp)}.`);
+  return out.map(x => `<p>${x}</p>`).join("");
 }
 
 // ---- career ------------------------------------------------------------------
@@ -1406,15 +1648,15 @@ function drawResults(){
   const rows = searchRows();
   $("res-hits").textContent = criteria.length ? rows.length.toLocaleString() + " players" : "";
   if (!criteria.length){ $("results").innerHTML = ""; return; }
-  if (!rows.length){ $("results").innerHTML = `<div class="empty">Nobody meets every condition. Lower a bar or loosen a filter.</div>`; return; }
+  if (!rows.length){ $("results").innerHTML = `<div class="empty"><b>Nobody meets every condition</b>Lower one of the bars, remove a condition or loosen a filter.</div>`; return; }
   $("results").innerHTML = rows.slice(0, resLimit).map(([i, avg, got], n) => {
     const o = P[i];
     return `<button type="button" class="row res" data-s="${i}">
-      <span class="rk mono">${n+1}</span>
+      <span class="rk">${n+1}</span>${avatar(o, "sm")}
       <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
         o.a != null ? " · " + o.a.toFixed(1) : ""}</span></span>
       <span class="cells" title="${esc(criteria.map(c => label(c.metric)).join(" · "))}">${got.map(chip).join("")}</span>
-      <span class="bval mono">${avg.toFixed(0)}</span></button>`;
+      <span class="bval">${avg.toFixed(0)}</span></button>`;
   }).join("") + (rows.length > resLimit
     ? `<button type="button" class="more" data-more="res">Show ${Math.min(25, rows.length - resLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
 }
@@ -1447,14 +1689,14 @@ function drawBoard(){
     their values fall with age. Set the age filter to look only at younger players. See it drawn under Charts.`
     : metric === VALUE_KEY ? "Transfermarkt's market value - an estimate, not a fee anyone paid."
     : explain(metric) ? `<b>${esc(label(metric))}:</b> ${esc(explain(metric))}` : "";
-  if (!rows.length){ $("board").innerHTML = `<div class="empty">Nobody to rank with these filters.</div>`; return; }
+  if (!rows.length){ $("board").innerHTML = `<div class="empty"><b>Nobody to rank</b>No player in this position clears the filters. Loosen one, or reset them.</div>`; return; }
   $("board").innerHTML = rows.slice(0, boardLimit).map(([i, v, pct], n) => {
     const o = P[i], r = metric === VFM_KEY ? ratingOf(o) : null;
     return `<button type="button" class="row brd" data-s="${i}" data-tosim="1">
-      <span class="rk mono">${n+1}</span>
+      <span class="rk">${n+1}</span>${avatar(o, "sm")}
       <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
         o.a != null ? " · " + o.a.toFixed(1) : ""} · ${r != null ? `rated ${Math.round(r)} at ${eur(o.v)}` : o.m.toLocaleString() + " min"}</span></span>
-      <span class="bval mono">${fmt(metric, v)}</span><span>${pct == null ? "" : chip(pct)}</span></button>`;
+      <span class="bval">${fmt(metric, v)}</span><span>${pct == null || metric === RATING_KEY ? "" : chip(pct)}</span></button>`;
   }).join("") + (rows.length > boardLimit
     ? `<button type="button" class="more" data-more="board">Show ${Math.min(25, rows.length - boardLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
 }
@@ -1649,10 +1891,10 @@ function drawScatter(){
     ? `<span class="lbl">${colorBy === "age" ? "Age" : "Rating vs price"}</span>` + bins.map(([, name], k) =>
         `<span><i style="background:var(--${tok}${k + 1})"></i>${name}</span>`).join("")
       + (mine ? `<span><i class="ring-key" style="border-color:var(--ink)"></i>${esc(s.n)}</span>
-        <span><i class="ring-key" style="border-color:var(--mark-2)"></i>His closest matches</span>` : "")
-    : (mine ? `<span><i style="background:var(--mark-1)"></i>${esc(s.n)}</span>
-      <span><i style="background:var(--mark-2)"></i>His closest matches</span>` : "")
-    + (starred.size ? `<span><i style="background:var(--mark-3)"></i>Shortlisted</span>` : "")
+        <span><i class="ring-key" style="border-color:var(--mark-b)"></i>His closest matches</span>` : "")
+    : (mine ? `<span><i style="background:var(--mark-a)"></i>${esc(s.n)}</span>
+      <span><i style="background:var(--mark-b)"></i>His closest matches</span>` : "")
+    + (starred.size ? `<span><i style="background:var(--mark-c)"></i>Shortlisted</span>` : "")
     + `<span><i style="background:var(--muted);opacity:.5"></i>Everyone else</span>`
     + (trend ? `<span><i class="trend-key"></i>Rating his price predicts</span>` : "");
   const r = pearson(shown);
@@ -1812,7 +2054,7 @@ function slTable(list, own){
 function drawShortlist(){
   $("sl-hits").textContent = SL.length ? `${SL.length} player${SL.length > 1 ? "s" : ""}` : "";
   $("shortlist").innerHTML = SL.length ? slTable(SL, true)
-    : `<div class="empty">Nothing here yet. Star a player - on his profile, in a comparison or on a chart - to keep him.</div>`;
+    : `<div class="empty"><b>Your shortlist is empty</b>Star a player - on his profile, in a comparison or on a chart - to keep him here with a note.</div>`;
   ["slcsv", "slshare", "slclear"].forEach(id => { $(id).disabled = !SL.length; });
   if (!slStored) $("sl-note").textContent = "This browser is not letting the page store anything, so the list lasts "
     + "until the tab closes. Copy share link keeps a copy.";
@@ -1856,16 +2098,30 @@ async function openEntry(tag){
 }
 
 // ---- modes, drawing, sharing ------------------------------------------------------
+// Four places to be: Discover (search, a player and his matches, the head to
+// head), Explore (rankings, charts, clubs, profile search), the Shortlist - and
+// Compare, which is the head to head inside Discover.
+const EXPLORE = ["board", "explore", "clubs", "search"];
+let lastExplore = "board";
 function setMode(m){
+  const changed = mode !== m;
   mode = m;
-  document.querySelectorAll(".tabs [data-mode]").forEach(b => b.setAttribute("aria-selected", b.dataset.mode === m));
+  if (EXPLORE.includes(m)) lastExplore = m;
+  const navOn = m === "similar" ? "tab-similar" : m === "shortlist" ? "tab-shortlist" : "nav-explore";
+  document.querySelectorAll(".nav-link").forEach(b => b.id === navOn ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  document.querySelectorAll(".subnav [data-mode]").forEach(b => b.setAttribute("aria-selected", b.dataset.mode === m));
   MODES.forEach(v => { $("view-" + v).hidden = v !== m; });
-  // The shortlist spans every source and season, so the season's filters do not apply to it.
-  document.querySelector(".layout").classList.toggle("solo", m === "shortlist" || m === "clubs");
+  $("hero").hidden = $("discover").hidden = m !== "similar";
+  $("explore-head").hidden = !EXPLORE.includes(m);
+  $("shortlist-head").hidden = m !== "shortlist";
+  // The shortlist spans every source and season, so the season and its filters do not apply to it.
+  $("databar").hidden = m === "shortlist";
+  $("filters-wrap").hidden = m === "shortlist" || m === "clubs";
+  if (changed){ const v = $("view-" + m); v.classList.remove("view-enter"); void v.offsetWidth; v.classList.add("view-enter"); }
   syncFilterInputs(); drawMode(); writeHash();
 }
 function drawMode(){
-  if (mode === "similar"){ drawSubject(); drawSW(); drawRadar(); drawWeights(); drawMatches(); drawCompare();
+  if (mode === "similar"){ drawSubject(); drawSW(); drawRadar(); drawWeights(); drawMatches(); drawCompare(); drawDiscover();
     if (careerOpen) drawCareer(); }
   else if (mode === "search") drawSearch();
   else if (mode === "board"){ drawBoardControls(); drawBoard(); }
@@ -1927,7 +2183,7 @@ function pickerHits(q, skip, limit){
   for (let i = 0; i < P.length && hits.length < limit; i++){
     if (i === skip) continue;
     const p = P[i];
-    if (p._q == null) p._q = plain(p.n + " | " + p.t);
+    if (p._q == null) p._q = plain(p.n + " | " + p.t + " | " + (p.p || ""));
     if (p._q.includes(want)) hits.push(i);
   }
   return hits;
@@ -1948,6 +2204,15 @@ function otherSeasonHits(q, skipIds, limit){
   return [...latest.values()].sort((a, b) => b[4] - a[4] || a[1].localeCompare(b[1])).slice(0, limit)
     .map(r => ({r, key: sourceOf(dsKey) + ":" + A.seasons[r[4]], seasons: count.get(r[0])}));
 }
+function goCompare(){
+  if (mode !== "similar") setMode("similar");
+  requestAnimationFrame(() => ($("compare-panel").hidden ? $("matches") : $("compare-panel")).scrollIntoView({behavior: "smooth", block: "start"}));
+}
+function focusSearch(){
+  if (mode !== "similar") setMode("similar");
+  window.scrollTo({top: 0, behavior: "smooth"});
+  setTimeout(() => $("q").focus({preventScroll: true}), 180);
+}
 // After choosing a player, bring his panel into view - the search sits above it.
 function showSubject(){
   if (mode !== "similar") setMode("similar");
@@ -1957,13 +2222,16 @@ $("quick").addEventListener("click", e => {
   const b = e.target.closest("[data-quick]");
   if (b){ selectSubject(+b.dataset.quick); showSubject(); }
 });
+let pickActive = -1;
 function drawPicker(){
   const q = $("q").value.trim().toLowerCase();
-  if (q.length < 2){ $("picker").hidden = true; return; }
+  pickActive = -1; $("q").removeAttribute("aria-activedescendant");
+  if (q.length < 2){ $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false"); return; }
   const hits = pickerHits(q, -1, 40);
-  const here = hits.map(i => { const p = P[i];
-    return `<button type="button" class="prow" data-s="${i}"><span class="nm">${esc(p.n)}</span>
-      <span class="mt">${esc(p.p)} · ${esc(p.t)} · ${esc(p.l)}</span></button>`; }).join("");
+  const opt = (k, attrs, o, side) => `<button type="button" class="prow" role="option" id="opt-${k}" aria-selected="false" ${attrs}>
+    ${avatar(o, "sm")}<span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.sub)}</span></span><span class="side">${side}</span></button>`;
+  const here = hits.map((i, k) => { const p = P[i];
+    return opt(k, `data-s="${i}"`, {n: p.n, g: p.g, sub: `${p.p} · ${p.t} · ${p.l}`}, worth(p) === "—" ? "" : worth(p)); }).join("");
   // Few or no hits this season: look through every other season of the source too.
   let there = "", waiting = false;
   if (hits.length < 8){
@@ -1972,26 +2240,37 @@ function drawPicker(){
       waiting = true;
       getAll(sourceOf(dsKey)).then(() => { if ($("q").value.trim().toLowerCase() === q) drawPicker(); }).catch(() => {});
     } else if (more.length){
-      there = `<div class="psep">Other seasons</div>` + more.map(({r, key, seasons}) =>
-        `<button type="button" class="prow" data-openseason="${esc(key)}|${esc(r[0])}"><span class="nm">${esc(r[1])}</span> ${seasonTag(key)}
-          <span class="mt">${esc(r[2])} · ${esc(r[3])}${seasons > 1 ? ` · ${seasons} seasons here` : ""}</span></button>`).join("");
+      there = `<div class="psep">Other seasons</div>` + more.map(({r, key, seasons}, k) =>
+        opt(hits.length + k, `data-openseason="${esc(key)}|${esc(r[0])}"`, {n: r[1], g: r[5], sub: `${r[2]} · ${r[3]}${seasons > 1 ? ` · ${seasons} seasons here` : ""}`},
+          seasonTag(key))).join("");
     }
   }
-  $("picker").hidden = false;
-  $("picker").innerHTML = (here + there) || `<div class="empty">${waiting ? "Searching every season…"
-    : "No player by that name in any season of " + esc(BUNDLE.catalog.find(c => c.key === sourceOf(dsKey)).name) + "."}</div>`;
+  $("picker").hidden = false; $("q").setAttribute("aria-expanded", "true");
+  $("picker").innerHTML = (here ? `<div class="psep">${esc(seasonLabel(M.season))}</div>` + here : "") + there
+    || `<div class="empty">${waiting ? "Searching every season…" : `<b>No players match “${esc($("q").value.trim())}”</b>
+      Check the spelling, or try a club or a position - this searches ${esc(BUNDLE.catalog.find(c => c.key === sourceOf(dsKey)).name)}, every season.`}</div>`;
 }
-$("q").addEventListener("input", drawPicker);
+let pickTimer;
+$("q").addEventListener("input", () => { clearTimeout(pickTimer); pickTimer = setTimeout(drawPicker, 90); });
 // "/" jumps to the search box from anywhere on the page, as on most search-led sites.
 addEventListener("keydown", e => {
   if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
   const el = document.activeElement;
   if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
-  e.preventDefault(); $("q").focus(); $("q").scrollIntoView({block: "center", behavior: "smooth"});
+  e.preventDefault(); focusSearch();
 });
 $("q").addEventListener("keydown", e => {
-  if (e.key === "Enter"){ const first = $("picker").querySelector("[data-s]"); if (first) first.click(); }
-  if (e.key === "Escape") $("picker").hidden = true;
+  const opts = [...$("picker").querySelectorAll(".prow")];
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && opts.length && !$("picker").hidden){
+    e.preventDefault();
+    pickActive = (pickActive + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length;
+    opts.forEach((o, k) => o.setAttribute("aria-selected", k === pickActive));
+    $("q").setAttribute("aria-activedescendant", opts[pickActive].id);
+    opts[pickActive].scrollIntoView({block: "nearest"});
+  }
+  if (e.key === "Enter"){ clearTimeout(pickTimer); if ($("picker").hidden) drawPicker();
+    const pick = opts[pickActive] || $("picker").querySelector(".prow"); if (pick) pick.click(); }
+  if (e.key === "Escape"){ $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false"); }
 });
 function drawGlossary(){
   $("gloss").innerHTML = GLOSSARY.map(([, term, what]) => `<dt>${esc(term)}</dt><dd>${esc(what)}</dd>`).join("")
@@ -2047,10 +2326,21 @@ document.addEventListener("click", e => {
     const want = cat.seasons.find(s => s.season === seasonOf(dsKey)) || cat.seasons[cat.seasons.length - 1];
     loadDataset(cat.key + ":" + want.season); return;
   }
-  const tab = t.closest(".tabs [data-mode]");
-  if (tab){ setMode(tab.dataset.mode); return; }
+  const tab = t.closest(".nav-link[data-mode], .subnav [data-mode]");
+  if (tab){ setMode(tab.dataset.mode); if (tab.classList.contains("nav-link")) window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  if (t.closest("#nav-explore")){ setMode(lastExplore); window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  if (t.closest("#nav-compare")){ goCompare(); return; }
+  if (t.closest("#nav-search")){ focusSearch(); return; }
+  if (t.closest("#brand")){ e.preventDefault(); setMode("similar"); window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  if (t.closest("#view-all")){ $("stats").scrollIntoView({behavior: "smooth", block: "start"}); return; }
+  const jump = t.closest("[data-jump]");
+  if (jump){ e.preventDefault(); $("mfilter").value = ""; filterMetrics(); const row = $("m-" + jump.dataset.jump);
+    if (row){ row.scrollIntoView({behavior: "smooth", block: "center"}); row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
+    return; }
+  const gd = t.closest("[data-godisc]");
+  if (gd){ openDiscovery(gd.dataset.godisc); return; }
   const os = t.closest("[data-openseason]");
-  if (os){ const [key, id] = os.dataset.openseason.split("|"); $("q").value = ""; $("picker").hidden = true;
+  if (os){ const [key, id] = os.dataset.openseason.split("|"); $("q").value = ""; $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false");
     if (mode !== "similar") setMode("similar");
     loadDataset(key, {id}).then(showSubject); return; }
   if (t.closest("#cardbtn")){ openCard(); return; }
@@ -2147,6 +2437,7 @@ $("about-btn").addEventListener("click", () => { drawAbout(); $("about").showMod
 $("about-link").addEventListener("click", e => { e.preventDefault(); drawAbout(); $("about").showModal(); });
 $("about-close").addEventListener("click", () => $("about").close());
 $("about").addEventListener("click", e => { if (e.target === $("about")) $("about").close(); });
+$("mfilter").addEventListener("input", filterMetrics);
 $("rw").addEventListener("change", e => { RW = e.target.checked; drawWeights(); drawMatches(); drawCompare(); writeHash(); });
 $("wreset").addEventListener("click", () => { W = {}; drawWeights(); drawMatches(); drawCompare(); });
 
@@ -2245,22 +2536,19 @@ function fitText(x, text, font, size, max, min = 30){
 }
 async function drawCard(){
   const p = P[subject], r = ratingParts(p), top = ranked().slice(0, 4);
-  const SAIRA = (w, n) => `${w} ${n}px "Saira Condensed", "Arial Narrow", sans-serif`;
-  const SANS = (w, n) => `${w} ${n}px "IBM Plex Sans", Arial, sans-serif`;
-  const MONO = (w, n) => `${w} ${n}px "IBM Plex Mono", ui-monospace, monospace`;
-  try { await Promise.all([SAIRA(700, 80), SAIRA(600, 26), SANS(400, 20), SANS(600, 16), MONO(600, 18)]
-    .map(f => document.fonts.load(f))); } catch {}
+  const SAIRA = (w, n) => `${w === 700 ? 700 : 600} ${n}px Inter, system-ui, sans-serif`;
+  const SANS = (w, n) => `${w} ${n}px Inter, system-ui, sans-serif`;
+  const MONO = (w, n) => `${w === 600 ? 700 : w} ${n}px Inter, system-ui, sans-serif`;
+  try { await Promise.all([SANS(700, 72), SANS(600, 24), SANS(400, 20)].map(f => document.fonts.load(f))); } catch {}
   const c = document.createElement("canvas"); c.width = 1200; c.height = 630;
   const x = c.getContext("2d");
-  const INK = "#F2F7F4", SUB = "#CFE0D8", MUTED = "#A9C2B8", ACC = "#6DA7EC", BAR = "#3987E5", CARD = "rgba(13,22,20,.9)", LINE = "#2A3A36";
+  const INK = "#F3F8F5", SUB = "#CFE3D9", MUTED = "#9EC2B2", ACC = "#9FE0C0", BAR = "#65A9F5", CARD = "rgba(255,255,255,.07)", LINE = "rgba(255,255,255,.14)";
   const spaced = (on) => { if ("letterSpacing" in x) x.letterSpacing = on ? "3px" : "0px"; };
   // The page's floodlit pitch: gradient, mown stripes, faint markings.
   const g = x.createLinearGradient(0, 0, 1200, 630);
-  g.addColorStop(0, "#0B2E23"); g.addColorStop(0.46, "#0F3B2D"); g.addColorStop(1, "#0C2A44");
+  g.addColorStop(0, "#124C3A"); g.addColorStop(0.58, "#0F3D30"); g.addColorStop(1, "#0B2E23");
   x.fillStyle = g; x.fillRect(0, 0, 1200, 630);
-  x.fillStyle = "rgba(255,255,255,.035)";
-  for (let sx = 0; sx < 1200; sx += 128) x.fillRect(sx, 0, 64, 630);
-  x.strokeStyle = "rgba(255,255,255,.07)"; x.lineWidth = 2;
+  x.strokeStyle = "rgba(255,255,255,.09)"; x.lineWidth = 2;
   x.strokeRect(20, 20, 1160, 590);
   x.beginPath(); x.moveTo(600, 20); x.lineTo(600, 610); x.stroke();
   x.beginPath(); x.arc(600, 315, 92, 0, Math.PI * 2); x.stroke();
@@ -2333,6 +2621,40 @@ $("card-share").addEventListener("click", async () => {
   catch {}
 });
 
+// ---- tooltips ---------------------------------------------------------------------------
+// Anything carrying data-tip explains itself on hover, on keyboard focus and on
+// a tap - title attributes never reach touch screens.
+const TIP = document.createElement("div");
+TIP.className = "tip-pop"; TIP.id = "tip"; TIP.setAttribute("role", "tooltip");
+document.body.appendChild(TIP);
+let tipFor = null;
+function showTip(el){
+  tipFor = el; TIP.textContent = el.dataset.tip;
+  TIP.style.maxWidth = Math.min(300, innerWidth - 24) + "px";
+  TIP.style.left = "0px"; TIP.style.top = "-999px"; TIP.classList.add("on");
+  const r = el.getBoundingClientRect(), w = TIP.offsetWidth, h = TIP.offsetHeight;
+  const x = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width / 2 - w / 2));
+  const y = r.top - h - 10 > 70 ? r.top - h - 10 : r.bottom + 10;
+  TIP.style.left = x + "px"; TIP.style.top = y + "px";
+  el.setAttribute("aria-describedby", "tip");
+}
+function hideTip(){ if (tipFor) tipFor.removeAttribute("aria-describedby"); tipFor = null; TIP.classList.remove("on"); }
+document.addEventListener("pointerover", e => {
+  if (e.pointerType !== "mouse") return;
+  const el = e.target.closest("[data-tip]");
+  if (el && el !== tipFor) showTip(el); else if (!el && tipFor) hideTip();
+});
+document.addEventListener("focusin", e => { const el = e.target.closest("[data-tip]"); if (el) showTip(el); });
+document.addEventListener("focusout", hideTip);
+document.addEventListener("pointerup", e => {
+  if (e.pointerType === "mouse") return;
+  const el = e.target.closest("[data-tip]");
+  if (el && !el.closest("button, a")){ el === tipFor ? hideTip() : showTip(el); }
+  else if (!el) hideTip();
+});
+addEventListener("scroll", () => { if (tipFor && document.activeElement !== tipFor) hideTip(); }, {passive: true});
+addEventListener("keydown", e => { if (e.key === "Escape") hideTip(); });
+
 // ---- theme ------------------------------------------------------------------------------
 function applyTheme(t){
   if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
@@ -2353,18 +2675,11 @@ if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
 
 // ---- first visit ----------------------------------------------------------------------------
 (() => {
-  if (matchMedia("(max-width: 600px)").matches) $("q").placeholder = "Search any player or club";
+  if (matchMedia("(max-width: 600px)").matches) $("q").placeholder = "Player, club or position…";
   const seasons = BUNDLE.catalog.reduce((t, c) => t + c.seasons.length, 0);
   const total = BUNDLE.catalog.reduce((t, c) => t + c.seasons.reduce((u, x) => u + x.players, 0), 0);
-  $("hero-facts").textContent = `${total.toLocaleString()} player-seasons · ${seasons} seasons from ${BUNDLE.catalog.length} sources · `
+  $("hero-facts").innerHTML = `<b>${total.toLocaleString()}</b> player-seasons · <b>${seasons}</b> seasons from ${BUNDLE.catalog.length} sources · `
     + `free, no sign-in · refreshed every week`;
-  let seen = false;
-  try { seen = localStorage.getItem("scout-how") === "1"; } catch {}
-  $("how").hidden = seen;
-  $("how-close").addEventListener("click", () => {
-    $("how").hidden = true;
-    try { localStorage.setItem("scout-how", "1"); } catch {}
-  });
 })();
 
 // ---- start ------------------------------------------------------------------------------

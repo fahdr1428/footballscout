@@ -216,10 +216,10 @@
         <div class="section-head">
           <div><h2 id="compare-title">Head to head</h2><p id="compare-sub"></p></div>
           <div class="tools">
-            <div class="pick" style="min-width:240px">
-              <input type="search" id="q2" placeholder="Compare with anyone…" autocomplete="off"
-                aria-label="Compare with another player">
-              <div id="picker2" class="picker" hidden></div>
+            <div class="pick">
+              <input type="search" id="q2" placeholder="Compare with anyone…" autocomplete="off" spellcheck="false"
+                aria-label="Compare with another player" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="picker2">
+              <div id="picker2" class="picker" role="listbox" aria-label="Players to compare with" hidden></div>
             </div>
             <span id="star-match"></span>
           </div>
@@ -310,7 +310,7 @@
       <section class="card">
         <div class="card-head"><div><h2>Charts</h2><p class="card-sub" id="ex-hits">&mdash;</p></div>
           <div id="ex-vfm-wrap"><button class="btn" id="ex-vfm" type="button">Rating against price</button></div></div>
-        <div class="controls">
+        <div class="controls ex-controls">
           <div class="field"><label for="xgroup">Position</label><select id="xgroup"></select></div>
           <div class="field"><label for="xmetric">Across</label><select id="xmetric"></select></div>
           <div class="field"><label for="ymetric">Up</label><select id="ymetric"></select></div>
@@ -439,14 +439,14 @@
     <p>The feeds behind this page count the same matches independently, so the same player-season
     should carry the same numbers in each. Joined on name, season and league - only names that
     appear once on both sides, past 900 minutes in both:</p>
-    <div class="tablewrap"><table class="checks">
+    <div class="tablewrap"><table class="checks stack-sm">
       <thead><tr><th>Feeds compared</th><th class="num">Player-seasons</th><th class="num">Same goals</th>
         <th class="num">Minutes within 5%</th></tr></thead>
       <tbody>
-        <tr><td>Understat &amp; FBref</td><td class="num">11,813</td><td class="num">99.3%</td><td class="num">99.5%</td></tr>
-        <tr><td>Understat &amp; Transfermarkt</td><td class="num">17,773</td><td class="num">98.9%</td><td class="num">98.2%</td></tr>
-        <tr><td>FBref &amp; Transfermarkt</td><td class="num">12,079</td><td class="num">99.3%</td><td class="num">98.3%</td></tr>
-        <tr><td>Understat &amp; Fantasy Premier League</td><td class="num">2,782</td><td class="num">99.2%</td><td class="num">98.1%</td></tr>
+        <tr><td>Understat &amp; FBref</td><td class="num" data-l="Player-seasons">11,813</td><td class="num" data-l="Same goals">99.3%</td><td class="num" data-l="Minutes within 5%">99.5%</td></tr>
+        <tr><td>Understat &amp; Transfermarkt</td><td class="num" data-l="Player-seasons">17,773</td><td class="num" data-l="Same goals">98.9%</td><td class="num" data-l="Minutes within 5%">98.2%</td></tr>
+        <tr><td>FBref &amp; Transfermarkt</td><td class="num" data-l="Player-seasons">12,079</td><td class="num" data-l="Same goals">99.3%</td><td class="num" data-l="Minutes within 5%">98.3%</td></tr>
+        <tr><td>Understat &amp; Fantasy Premier League</td><td class="num" data-l="Player-seasons">2,782</td><td class="num" data-l="Same goals">99.2%</td><td class="num" data-l="Minutes within 5%">98.1%</td></tr>
       </tbody></table></div>
     <ul>
       <li>Nearly every disagreement is a single goal. Two independent xG models - Understat's and the
@@ -490,6 +490,12 @@
 const BUNDLE = window.__SCOUT__;
 const $ = id => document.getElementById(id);
 const CACHE = Object.assign({}, BUNDLE.inline);
+// FBref and FPL seasons carry positions as codes; show them as the names
+// Transfermarkt uses, which the other seasons already have.
+const POS_NAME = {GK: "Goalkeeper", CB: "Centre-Back", LB: "Left-Back", RB: "Right-Back", DM: "Defensive Midfield",
+  CM: "Central Midfield", LM: "Left Midfield", RM: "Right Midfield", AM: "Attacking Midfield", LW: "Left Winger",
+  RW: "Right Winger", SS: "Second Striker", CF: "Centre-Forward", DEF: "Defender", MID: "Midfielder", FWD: "Forward"};
+const named = d => { if (!d.named){ d.players.forEach(p => { if (POS_NAME[p.p]) p.p = POS_NAME[p.p]; }); d.named = true; } return d; };
 
 // ---- state ---------------------------------------------------------------
 let D, P, M, G, PCT, LOWER, byGroup, byId, dsKey;
@@ -509,7 +515,7 @@ let clubLeague = null, clubName = null;
 
 // ---- formatting ----------------------------------------------------------
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const eur = v => v == null ? "—" : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7 ? 0 : 1) + "m"
+const eur = v => v == null ? "—" : v >= 1e9 ? "€" + (v/1e9).toFixed(2) + "bn" : v >= 1e6 ? "€" + (v/1e6).toFixed(v >= 1e7 ? 0 : 1) + "m"
   : "€" + Math.round(v/1e3) + "k";
 const worth = p => p.v != null ? eur(p.v) : (p.pr != null ? "£" + p.pr.toFixed(1) + "m*" : "—");
 const band = p => p == null ? 3 : p >= 80 ? 5 : p >= 60 ? 4 : p >= 40 ? 3 : p >= 20 ? 2 : 1;
@@ -538,12 +544,12 @@ function entryFor(key){
   return e ? {src, e} : null;
 }
 async function getDataset(key){
-  if (CACHE[key]) return CACHE[key];
+  if (CACHE[key]) return named(CACHE[key]);
   const hit = entryFor(key);
   if (!hit) throw new Error("unknown dataset " + key);
   const res = await fetch(hit.e.file);
   if (!res.ok) throw new Error("HTTP " + res.status);
-  return (CACHE[key] = await res.json());
+  return named(CACHE[key] = await res.json());
 }
 function status(text, err){ $("ds-status").textContent = text || ""; $("ds-status").classList.toggle("err", !!err); }
 
@@ -1078,7 +1084,7 @@ function drawSW(){
 // ---- radar ---------------------------------------------------------------
 function radar(names, series){
   const N = names.length; if (!N) return "";
-  const Wd = 320, C = Wd/2, R = 88;
+  const Wd = 320, C = Wd/2, R = 92;
   const pt = (i, r) => { const a = -Math.PI/2 + i*2*Math.PI/N; return [C + r*Math.cos(a), C + r*Math.sin(a)]; };
   const clamp = v => Math.max(0, Math.min(100, v ?? 0));
   const rings = [25,50,75,100].map(v =>
@@ -1092,13 +1098,24 @@ function radar(names, series){
     return `<polygon points="${pts}" fill="${s.color}" fill-opacity="0.13" stroke="${s.color}"
       stroke-width="2" stroke-linejoin="round"${s.dash ? ' stroke-dasharray="5 4"' : ""}/>${dots}`;
   }).join("");
-  const labels = names.map((n,i) => { const [x,y] = pt(i, R+22);
+  // Each label: the category, on two lines if it is long, and the percentiles
+  // under it. The view box grows to fit them, so they stay legible on a phone.
+  const LH = 15, CH = 7.1;
+  const split = n => { if (n.length <= 12 || !n.includes(" ")) return [n];
+    let best = -1; for (let k = n.indexOf(" "); k >= 0; k = n.indexOf(" ", k + 1)) if (best < 0 || Math.abs(k - n.length / 2) < Math.abs(best - n.length / 2)) best = k;
+    return [n.slice(0, best), n.slice(best + 1)]; };
+  let x0 = 0, x1 = Wd, y0 = 0, y1 = Wd;
+  const labels = names.map((n,i) => { const [x,y] = pt(i, R+16);
     const anchor = x < C-6 ? "end" : x > C+6 ? "start" : "middle";
-    const nums = series.map(s => `<tspan font-family="Inter,system-ui,sans-serif" font-weight="600" fill="${s.color}"> ${
-      s.vals[i] == null ? "—" : Math.round(s.vals[i])}</tspan>`).join("");
-    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="11"
-      fill="var(--muted)" font-family="Inter,system-ui,sans-serif">${esc(n)}${nums}</text>`; }).join("");
-  return `<svg viewBox="-96 -16 ${Wd+192} ${Wd+32}" role="img" aria-label="Category percentile profile">
+    const lines = split(n), rows = lines.length + 1;
+    const w = Math.max(...lines.map(l => l.length * CH), series.length * 30);
+    const top = y < C-6 ? y - (rows - 1) * LH : y > C+6 ? y : y - (rows - 1) * LH / 2;
+    const left = anchor === "end" ? x - w : anchor === "start" ? x : x - w / 2;
+    x0 = Math.min(x0, left); x1 = Math.max(x1, left + w); y0 = Math.min(y0, top - 9); y1 = Math.max(y1, top + (rows - 1) * LH + 9);
+    const nums = series.map((s, k) => `<tspan font-weight="650" fill="${s.color}">${k ? " " : ""}${s.vals[i] == null ? "—" : Math.round(s.vals[i])}</tspan>`).join("");
+    return `<text text-anchor="${anchor}" dominant-baseline="middle" font-size="12.5" fill="var(--ink-2)" font-family="Inter,system-ui,sans-serif">${
+      lines.map((l, k) => `<tspan x="${x}" y="${top + k * LH}">${esc(l)}</tspan>`).join("")}<tspan x="${x}" y="${top + lines.length * LH}">${nums}</tspan></text>`; }).join("");
+  return `<svg viewBox="${x0 - 4} ${y0 - 4} ${x1 - x0 + 8} ${y1 - y0 + 8}" role="img" aria-label="Category percentile profile">
     ${rings}${spokes}${shapes}${labels}</svg>`;
 }
 function drawRadar(){
@@ -1270,7 +1287,7 @@ function drawDiscover(){
   const cards = [];
   const young = rated.filter(x => x.o.a != null && x.o.a < 22);
   if (has.age && young.length >= 3) cards.push(card("young", "Emerging talents", "The highest-rated players aged 21 or under this season, each rated against his own position.",
-    best(young, x => x.r).map(x => row(x, Math.round(x.r), `${x.o.p} · ${x.o.t} · ${x.o.a.toFixed(0)}`)), "young", "All players aged 21 or under"));
+    best(young, x => x.r).map(x => row(x, Math.round(x.r), `${x.o.p} · ${x.o.t} · age ${x.o.a.toFixed(0)}`)), "young", "All players aged 21 or under"));
   const priced = has.value ? rated.map(x => ({...x, f: cellOf(x.o, VFM_KEY)[0]})).filter(x => x.f != null) : [];
   if (priced.length >= 3) cards.push(card("value", "Rated above their price", "The furthest above the rating that players at their Transfermarkt value usually reach.",
     best(priced, x => x.f).map(x => row(x, "+" + x.f.toFixed(0), `${x.o.p} · ${eur(x.o.v)}`)), "vfm", "The value-for-money ranking"));
@@ -1330,10 +1347,15 @@ function drawAlternatives(){
       <span class="meta">${o.a != null ? "Age " + o.a.toFixed(1) : "—"}<br>${worth(o)}</span>
       <span class="score"><span class="pc">${sc.toFixed(1)}%</span>
         <span class="tr"><span class="fl" style="width:${sc}%"></span></span></span></button>`; };
-  const col = (ok, title, list, none) => !ok ? "" : `<div><h4>${title}</h4>${list.length
-    ? `<div class="list">${list.map(row).join("")}</div>` : `<p class="fnote">${none}</p>`}</div>`;
-  $("alt").innerHTML = col(cheapOk, `At ${eur(s.v / 2)} or less`, cheap, `None of his ${rows.length} closest matches is valued at half his price or less.`)
-    + col(youngOk, `Aged ${(s.a - 3).toFixed(1)} or younger`, young, `None of his ${rows.length} closest matches is three or more years younger.`);
+  const cols = [[cheapOk, `At ${eur(s.v / 2)} or less`, cheap, `None of his ${rows.length} closest matches is valued at half his price or less.`],
+    [youngOk, `Aged ${(s.a - 3).toFixed(1)} or younger`, young, `None of his ${rows.length} closest matches is three or more years younger.`]]
+    .filter(c => c[0]);
+  const full = cols.filter(c => c[2].length), empty = cols.filter(c => !c[2].length);
+  // A column with nobody in it becomes a line under the one that has players.
+  const col = ([, title, list]) => `<div><h4>${title}</h4><div class="list">${list.map(row).join("")}</div></div>`;
+  $("alt").classList.toggle("one", full.length < 2);
+  $("alt").innerHTML = (full.length ? full.map(col).join("") : "")
+    + (empty.length ? `<div class="alt-none">${empty.map(c => `<p><b>${c[1]}:</b> ${c[3].replace(/^None/, "none")}</p>`).join("")}</div>` : "");
   $("alt-rule").textContent = `Both lists come from his ${rows.length} closest matches this season, after the filters on the left: `
     + `priced at half his market value or less, and three or more years younger, in order of similarity. The number beside `
     + `each is his rank among all the matches. Price is Transfermarkt's estimate, not a fee.`;
@@ -1570,7 +1592,7 @@ async function drawCareer(){
 // position, so the line shows where he stood among his peers year to year.
 function careerTrend(pts){
   if (pts.length < 2) return "";
-  const Wd = 640, Ht = 150, m = {l: 34, r: 16, t: 18, b: 28};
+  const Wd = Math.round(Math.max(300, Math.min(640, $("view-similar").clientWidth - 48 || 640))), Ht = 150, m = {l: 34, r: 16, t: 18, b: 28};
   const sx = k => m.l + k / (pts.length - 1) * (Wd - m.l - m.r), sy = v => m.t + (100 - v) / 100 * (Ht - m.t - m.b);
   const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(v)}" y2="${sy(v)}" class="cg"/>
     <text x="${m.l - 6}" y="${sy(v) + 4}" text-anchor="end" class="tk">${v}</text>`).join("");
@@ -1654,7 +1676,7 @@ function drawResults(){
     return `<button type="button" class="row res" data-s="${i}">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
       <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
-        o.a != null ? " · " + o.a.toFixed(1) : ""}</span></span>
+        o.a != null ? " · age " + o.a.toFixed(1) : ""}</span></span>
       <span class="cells" title="${esc(criteria.map(c => label(c.metric)).join(" · "))}">${got.map(chip).join("")}</span>
       <span class="bval">${avg.toFixed(0)}</span></button>`;
   }).join("") + (rows.length > resLimit
@@ -1695,8 +1717,9 @@ function drawBoard(){
     return `<button type="button" class="row brd" data-s="${i}" data-tosim="1">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
       <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
-        o.a != null ? " · " + o.a.toFixed(1) : ""} · ${r != null ? `rated ${Math.round(r)} at ${eur(o.v)}` : o.m.toLocaleString() + " min"}</span></span>
-      <span class="bval">${fmt(metric, v)}</span><span>${pct == null || metric === RATING_KEY ? "" : chip(pct)}</span></button>`;
+        o.a != null ? " · age " + o.a.toFixed(1) : ""} · ${r != null ? `rated ${Math.round(r)} at ${eur(o.v)}` : o.m.toLocaleString() + " min"}</span></span>
+      ${metric === RATING_KEY ? `<span></span><span>${chip(Math.round(v))}</span>`   // the rating, banded like the clubs table
+        : `<span class="bval">${fmt(metric, v)}</span><span>${pct == null ? "" : chip(pct)}</span>`}</button>`;
   }).join("") + (rows.length > boardLimit
     ? `<button type="button" class="more" data-more="board">Show ${Math.min(25, rows.length - boardLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
 }
@@ -2177,31 +2200,58 @@ async function copyText(text, button, done){
 }
 
 // ---- pickers -------------------------------------------------------------------
-// Accents are ignored both ways, so "mbappe" finds Mbappé and "kante" Kanté.
+// Accents and punctuation are ignored both ways, so "mbappe" finds Mbappé,
+// "kante" Kanté and "ngolo" N'Golo.
+const words = s => " " + plain(s).replace(/[^a-z0-9]+/g, " ").trim();
+// How well a player answers a search, lower is better, -1 not at all: his
+// name, then a word of his name starting with it (so "rice" finds Declan Rice
+// before Brice Samba), then a club or position word, then anywhere in the
+// name, then anywhere in the club or position.
+function hitRank(name, rest, want){
+  if (name === want) return 0;
+  if (name.startsWith(want)) return 1;
+  if (name.includes(want)) return 2;
+  if (rest.includes(want)) return 3;
+  if (name.includes(want.slice(1))) return 4;
+  if (rest.includes(want.slice(1))) return 5;
+  return -1;
+}
+// This season's players for a search, best first, then by minutes played.
 function pickerHits(q, skip, limit){
-  const hits = [], want = plain(q);
-  for (let i = 0; i < P.length && hits.length < limit; i++){
+  const want = words(q), hits = [];
+  if (want.length < 3) return hits;
+  for (let i = 0; i < P.length; i++){
     if (i === skip) continue;
     const p = P[i];
-    if (p._q == null) p._q = plain(p.n + " | " + p.t + " | " + (p.p || ""));
-    if (p._q.includes(want)) hits.push(i);
+    if (p._qn == null){ p._qn = words(p.n); p._qr = words(p.t + " " + (p.p || "")); }
+    const k = hitRank(p._qn, p._qr, want);
+    if (k >= 0) hits.push([k, -(p.m || 0), i]);
   }
-  return hits;
+  return hits.sort((a, b) => a[0] - b[0] || a[1] - b[1]).slice(0, limit).map(h => h[2]);
+}
+// Every season of this source for a search: [rank, row] for each matching
+// player-season, best first, then the most recent season.
+function indexHits(q){
+  const A = ALL[sourceOf(dsKey)];
+  if (!A) return null;
+  if (!A.qn){ A.qn = A.players.map(r => words(r[1])); A.qr = A.players.map(r => words(r[2])); }
+  const want = words(q), out = [];
+  if (want.length < 3) return out;
+  A.players.forEach((r, k) => { const h = hitRank(A.qn[k], A.qr[k], want); if (h >= 0) out.push([h, r]); });
+  return out.sort((a, b) => a[0] - b[0] || b[1][4] - a[1][4] || (b[1][7] || 0) - (a[1][7] || 0));
 }
 // Everyone in this source's other seasons whose name matches, one row per
 // player at his most recent season, with how many seasons he has.
 function otherSeasonHits(q, skipIds, limit){
-  const A = ALL[sourceOf(dsKey)];
-  if (!A) return null;
-  if (!A.plain) A.plain = A.players.map(r => plain(r[1]));
-  const want = plain(q), latest = new Map(), count = new Map();
-  A.players.forEach((r, k) => {
-    if (skipIds.has(r[0]) || !A.plain[k].includes(want)) return;
+  const hits = indexHits(q), A = ALL[sourceOf(dsKey)];
+  if (hits === null) return null;
+  const latest = new Map(), count = new Map();
+  for (const [, r] of hits){       // best match first, latest season first
+    if (skipIds.has(r[0])) continue;
     count.set(r[0], (count.get(r[0]) || 0) + 1);
-    const prev = latest.get(r[0]);
-    if (!prev || r[4] > prev[4]) latest.set(r[0], r);
-  });
-  return [...latest.values()].sort((a, b) => b[4] - a[4] || a[1].localeCompare(b[1])).slice(0, limit)
+    if (!latest.has(r[0])) latest.set(r[0], r);
+  }
+  return [...latest.values()].slice(0, limit)
     .map(r => ({r, key: sourceOf(dsKey) + ":" + A.seasons[r[4]], seasons: count.get(r[0])}));
 }
 function goCompare(){
@@ -2222,14 +2272,29 @@ $("quick").addEventListener("click", e => {
   const b = e.target.closest("[data-quick]");
   if (b){ selectSubject(+b.dataset.quick); showSubject(); }
 });
-let pickActive = -1;
+// One search result: avatar, name, a line of context, and something on the right.
+const pickRow = (id, attrs, o, side) => `<button type="button" class="prow" role="option" id="${id}" aria-selected="false" ${attrs}>
+  ${avatar(o, "sm")}<span class="pbody"><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.sub)}</span></span><span class="side">${side}</span></button>`;
+// Arrow keys move through a result list, Enter picks, Escape closes it.
+function listKeys(e, input, box, st){
+  const opts = [...box.querySelectorAll(".prow")];
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && opts.length && !box.hidden){
+    e.preventDefault();
+    st.active = (st.active + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length;
+    opts.forEach((o, k) => o.setAttribute("aria-selected", k === st.active));
+    input.setAttribute("aria-activedescendant", opts[st.active].id);
+    opts[st.active].scrollIntoView({block: "nearest"});
+  }
+  if (e.key === "Enter"){ const pick = opts[st.active] || box.querySelector(".prow"); if (pick){ e.preventDefault(); pick.click(); } }
+  if (e.key === "Escape"){ box.hidden = true; input.setAttribute("aria-expanded", "false"); }
+}
+const pick1 = {active: -1}, pick2 = {active: -1};
 function drawPicker(){
   const q = $("q").value.trim().toLowerCase();
-  pickActive = -1; $("q").removeAttribute("aria-activedescendant");
+  pick1.active = -1; $("q").removeAttribute("aria-activedescendant");
   if (q.length < 2){ $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false"); return; }
   const hits = pickerHits(q, -1, 40);
-  const opt = (k, attrs, o, side) => `<button type="button" class="prow" role="option" id="opt-${k}" aria-selected="false" ${attrs}>
-    ${avatar(o, "sm")}<span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.sub)}</span></span><span class="side">${side}</span></button>`;
+  const opt = (k, attrs, o, side) => pickRow(`opt-${k}`, attrs, o, side);
   const here = hits.map((i, k) => { const p = P[i];
     return opt(k, `data-s="${i}"`, {n: p.n, g: p.g, sub: `${p.p} · ${p.t} · ${p.l}`}, worth(p) === "—" ? "" : worth(p)); }).join("");
   // Few or no hits this season: look through every other season of the source too.
@@ -2260,17 +2325,8 @@ addEventListener("keydown", e => {
   e.preventDefault(); focusSearch();
 });
 $("q").addEventListener("keydown", e => {
-  const opts = [...$("picker").querySelectorAll(".prow")];
-  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && opts.length && !$("picker").hidden){
-    e.preventDefault();
-    pickActive = (pickActive + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length;
-    opts.forEach((o, k) => o.setAttribute("aria-selected", k === pickActive));
-    $("q").setAttribute("aria-activedescendant", opts[pickActive].id);
-    opts[pickActive].scrollIntoView({block: "nearest"});
-  }
-  if (e.key === "Enter"){ clearTimeout(pickTimer); if ($("picker").hidden) drawPicker();
-    const pick = opts[pickActive] || $("picker").querySelector(".prow"); if (pick) pick.click(); }
-  if (e.key === "Escape"){ $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false"); }
+  if (e.key === "Enter"){ clearTimeout(pickTimer); if ($("picker").hidden) drawPicker(); }
+  listKeys(e, $("q"), $("picker"), pick1);
 });
 function drawGlossary(){
   $("gloss").innerHTML = GLOSSARY.map(([, term, what]) => `<dt>${esc(term)}</dt><dd>${esc(what)}</dd>`).join("")
@@ -2283,38 +2339,47 @@ function drawAbout(){
     const first = c.seasons[0].season, last = c.seasons[c.seasons.length - 1];
     const total = c.seasons.reduce((t, x) => t + x.players, 0);
     return `<tr><td><b>${esc(c.name)}</b><br><span class="muted">${esc(c.via)}</span></td>
-      <td class="mono">${seasonLabel(first)}&ndash;${seasonLabel(last.season)}${last.inProgress ? "*" : ""}</td>
-      <td class="num">${total.toLocaleString()}</td><td>${esc(c.updated || "")}</td></tr>`;
+      <td class="mono" data-l="Seasons">${seasonLabel(first)}&ndash;${seasonLabel(last.season)}${last.inProgress ? "*" : ""}</td>
+      <td class="num" data-l="Player-seasons">${total.toLocaleString()}</td><td class="fresh">${esc(c.updated || "")}</td></tr>`;
   }).join("");
-  $("about-sources").innerHTML = `<div class="tablewrap"><table>
+  $("about-sources").innerHTML = `<div class="tablewrap"><table class="stack-sm">
       <thead><tr><th>Source</th><th>Seasons</th><th class="num">Player-seasons</th><th>Freshness</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <p class="fnote">* in progress. Player-seasons counts everyone past each season's minutes floor.</p>
     ${BUNDLE.catalog.map(c => `<p class="fnote"><b>${esc(c.name)}:</b> ${esc(c.attribution || "")}</p>`).join("")}`;
 }
+// Same-position players this season show how similar they are to him; anyone
+// else, and every other season, can still be compared metric by metric.
 function drawPicker2(){
-  const q = $("q2").value.trim().toLowerCase();
-  if (q.length < 2){ $("picker2").hidden = true; return; }
-  const hits = pickerHits(q, subject, 20), src = sourceOf(dsKey), A = ALL[src];
-  const here = hits.map(i => { const o = P[i];
-    return `<button type="button" class="prow" data-m2="${i}"><span class="nm">${esc(o.n)}</span> ${seasonTag(dsKey)}
-      <span class="mt">${esc(o.p)} · ${esc(o.t)}${o.g === P[subject].g ? "" : " · different position group"}</span></button>`; });
-  // Any other season of this source, once its index has loaded.
-  const there = [];
-  if (A) for (const r of A.players){
-    if (there.length >= 25) break;
-    const key = src + ":" + A.seasons[r[4]];
-    if (key === dsKey || !plain(r[1] + " | " + r[2]).includes(plain(q))) continue;
-    there.push(`<button type="button" class="prow" data-xm="${esc(key)}|${esc(r[0])}"><span class="nm">${esc(r[1])}</span> ${seasonTag(key)}
-      <span class="mt">${esc(r[2])} · ${esc(r[3])}${r[5] === P[subject].g ? "" : " · different position group"}</span></button>`);
-  }
-  $("picker2").hidden = false;
-  $("picker2").innerHTML = (here.join("") + there.join("")) || `<div class="empty">${A ? "Nobody by that name in any season." : "Searching every season…"}</div>`;
+  const q = $("q2").value.trim();
+  pick2.active = -1; $("q2").removeAttribute("aria-activedescendant");
+  if (q.length < 2){ $("picker2").hidden = true; $("q2").setAttribute("aria-expanded", "false"); return; }
+  const s = P[subject], src = sourceOf(dsKey), A = ALL[src];
+  const other = g => g === s.g ? "" : " · other position";
+  let k = 0;
+  const here = pickerHits(q, subject, 15).map(i => { const o = P[i];
+    const sim = o.g === s.g && s.z.length && o.z.length ? pctSim(s.z, o.z, weightScale(o.g)).toFixed(1) + "%" : "";
+    return pickRow(`opt2-${k++}`, `data-m2="${i}"`, {n: o.n, g: o.g, sub: `${o.p} · ${o.t}${other(o.g)}`},
+      sim ? `<b class="psim">${sim}</b><span class="mt">similar</span>` : ""); }).join("");
+  // Every other season of this source, once its index has loaded.
+  const hits = indexHits(q);
+  const there = (hits || []).map(h => h[1]).filter(r => src + ":" + A.seasons[r[4]] !== dsKey).slice(0, 25)
+    .map(r => { const key = src + ":" + A.seasons[r[4]];
+      return pickRow(`opt2-${k++}`, `data-xm="${esc(key)}|${esc(r[0])}"`, {n: r[1], g: r[5], sub: `${r[2]} · ${r[3]}${other(r[5])}`}, seasonTag(key)); }).join("");
+  $("picker2").hidden = false; $("q2").setAttribute("aria-expanded", "true");
+  $("picker2").innerHTML = (here ? `<div class="psep">${esc(seasonLabel(M.season))}</div>` + here : "")
+    + (there ? `<div class="psep">Other seasons</div>` + there : "")
+    || `<div class="empty">${hits === null ? "Searching every season…" : `<b>No players match “${esc(q)}”</b>Check the spelling, or try a club.`}</div>`;
 }
+let pick2Timer;
 $("q2").addEventListener("input", () => {
-  drawPicker2();
+  clearTimeout(pick2Timer); pick2Timer = setTimeout(drawPicker2, 90);
   const src = sourceOf(dsKey);
   if (!ALL[src]) getAll(src).then(drawPicker2).catch(() => {});
+});
+$("q2").addEventListener("keydown", e => {
+  if (e.key === "Enter"){ clearTimeout(pick2Timer); if ($("picker2").hidden) drawPicker2(); }
+  listKeys(e, $("q2"), $("picker2"), pick2);
 });
 
 // ---- events ------------------------------------------------------------------------

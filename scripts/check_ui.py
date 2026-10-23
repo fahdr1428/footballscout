@@ -11,8 +11,9 @@ serves `static/`, then in Chromium:
   rankings (including value for money), charts (including rating against
   price), clubs and profile search, and the shortlist - and checks each draws
   something;
-- searches every season, compares across seasons, reads the comparison
-  summary, the cheaper and younger alternatives, and draws a share card;
+- searches every season (and the head-to-head search, best match first),
+  compares across seasons, reads the comparison summary, the cheaper and
+  younger alternatives, and draws a share card;
 - checks phones 360-414px wide never scroll sideways;
 - fails on any script error or any request that does not load.
 
@@ -103,6 +104,15 @@ def main() -> int:
         shown = page.evaluate("[...document.querySelectorAll('#compare tr[data-label]')].filter(r => !r.hidden).length")
         check(0 < shown < page.locator("#compare tr[data-label]").count(), f"head to head: metric search ({shown} rows)")
         page.fill("#mfilter", "")
+        # the head-to-head search: an exact name first, rows drawn like the main search, arrow keys
+        name = page.evaluate("[...P].filter((p, i) => i !== subject).sort((a, b) => b.m - a.m)[3].n")
+        page.fill("#q2", name); page.wait_for_timeout(600)
+        first = page.locator("#picker2 .prow").first
+        check(first.count() == 1 and name in first.inner_text() and first.locator(".avatar").count() == 1,
+              f"compare search puts {name} first")
+        page.keyboard.press("ArrowDown")
+        check(page.locator('#picker2 .prow[aria-selected="true"]').count() == 1, "compare search: arrow keys move through the results")
+        page.keyboard.press("Escape"); page.fill("#q2", "")
         check(page.locator("#alt .row").count() > 0, "cheaper and younger alternatives")
         go("search")
         check(page.locator("#results .row").count() > 0, "profile search")

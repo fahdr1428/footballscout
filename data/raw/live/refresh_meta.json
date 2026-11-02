@@ -1,7 +1,7 @@
 {
   "transfermarkt": {
     "source": "dcaribou/transfermarkt-datasets (CC0 1.0)",
-    "fetched_at": "2026-11-02T13:06:38.341336+00:00",
+    "fetched_at": "2026-11-02T13:23:02.141281+00:00",
     "players": 11107,
     "valuations": 244344,
     "season_positions": 33287,

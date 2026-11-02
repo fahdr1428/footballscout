@@ -196,6 +196,13 @@ all of them later in the alphabet — D→M, D→F, F→M — which is the old r
 anything finer from the statistics the models read would be circular, so this source keeps the
 four-bucket taxonomy.
 
+**Each season is labelled with where he played that season**, not where he plays today. A
+Transfermarkt profile carries one position, today's, which once labelled Ousmane Dembélé's
+Barcelona seasons "Centre-Forward". The label now comes, best first, from the position he started
+most league games in that season (Transfermarkt's match line-ups, gathered by the weekly refresh),
+then his club's squad page for that season (big five, to 2022/23), and only then today's profile —
+always among the roles Understat says he played, and each row says which record decided.
+
 **Similarity percentages read high here and mean less.** Every metric measures attacking output,
 so they move together and two players look alike easily: the median closest match scores
 **96.0%**, against **81.8%** on the FBref source with its more varied 15–24 metrics. Read the
@@ -274,7 +281,12 @@ things or straddles the provider switch (StatsBomb and Opta define interceptions
 records "Centre-Back", "Left-Back", "Defensive Midfield", "Right Winger". Taking the position from
 Transfermarkt means the position groups are fixed by an **independent source**, not inferred from
 the same statistics the models then read. 98.5% of player-seasons match and 98.3% carry a specific
-position. Market values come from the squad records through 2022/23 and from Transfermarkt's
+position. **Transfermarkt's position is used only where FBref agrees he played that role that
+season.** The upstream FBref→Transfermarkt mapping has wrong rows — it linked Iliman Ndiaye, an
+Everton forward, to a goalkeeper of the same surname — so a link whose name differs and whose
+position or birth year contradicts FBref's own is dropped with everything it brought (22
+player-seasons), and a winger FBref lists as a defender that season is labelled a wing-back on
+Transfermarkt's side of the pitch (71). Market values come from the squad records through 2022/23 and from Transfermarkt's
 valuation histories after that, so **97–99% of every season carries one**. The history is read on
 1 July after each season — the date that reproduces the squad-record value exactly for 89% of the
 players who have both (a mid-season date manages 30%), so a backfilled price means the same thing

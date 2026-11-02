@@ -261,3 +261,56 @@ def test_a_loose_name_match_needs_the_club_and_the_minutes_to_agree():
                        "club_name": ["Real Madrid"], "minutes": [600],
                        "player_name": ["Ethan Mbappé"]})
     assert _match_by_season(us, tm).empty
+
+
+def test_a_season_is_labelled_with_where_he_played_that_season():
+    """A profile only knows today's position: Dembélé is a centre-forward now,
+    a right winger at Barcelona. The season's own Transfermarkt record wins,
+    still only among the roles Understat says he played - and today's position
+    is the fallback where there is no season record."""
+    import pandas as pd
+
+    from src.understat import assign_positions
+
+    frame = pd.DataFrame({
+        "tm_id": [7, 7, 8],
+        "season": ["2019/20", "2024/25", "2019/20"],
+        "roles": ["F M S", "F S", "D M S"],
+        "position_group": ["FWD", "FWD", "DEF"],
+        "position": ["FWD", "FWD", "DEF"],
+        "position_source": ["Understat line-ups"] * 3,
+    })
+    profiles = pd.DataFrame({"tm_id": [7, 8], "tm_bucket": ["Attack", "Midfield"],
+                             "tm_detail": ["Centre-Forward", "Defensive Midfield"]})
+    seasonal = pd.DataFrame({"tm_id": [7, 8], "start": [2019, 2019],
+                             "tm_season_detail": ["Right Winger", "Left Winger"],
+                             "how": ["squad page", "line-ups"]})
+    out = assign_positions(frame, profiles, seasonal)
+    assert out.loc[0, "position"] == "Right Winger"                 # that season's record
+    assert out.loc[0, "position_source"] == "Transfermarkt squad page, that season"
+    assert out.loc[1, "position"] == "Centre-Forward"               # no record: today's profile
+    assert out.loc[1, "position_source"].startswith("Transfermarkt profile")
+    assert out.loc[2, "position"] == "Defensive Midfield"           # a winger's record, but he never played F
+    assert out.loc[2, "position_group"] == "MID"
+
+
+def test_line_ups_beat_squad_pages_and_vague_positions_are_dropped(tmp_path, monkeypatch):
+    import pandas as pd
+
+    from src import tm_history
+
+    lineups = tmp_path / "tm_season_positions.csv.gz"
+    pd.DataFrame({"player_id": [7, 9], "season": [2019, 2019], "position": ["Left Winger", "attack"],
+                  "starts": [20, 5]}).to_csv(lineups, index=False)
+    monkeypatch.setattr(tm_history, "SEASON_POSITIONS", lineups)
+    import src.fbref as fbref
+    squads = pd.DataFrame({"player_url": ["https://www.transfermarkt.com/x/profil/spieler/7",
+                                          "https://www.transfermarkt.com/y/profil/spieler/8"],
+                           "season_start_year": [2019, 2019],
+                           "player_position": ["Right Winger", "Centre-Back"]})
+    monkeypatch.setattr(fbref, "download", lambda url, cache, name: tmp_path / name)
+    monkeypatch.setattr(fbref, "read_rds", lambda path: squads)
+    out = tm_history.load_season_positions(tmp_path).set_index("tm_id")
+    assert out.loc[7, "tm_season_detail"] == "Left Winger" and out.loc[7, "how"] == "line-ups"
+    assert out.loc[8, "tm_season_detail"] == "Centre-Back" and out.loc[8, "how"] == "squad page"
+    assert 9 not in out.index                                        # "attack" says nothing new

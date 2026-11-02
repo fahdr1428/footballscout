@@ -363,6 +363,16 @@ body.is-loading #subject-line::after,body.is-loading #matches::after,body.is-loa
   .h2h .tools .pick{flex:1 1 auto;min-width:0;position:static}#picker2{left:0;right:0;width:auto}}
 .psep{padding:10px 10px 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .picker .empty{padding:20px 16px;font-size:14px}
+.empty.nomodel{text-align:left;max-width:640px;margin:0 auto}
+.season-note{font-size:13.5px;line-height:1.55;color:var(--ink-2);background:var(--green-50);border-radius:10px;padding:8px 12px}
+.season-note b{color:var(--ink);font-weight:600}
+.season-note .btn-link{font-size:13.5px;margin-left:4px}
+:root[data-theme="dark"] .season-note{background:var(--accent-soft)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .season-note{background:var(--accent-soft)}}
+.empty.nomodel b{display:block;font-size:16px;color:var(--ink);margin-bottom:6px}
+.elsewhere{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:16px;font-size:14px;color:var(--ink-2)}
+.elsewhere > span{flex-basis:100%}
+.elsewhere .btn .via{font-weight:400;opacity:.8;margin-left:6px}
 
 /* ---- avatars ------------------------------------------------------------ */
 .avatar{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:50%;font-weight:700;font-size:15px;

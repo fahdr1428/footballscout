@@ -37,6 +37,37 @@ PHONES = (360, 390, 414)
 TABS = ("similar", "search", "board", "explore", "clubs", "shortlist")
 EXPLORE = {"search", "board", "explore", "clubs"}
 
+# What the similar-players page shows must all be about the player picked: his
+# name on the profile, only his position group in the lists, the cheaper and
+# younger picks drawn from his own closest matches, and no panel left over from
+# the player before when his position has no model.
+CONSISTENT = """() => {
+  const s = P[subject], out = [], shown = id => { const e = document.getElementById(id); return e && !e.hidden; };
+  const modelled = !!(G[s.g] && s.z.length);
+  const name = document.querySelector('#profile-card .id-name');
+  if (!name || name.textContent.trim() !== s.n) out.push(`profile shows ${name && name.textContent}`);
+  for (const r of document.querySelectorAll('#matches .row[data-m], #alt .row[data-m]')){
+    const o = P[+r.dataset.m];
+    if (o.g !== s.g) out.push(`${o.n} (${o.g}) listed for a ${s.g}`);
+  }
+  for (const r of document.querySelectorAll('#matches .row[data-xm]')){
+    const [key, id] = r.dataset.xm.split('|'), A = ALL[sourceOf(key)];
+    const x = A && A.players.find(q => String(q[0]) === id && sourceOf(key) + ':' + A.seasons[q[4]] === key);
+    if (x && x[5] !== s.g) out.push(`${x[1]} (${x[5]}, ${key}) listed for a ${s.g}`);
+  }
+  if (!modelled){
+    if (shown('alt-panel') || document.getElementById('alt').textContent.trim()) out.push('cheaper/younger list left over');
+    if (shown('sw-panel')) out.push('strengths and weaknesses left over');
+  } else if (shown('alt-panel')){
+    const own = new Set(ranked().slice(0, ALT_POOL).map(x => x[0]));
+    for (const r of document.querySelectorAll('#alt .row[data-m]'))
+      if (!own.has(+r.dataset.m)) out.push(`${P[+r.dataset.m].n} is not among his closest matches`);
+  }
+  if (shown('compare-panel') && !document.getElementById('compare-title').textContent.startsWith(s.n))
+    out.push('head to head: ' + document.getElementById('compare-title').textContent);
+  return out;
+}"""
+
 
 def main() -> int:
     from playwright.sync_api import sync_playwright
@@ -159,7 +190,27 @@ def main() -> int:
         check(size == [1200, 630], f"share card {size[0]}x{size[1]}")
         page.click("#card-close")
 
-        # 5. phones never scroll sideways
+        # 5. every position in turn, modelled or not, in every source: whatever is
+        # on the page belongs to the player picked, and only his position is listed
+        for source, seasons in catalog:
+            open_(f"#d={source}:{seasons[-2] if len(seasons) > 1 else seasons[-1]}")
+            picks = page.evaluate("""() => { const best = {};
+                P.forEach((p, i) => { if (!best[p.g] || p.m > P[best[p.g]].m) best[p.g] = i; });
+                return Object.values(best).map(i => P[i].n); }""")
+            # a keeper (often unmodelled) between two outfield players, then the rest
+            for scope in ("this", "all"):
+                for name in picks + picks[:1]:
+                    page.fill("#q", name); page.wait_for_timeout(250)
+                    page.keyboard.press("Enter"); page.wait_for_timeout(500)
+                    if scope == "all":
+                        page.locator('#scope [data-scope="all"]').click()
+                        page.wait_for_function("!document.querySelector('#matches .skeleton')", timeout=30000)
+                    wrong = page.evaluate(CONSISTENT)
+                    check(not wrong, f"{source}: {name} ({scope} season{'s' if scope == 'all' else ''}): "
+                                     + ("consistent" if not wrong else "; ".join(wrong[:3])))
+                page.locator('#scope [data-scope="season"]').click(); page.wait_for_timeout(300)
+
+        # 6. phones never scroll sideways
         for width in PHONES:
             phone = browser.new_page(viewport={"width": width, "height": 800}, device_scale_factor=2)
             phone.on("pageerror", lambda e: errors.append(f"{width}px: {e}"))

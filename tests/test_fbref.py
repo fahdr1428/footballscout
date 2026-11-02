@@ -382,3 +382,56 @@ def test_a_block_frozen_part_way_through_a_season_is_dropped_for_it():
     assert set(kept["Season_End_Year"]) == {2024}
     assert list(stale["defense"]) == ["2024-25"]
     assert stale["defense"]["2024-25"] == pytest.approx(11 / 50, abs=0.01)
+
+
+# ---------------------------------------------------------------------------
+# Positions checked against what FBref says he played
+# ---------------------------------------------------------------------------
+
+def test_a_transfermarkt_position_fbref_contradicts_is_not_used():
+    from src.fbref import fits_fbref
+    assert not fits_fbref("GK", "FW,MF")        # an outfielder is never a keeper
+    assert not fits_fbref("CB", "GK")           # nor a keeper an outfielder
+    assert not fits_fbref("FW", "DF")           # a striker FBref only lists in defence
+    assert fits_fbref("DM", "DF,MF")            # neighbouring roles are the same player
+    assert fits_fbref("W", "MF,FW")
+    assert fits_fbref("CB", None)               # nothing from FBref, nothing to contradict
+
+
+def test_a_contradicted_position_keeps_transfermarkts_side_and_fbrefs_role():
+    """Wingers who play as wing-backs: Lucas Vázquez, listed a right winger,
+    played right-back - FBref lists him as a defender."""
+    assert _map_position("Right Winger", "DF")[:2] == ("FB", "RB")
+    assert _map_position("Left-Back", "FW")[:2] == ("W", "LW")
+    assert _map_position("Centre-Back", "GK")[:2] == ("GK", "GK")
+    group, _, source = _map_position("Goalkeeper", "FW,MF")      # no side to keep
+    assert group == "FWD" and "contradicted" in source
+
+
+def test_a_link_to_another_player_is_dropped_with_everything_it_brought():
+    """The upstream mapping links Iliman Ndiaye, a forward, to Dialy Ndiaye, a
+    goalkeeper: different name, contradicted position - so neither his price,
+    age nor position is carried across."""
+    from src.fbref import same_person
+    assert not same_person("Iliman Ndiaye", "https://www.transfermarkt.com/dialy-ndiaye/profil/spieler/649032")
+    assert same_person("Kim Min-jae", "https://www.transfermarkt.com/min-jae-kim/profil/spieler/503482")
+    # a nickname alone is not enough to drop a link: Alejandro Balde keeps his
+    balde = block([{"Url": "https://fbref.com/en/players/ddd/Alejandro-Balde", "Season_End_Year": 2025,
+                    "team": "Barcelona", "player": "Alejandro Balde", "fbref_position": "DF", "fbref_age": 21}])
+    link = block([{"PlayerFBref": "Alejandro Balde", "UrlFBref": "https://fbref.com/en/players/ddd/Alejandro-Balde",
+                   "UrlTmarkt": "https://www.transfermarkt.com/alex-balde/profil/spieler/636688", "TmPos": "Left-Back"}])
+    kept, _ = attach_identity(balde, link, _joinable()[2])
+    assert kept.iloc[0]["position"] == "LB"
+    players = block([{"Url": "https://fbref.com/en/players/ccc/Iliman-Ndiaye", "Season_End_Year": 2025,
+                      "team": "Everton", "player": "Iliman Ndiaye", "fbref_position": "FW,MF", "fbref_age": 25}])
+    mapping = block([{"PlayerFBref": "Iliman Ndiaye", "UrlFBref": "https://fbref.com/en/players/ccc/Iliman-Ndiaye",
+                      "UrlTmarkt": "https://www.transfermarkt.com/dialy-ndiaye/profil/spieler/649032",
+                      "TmPos": "Goalkeeper"}])
+    values = block([{"player_url": "https://www.transfermarkt.com/dialy-ndiaye/profil/spieler/649032",
+                     "season_start_year": 2024, "player_market_value_euro": 150_000.0,
+                     "player_position": "Goalkeeper", "player_height_mtrs": 1.90, "player_foot": "right",
+                     "player_nationality": "Senegal", "player_dob": "2003-01-01"}])
+    out, coverage = attach_identity(players, mapping, values)
+    row = out.iloc[0]
+    assert row["position_group"] == "FWD" and pd.isna(row["market_value_eur"])
+    assert coverage["wrong_links_dropped"] == 1

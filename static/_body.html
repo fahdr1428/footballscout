@@ -90,6 +90,7 @@
         <span><b id="f-metrics">&mdash;</b> metrics</span><span><b id="f-groups">&mdash;</b> position models</span></div>
     </div>
     <p class="ds-fresh" id="ds-fresh"></p>
+    <p class="season-note" id="season-note" hidden></p>
     <div class="live" id="live-banner" hidden></div>
     <details class="lacks" id="ds-lacks" hidden><summary id="ds-lacks-s"></summary><p id="ds-lacks-p"></p></details>
     <details class="ds-more"><summary>What is in this data?</summary><p id="ds-blurb"></p><p class="fnote" id="fold-note"></p></details>
@@ -172,7 +173,7 @@
 
         <section class="card matches-card" aria-labelledby="matches-h">
           <div class="card-head">
-            <div><h2 id="matches-h">Closest statistical profiles</h2><p class="card-sub" id="hits">&mdash;</p></div>
+            <div><h2 id="matches-h">Closest statistical profiles <span class="info" tabindex="0" data-tip="Players are compared on their numbers per 90 minutes as recorded, against everyone in the same position across all the leagues in this source. Nothing is adjusted for league or team strength: a forward in a side that attacks a lot can look like one who shoots a lot. To compare like with like, filter to one league.">i</span></h2><p class="card-sub" id="hits">&mdash;</p></div>
             <div class="tools">
               <button class="mini" id="copycsv" type="button">Copy CSV</button>
               <button class="mini" id="sharebtn" type="button">Copy link</button>
@@ -615,6 +616,25 @@ function renderDatasetBar(){
   if (cat.updated) fresh.push(cat.updated);
   if (M.valuesAsOf) fresh.push(`Transfermarkt values to ${day(M.valuesAsOf)}`);
   $("ds-fresh").textContent = fresh.join(" · ");
+  // Which season this is against the newest there is: an older one says its
+  // clubs and prices are as they were then, and offers the newest one.
+  const done = c => c.seasons.filter(x => !x.inProgress), year = x => +x.season.slice(0, 4);
+  const latest = done(cat).slice(-1)[0], live = cat.seasons.find(x => x.inProgress);
+  const newest = BUNDLE.catalog.map(c => [c, done(c).slice(-1)[0]]).filter(([, x]) => x)
+    .sort((a, b) => year(b[1]) - year(a[1]))[0];
+  const goTo = (key, label) => `<button type="button" class="btn-link" data-goseason="${esc(key)}">${esc(label)} &rarr;</button>`;
+  let note = "";
+  if (!M.inProgress && latest && season !== latest.season)
+    note = `<b>You are looking at ${seasonLabel(season)}.</b> Clubs, ages, positions and prices are as they were that season.
+      ${goTo(src + ":" + latest.season, "Latest complete season, " + seasonLabel(latest.season))}`;
+  else if (!M.inProgress && newest && year(newest[1]) > year(latest))
+    note = `<b>${esc(cat.name)} stops at ${seasonLabel(latest.season)}</b> - its public mirror is no longer updated.
+      ${goTo(newest[0].key + ":" + newest[1].season, `${newest[0].name}, ${seasonLabel(newest[1].season)}`)}`;
+  else if (!M.inProgress && live)
+    note = `<b>${seasonLabel(season)} is the last complete season</b>, so clubs are as they finished it.
+      ${goTo(src + ":" + live.season, seasonLabel(live.season) + " so far")}`;
+  $("season-note").hidden = !note;
+  $("season-note").innerHTML = note;
   $("live-banner").hidden = !M.inProgress;
   if (M.inProgress){
     const rounds = Object.values(M.rounds || {});
@@ -1065,7 +1085,7 @@ function drawSW(){
   const rows = spec ? spec.f.map(k => ({k, v: cell(k)[0], pct: cell(k)[1]}))
     .filter(r => r.pct != null && !club.has(r.k)) : [];
   panel.hidden = !rows.length;
-  if (!rows.length) return;
+  if (!rows.length){ $("sw").innerHTML = ""; return; }
   $("sw-peers").textContent = `percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s`;
   const item = r => {
     const q = repeatOf(spec, r.k), noisy = q != null && q < 0.3;
@@ -1213,10 +1233,24 @@ function drawMatches(){
   const s = P[subject];
   $("own-wrap").hidden = scope !== "all";
   document.querySelectorAll("#scope button").forEach(b => b.classList.toggle("on", b.dataset.scope === scope));
+  drawAlternatives();   // first, so no early return below can leave the last player's list up
   if (!G[s.g] || !s.z.length){
+    const src = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey));
     $("hits").textContent = "";
-    $("matches").innerHTML = `<div class="empty">${esc(gname(s.g))}s have no model this season, so there is
-      nothing to rank ${esc(s.n)} against. Pick another player or season.</div>`;
+    $("matches").innerHTML = `<div class="empty nomodel"><b>${esc(gname(s.g))}s can't be compared in ${esc(src.name)}</b>${
+      s.g === "GK" && src.key === "understat_big6" ? `Understat, its source, records shots, passes and expected goals but nothing a
+        goalkeeper does - no saves, no claims - so there is nothing fair to compare ${esc(s.n)} on here.`
+      : `This season measures too little about ${esc(gname(s.g).toLowerCase())}s, or has too few of them, to compare ${esc(s.n)} fairly.`}
+      <div class="elsewhere" id="elsewhere"><span class="muted">Looking for him in the other sources…</span></div></div>`;
+    const asked = subject;
+    findElsewhere(s).then(found => {
+      if (subject !== asked || !$("elsewhere")) return;
+      $("elsewhere").innerHTML = found.length
+        ? `<span>Compare him where ${esc(gname(s.g).toLowerCase())}s are modelled:</span>` + found.map(f =>
+            `<button type="button" class="btn btn-primary" data-openseason="${esc(f.key)}|${esc(f.id)}">${esc(f.source)} ${
+              esc(seasonLabel(f.season))} <span class="via">${esc(f.team)}</span></button>`).join("")
+        : `<span class="muted">He is not in the other sources either. Pick another player, or a source that models ${esc(gname(s.g).toLowerCase())}s.</span>`;
+    });
     return;
   }
   const has = M.has || {};
@@ -1234,7 +1268,6 @@ function drawMatches(){
         .catch(e => { $("matches").innerHTML = `<div class="empty">Could not load every season (${esc(e.message)}).</div>`; });
       return; }
     const rows = sortedMatches(rankedAll().map(x => [x, x.sim]));
-    drawAlternatives();
     $("hits").textContent = `${rows.length.toLocaleString()} player-seasons across ${A.seasons.length} seasons, ranked by similarity to ${s.n}`;
     if (!rows.length){ $("matches").innerHTML = `<div class="empty"><b>No matches in any season</b>Nobody clears the filters you have set. Loosen one, or reset them.</div>`; return; }
     const curKey = xm ? xm.key : null, curId = xm ? CACHE[xm.key].players[xm.i].id : null;
@@ -1253,7 +1286,7 @@ function drawMatches(){
   }
   const rows = sortedMatches(ranked());
   $("hits").textContent = `${rows.length.toLocaleString()} ${gname(s.g).toLowerCase()}s ranked by statistical similarity to ${s.n}`;
-  if (!rows.length){ $("matches").innerHTML = `<div class="empty"><b>No matches with these filters</b>No ${esc(gname(s.g).toLowerCase())} clears them. Loosen one, or reset the filters.</div>`; drawAlternatives(); return; }
+  if (!rows.length){ $("matches").innerHTML = `<div class="empty"><b>No matches with these filters</b>No ${esc(gname(s.g).toLowerCase())} clears them. Loosen one, or reset the filters.</div>`; return; }
   $("matches").innerHTML = rows.slice(0, listLimit).map(([i, sc], n) => {
     const o = P[i];
     return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-m="${i}" aria-current="${i === match && !xm}">
@@ -1262,8 +1295,36 @@ function drawMatches(){
       ${meta(o)}${bar(sc)}</button>`;
   }).join("") + (rows.length > listLimit
     ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
-  drawAlternatives();
 }
+// The same player in the other sources, where his position is modelled: his
+// season nearest this one in each. Names are matched exactly, or - because the
+// sources spell them differently ("Alisson", "Alisson Becker") - when every
+// word of one is in the other and the league and club agree too. Each button
+// names the club and season, so a reader can see it is him.
+async function findElsewhere(p){
+  const words = n => plain(n).split(/[^a-z0-9]+/).filter(Boolean);
+  const mine = words(p.n), year = +seasonOf(dsKey).slice(0, 4), out = [];
+  const sameClub = (a, b) => plain(a).slice(0, 3) === plain(b).slice(0, 3);
+  const sameName = (r, loose) => { const w = words(r[1]);
+    if (w.join(" ") === mine.join(" ")) return true;
+    if (!loose) return false;
+    const [short, long] = w.length < mine.length ? [w, mine] : [mine, w];
+    return short.every(x => long.includes(x)); };
+  for (const c of BUNDLE.catalog){
+    if (c.key === sourceOf(dsKey)) continue;
+    let A; try { A = await getAll(c.key); } catch { continue; }
+    let rows = A.players.filter(r => sameName(r, false));
+    if (!rows.length) rows = A.players.filter(r => r[3] === p.l && sameClub(r[2], p.t) && sameName(r, true));
+    if (!rows.length) continue;
+    const near = r => Math.abs(+A.seasons[r[4]].slice(0, 4) - year);
+    const r = rows.sort((x, y) => near(x) - near(y) || y[4] - x[4])[0], key = c.key + ":" + A.seasons[r[4]];
+    let d; try { d = await getDataset(key); } catch { continue; }
+    if (!d.meta.groups[r[5]]) continue;
+    out.push({key, id: r[0], source: c.name, season: A.seasons[r[4]], team: r[2]});
+  }
+  return out;
+}
+
 // ---- explore the player universe ---------------------------------------------------
 // Ways in for someone without a name in mind. Each card says exactly how it was
 // chosen, from this season's numbers; nothing here is editorial.
@@ -1336,7 +1397,7 @@ function drawAlternatives(){
   const rows = G[s.g] && s.z.length ? ranked().slice(0, ALT_POOL) : [];
   const cheapOk = has.value && s.v > 0, youngOk = has.age && s.a != null;
   panel.hidden = !rows.length || !(cheapOk || youngOk);
-  if (panel.hidden) return;
+  if (panel.hidden){ $("alt").innerHTML = ""; return; }
   const pick = test => rows.map((r, k) => [r, k + 1]).filter(([[i]]) => test(P[i])).slice(0, 5);
   const cheap = cheapOk ? pick(o => o.v != null && o.v <= s.v / 2) : [];
   const young = youngOk ? pick(o => o.a != null && o.a <= s.a - 3) : [];
@@ -1375,7 +1436,7 @@ function simLabel(sim){
 }
 const SIM_TIP = "Similarity is 100 × the cosine between the two players' standardised per-90 profiles, each metric weighted by "
   + "how well it repeats from season to season. It says how alike their numbers are - not ability, quality, potential or "
-  + "tactical role - and it is not a probability. Labels: 95+ near-identical, 90+ very similar, 80+ similar, 70+ partly similar.";
+  + "tactical role - and it is not a probability, nor adjusted for league or team strength. Labels: 95+ near-identical, 90+ very similar, 80+ similar, 70+ partly similar.";
 const unitOf = key => key === RATING_KEY ? "out of 100" : /_per90$/.test(key) ? "per 90 minutes" : PCT.has(key) ? "percentage" : key === "minutes" ? "minutes this season" : "";
 const bareLabel = key => shortLabel(key).replace(/ per 90$/, "");
 // Headline metrics for the tiles: familiar ones for the position first, then the
@@ -2402,6 +2463,8 @@ document.addEventListener("click", e => {
   if (jump){ e.preventDefault(); $("mfilter").value = ""; filterMetrics(); const row = $("m-" + jump.dataset.jump);
     if (row){ row.scrollIntoView({behavior: "smooth", block: "center"}); row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
     return; }
+  const gs = t.closest("[data-goseason]");
+  if (gs){ loadDataset(gs.dataset.goseason); return; }
   const gd = t.closest("[data-godisc]");
   if (gd){ openDiscovery(gd.dataset.godisc); return; }
   const os = t.closest("[data-openseason]");

@@ -134,6 +134,65 @@ def latest_values(history: pd.DataFrame) -> pd.DataFrame:
                          "latest_value_date": last["date"].dt.strftime("%Y-%m-%d").to_numpy()})
 
 
+# Transfermarkt's specific positions, and the bucket each belongs to - the same
+# buckets its player profiles use (an attacking midfielder is "Midfield", a
+# winger "Attack").
+DETAIL_BUCKET = {
+    "Goalkeeper": "Goalkeeper",
+    "Centre-Back": "Defender", "Left-Back": "Defender", "Right-Back": "Defender",
+    "Defensive Midfield": "Midfield", "Central Midfield": "Midfield", "Attacking Midfield": "Midfield",
+    "Left Midfield": "Midfield", "Right Midfield": "Midfield",
+    "Left Winger": "Attack", "Right Winger": "Attack", "Centre-Forward": "Attack", "Second Striker": "Attack",
+}
+SEASON_POSITIONS = DCARIBOU_DIR / "tm_season_positions.csv.gz"
+SQUAD_RECORDS = ("https://raw.githubusercontent.com/JaseZiv/worldfootballR_data/master/"
+                 "data/tm_player_vals/big5_player_vals.rds")
+
+
+def load_season_positions(cache: Path, progress=print) -> pd.DataFrame:
+    """Where each player played, season by season: tm_id, start, tm_season_detail, how.
+
+    A profile carries one position - today's - so on its own it labels
+    Ousmane Dembélé's Barcelona seasons "Centre-Forward". Two Transfermarkt
+    records say where he played *then*, best first:
+
+    * **match line-ups** (`tm_season_positions.csv.gz`, written by the weekly
+      refresh from dcaribou's game_lineups): the position he started most
+      league games in that season - every league and season here, the one in
+      progress included;
+    * **season squad pages** (worldfootballR's mirror, big five, 2010/11 to
+      2022/23): the position his club's squad page gave him that season.
+
+    Only Transfermarkt's specific positions are kept; a bare "attack" says
+    nothing a profile does not.
+    """
+    frames = []
+    if SEASON_POSITIONS.exists():
+        lineups = pd.read_csv(SEASON_POSITIONS)
+        frames.append(pd.DataFrame({
+            "tm_id": pd.to_numeric(lineups["player_id"], errors="coerce"),
+            "start": pd.to_numeric(lineups["season"], errors="coerce"),
+            "tm_season_detail": lineups["position"], "how": "line-ups"}))
+    try:
+        from .fbref import download, read_rds
+        squads = read_rds(download(SQUAD_RECORDS, cache, "tm_squad_records.rds"))
+        frames.append(pd.DataFrame({
+            "tm_id": tm_id_from_url(squads["player_url"]),
+            "start": pd.to_numeric(squads["season_start_year"], errors="coerce"),
+            "tm_season_detail": squads["player_position"], "how": "squad page"}))
+    except Exception as error:  # a mirror being down leaves today's positions in place
+        progress(f"  season squad pages unavailable: {error}")
+    if not frames:
+        return pd.DataFrame(columns=["tm_id", "start", "tm_season_detail", "how"])
+    out = pd.concat(frames, ignore_index=True)
+    out = out[out["tm_season_detail"].isin(DETAIL_BUCKET)].dropna(subset=["tm_id", "start"])
+    out[["tm_id", "start"]] = out[["tm_id", "start"]].astype(int)
+    # line-ups first; within one source a player on two squads keeps the first
+    out["rank"] = out["how"].map({"line-ups": 0, "squad page": 1})
+    return (out.sort_values("rank").drop_duplicates(["tm_id", "start"])
+               .drop(columns="rank").reset_index(drop=True))
+
+
 def load_profiles(cache: Path, progress=print) -> pd.DataFrame:
     """tm_id, name, date_of_birth, height_cm, foot, nationality - one row a player."""
     frames = []

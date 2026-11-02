@@ -199,6 +199,40 @@ def tm_table(name: str, usecols=None) -> pd.DataFrame:
     return frame
 
 
+def season_positions(games: pd.DataFrame, wanted: set, target: Path) -> int:
+    """Where each player started most league games, season by season.
+
+    A Transfermarkt profile only carries today's position; the match line-ups
+    record the one he started in every game. The position he started most often
+    in a season is what that season is labelled with - Ousmane Dembélé a right
+    winger at Barcelona, not today's centre-forward. Written to
+    tm_season_positions.csv.gz; if the line-ups cannot be read the refresh
+    carries on and the build falls back to squad pages and profiles.
+    """
+    try:
+        lineups = tm_table("game_lineups")
+        needed = {"game_id", "player_id", "position", "type"}
+        if not needed <= set(lineups.columns):
+            log(f"  game_lineups lacks {sorted(needed - set(lineups.columns))}; skipped")
+            return 0
+        lineups = lineups.merge(games, on="game_id", how="inner")
+        lineups = lineups[(lineups["season"] >= TM_FIRST_SEASON) & lineups["player_id"].isin(wanted)
+                          & lineups["type"].astype(str).str.contains("start", case=False)]
+        counts = (lineups.groupby(["player_id", "season", "position"]).size()
+                         .rename("starts").reset_index())
+        total = counts.groupby(["player_id", "season"])["starts"].transform("sum")
+        counts["share"] = (counts["starts"] / total).round(3)
+        best = (counts.sort_values(["player_id", "season", "starts", "position"],
+                                   ascending=[True, True, False, True])
+                      .drop_duplicates(["player_id", "season"]))
+        best.to_csv(target / "tm_season_positions.csv.gz", index=False, compression=GZIP)
+        log(f"  {len(best):,} player-seasons with a most-started position")
+        return len(best)
+    except Exception as error:  # noqa: BLE001 - one optional table must not stop the refresh
+        log(f"  game_lineups unavailable ({error}); positions fall back to squad pages and profiles")
+        return 0
+
+
 def refresh_transfermarkt(out: Path) -> dict:
     target = out / "tm"
     target.mkdir(parents=True, exist_ok=True)
@@ -232,11 +266,14 @@ def refresh_transfermarkt(out: Path) -> dict:
     values = values[["player_id", "date", "market_value_in_eur"]]
     values.to_csv(target / "tm_valuations.csv.gz", index=False, compression=GZIP)
 
+    positions = season_positions(games, wanted, target)
+
     meta = {
         "source": "dcaribou/transfermarkt-datasets (CC0 1.0)",
         "fetched_at": datetime.now(timezone.utc).isoformat(),
         "players": len(players),
         "valuations": len(values),
+        "season_positions": positions,
         "latest_valuation": str(pd.to_datetime(values["date"]).max().date()),
         "latest_appearance": str(pd.to_datetime(appearances["date"]).max().date()),
         "seasons": sorted(int(s) for s in minutes["season"].unique()),

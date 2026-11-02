@@ -183,7 +183,8 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
     link = tm_history.link_players(frame, profiles)
 
     frame = frame.merge(link[["player_id", "tm_id", "how"]], on="player_id", how="left")
-    frame = assign_positions(frame, profiles)
+    progress("reading where each player played, season by season")
+    frame = assign_positions(frame, profiles, tm_history.load_season_positions(cache, progress=progress))
     frame = frame.merge(
         profiles[["tm_id", "date_of_birth", "height_cm", "foot", "nationality"]],
         on="tm_id", how="left")
@@ -220,7 +221,8 @@ TM_BUCKETS = {"Goalkeeper": "GK", "Defender": "DEF", "Midfield": "MID", "Attack"
 ROLE_LETTER = {"GK": "GK", "DEF": "D", "MID": "M", "FWD": "F"}
 
 
-def assign_positions(frame: pd.DataFrame, profiles: pd.DataFrame) -> pd.DataFrame:
+def assign_positions(frame: pd.DataFrame, profiles: pd.DataFrame,
+                     seasonal: pd.DataFrame | None = None) -> pd.DataFrame:
     """Each player's bucket: Transfermarkt's, among the roles he played that season.
 
     Understat records the roles a player appeared in during a season - "D M S"
@@ -242,10 +244,34 @@ def assign_positions(frame: pd.DataFrame, profiles: pd.DataFrame) -> pd.DataFram
     bucket = found["tm_bucket"].map(TM_BUCKETS).to_numpy()
     detail = found["tm_detail"].to_numpy()
     roles = frame["roles"].fillna("").astype(str).str.split()
-    use = np.array([isinstance(b, str) and ROLE_LETTER[b] in r for b, r in zip(bucket, roles)])
-    frame.loc[use, "position_group"] = bucket[use]
-    frame.loc[use, "position"] = [d if isinstance(d, str) else b for d, b in zip(detail[use], bucket[use])]
-    frame.loc[use, "position_source"] = "Transfermarkt, among the roles he played that season"
+
+    # Where he played *that* season, when Transfermarkt recorded it: his
+    # profile only knows today's position.
+    then_detail = np.full(len(frame), None, dtype=object)
+    then_how = np.full(len(frame), None, dtype=object)
+    if seasonal is not None and len(seasonal):
+        start = pd.to_numeric(frame["season"].astype(str).str.slice(0, 4), errors="coerce")
+        hit = (pd.DataFrame({"tm_id": pd.to_numeric(frame["tm_id"], errors="coerce"), "start": start})
+               .merge(seasonal, on=["tm_id", "start"], how="left"))
+        then_detail = hit["tm_season_detail"].to_numpy(dtype=object)
+        then_how = hit["how"].to_numpy(dtype=object)
+    then_bucket = np.array([TM_BUCKETS.get(tm_history.DETAIL_BUCKET.get(d)) if isinstance(d, str) else None
+                            for d in then_detail], dtype=object)
+
+    group, position, source = [], [], []
+    for i, r in enumerate(roles):
+        if isinstance(then_bucket[i], str) and ROLE_LETTER[then_bucket[i]] in r:
+            group.append(then_bucket[i]); position.append(then_detail[i])
+            source.append(f"Transfermarkt {then_how[i]}, that season")
+        elif isinstance(bucket[i], str) and ROLE_LETTER[bucket[i]] in r:
+            group.append(bucket[i]); position.append(detail[i] if isinstance(detail[i], str) else bucket[i])
+            source.append("Transfermarkt profile (today's position), among the roles he played that season")
+        else:
+            group.append(None); position.append(None); source.append(None)
+    use = np.array([g is not None for g in group])
+    frame.loc[use, "position_group"] = np.array(group, dtype=object)[use]
+    frame.loc[use, "position"] = np.array(position, dtype=object)[use]
+    frame.loc[use, "position_source"] = np.array(source, dtype=object)[use]
     listed = ~use & frame["position_source"].eq("Understat line-ups")
     frame.loc[listed, "position_source"] = "Understat, first role listed (alphabetical)"
     return frame

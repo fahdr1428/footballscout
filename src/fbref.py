@@ -87,6 +87,7 @@ fitted on 2021/22. For a complete 2025/26, use the Premier League source.
 from __future__ import annotations
 
 import io
+import re
 import time
 import urllib.error
 import urllib.request
@@ -210,6 +211,62 @@ TM_BROAD = {
 # FBref's own position field, the last resort when a player is unmapped.
 FBREF_BROAD = {"GK": ("GK", "GK"), "DF": ("DEF", "DEF"),
                "MF": ("MID", "MID"), "FW": ("FWD", "FWD")}
+
+# Each position group as one of FBref's four roles, and the roles that sit next
+# to it - a defensive midfielder FBref lists as a defender is the same player;
+# a centre-forward FBref lists only as a defender is not.
+GROUP_ROLE = {"GK": "GK", "CB": "DF", "FB": "DF", "DEF": "DF",
+              "DM": "MF", "CM": "MF", "AM": "MF", "WM": "MF", "MID": "MF",
+              "SS": "FW", "W": "FW", "FW": "FW", "FWD": "FW"}
+NEXT_ROLES = {"GK": {"GK"}, "DF": {"DF", "MF"}, "MF": {"DF", "MF", "FW"}, "FW": {"MF", "FW"}}
+
+
+def fbref_roles(fbref_position) -> set[str]:
+    """FBref's roles for a player-season: "FW,MF" -> {"FW", "MF"}."""
+    if not isinstance(fbref_position, str):
+        return set()
+    return {r.strip() for r in fbref_position.split(",") if r.strip() in FBREF_BROAD}
+
+
+def fits_fbref(group: str, fbref_position) -> bool:
+    """Whether a position group is one FBref says he played that season.
+
+    Keepers must match both ways - an outfielder is never a keeper and a keeper
+    never an outfielder - and otherwise the group must be FBref's role or next
+    to it. With nothing from FBref there is nothing to contradict.
+    """
+    roles = fbref_roles(fbref_position)
+    role = GROUP_ROLE.get(group)
+    if not roles or role is None:
+        return True
+    if (role == "GK") != ("GK" in roles):
+        return False
+    return bool(NEXT_ROLES[role] & roles)
+
+
+def _name_words(text) -> set[str]:
+    import unicodedata
+    plain = unicodedata.normalize("NFKD", str(text)).encode("ascii", "ignore").decode().lower()
+    return {w for w in re.split(r"[^a-z0-9]+", plain) if w}
+
+
+def same_person(fbref_name, tm_url) -> bool:
+    """Whether a Transfermarkt URL's name could be this FBref player's: every
+    word of the shorter name is in the longer one.
+
+    A mismatch proves nothing on its own - Transfermarkt writes "alex-balde"
+    for Alejandro Balde and "ez-abde" for Abdessamad Ezzalzouli - so it is
+    only ever used together with a position or birth year that contradicts
+    FBref's.
+    """
+    found = re.search(r"transfermarkt\.[a-z.]+/([^/]+)/profil", str(tm_url))
+    if not found:
+        return True
+    a, b = _name_words(fbref_name), _name_words(found.group(1))
+    if not a or not b:
+        return True
+    short, long = (a, b) if len(a) <= len(b) else (b, a)
+    return short <= long
 
 # ---------------------------------------------------------------------------
 # Column mapping: FBref name -> the platform's metric registry name.
@@ -452,15 +509,30 @@ def _season_label(end_year: int) -> str:
 
 
 def _map_position(tm_position, fbref_position) -> tuple[str, str, str]:
-    """(group, detailed position, where the position came from)."""
+    """(group, detailed position, where the position came from).
+
+    Transfermarkt's position is used only when it is one FBref says he played
+    that season. When it is not - the mapping has linked the wrong player, or
+    he changed role - FBref's own broad role stands instead.
+    """
     key = str(tm_position).strip() if pd.notna(tm_position) else ""
-    if key in TM_POSITIONS:
-        group, detail = TM_POSITIONS[key]
-        return group, detail, "Transfermarkt"
-    if key in TM_BROAD:
-        group, detail = TM_BROAD[key]
-        return group, detail, "Transfermarkt (broad)"
     first = str(fbref_position).split(",")[0].strip() if pd.notna(fbref_position) else ""
+    if key in TM_POSITIONS or key in TM_BROAD:
+        group, detail = TM_POSITIONS.get(key) or TM_BROAD[key]
+        if fits_fbref(group, fbref_position):
+            return group, detail, "Transfermarkt" if key in TM_POSITIONS else "Transfermarkt (broad)"
+        # FBref's role that season, on Transfermarkt's side of the pitch: a right
+        # winger FBref lists as a defender is a right wing-back, a left-back it
+        # lists as a forward a left winger. Keepers and centre-line players take
+        # the central position of FBref's role.
+        side = "L" if detail in ("LB", "LW", "LM") else "R" if detail in ("RB", "RW", "RM") else ""
+        moved = {("DF", "L"): ("FB", "LB"), ("DF", "R"): ("FB", "RB"), ("DF", ""): ("CB", "CB"),
+                 ("FW", "L"): ("W", "LW"), ("FW", "R"): ("W", "RW"), ("FW", ""): ("FW", "CF"),
+                 ("GK", ""): ("GK", "GK")}.get((first, side if first != "GK" else ""))
+        if moved and group != "GK":
+            return moved[0], moved[1], "FBref's role, Transfermarkt's side"
+        group, detail = FBREF_BROAD.get(first, ("MID", "MID"))
+        return group, detail, "FBref (Transfermarkt's position contradicted it)"
     group, detail = FBREF_BROAD.get(first, ("MID", "MID"))
     return group, detail, "FBref (broad)"
 
@@ -473,6 +545,18 @@ def attach_identity(players: pd.DataFrame, mapping: pd.DataFrame,
         link[["UrlFBref", "UrlTmarkt", "TmPos"]],
         left_on="Url", right_on="UrlFBref", how="left",
     ).drop(columns=["UrlFBref"])
+
+    # The curated mapping has wrong rows - Iliman Ndiaye, an Everton forward,
+    # is linked to Dialy Ndiaye, a goalkeeper. A link whose name does not match
+    # AND whose position contradicts what FBref says he played is another
+    # player's: it is dropped, so none of that player's position, age, height
+    # or price is carried across.
+    tm_group = players["TmPos"].map(lambda t: (TM_POSITIONS.get(str(t).strip())
+                                               or TM_BROAD.get(str(t).strip()) or (None,))[0])
+    wrong = [isinstance(url, str) and g is not None and not same_person(name, url) and not fits_fbref(g, pos)
+             for url, g, name, pos in zip(players["UrlTmarkt"], tm_group, players["player"], players["fbref_position"])]
+    wrong = pd.Series(wrong, index=players.index)
+    players.loc[wrong, ["UrlTmarkt", "TmPos"]] = np.nan
 
     values = values.copy()
     values["Season_End_Year"] = values["season_start_year"].astype(int) + 1
@@ -515,6 +599,8 @@ def attach_identity(players: pd.DataFrame, mapping: pd.DataFrame,
         "mapped_to_transfermarkt": float(players["UrlTmarkt"].notna().mean()),
         "with_market_value": float(players["market_value_eur"].notna().mean()),
         "detailed_position": float((players["position_source"] == "Transfermarkt").mean()),
+        "wrong_links_dropped": int(wrong.sum()),
+        "positions_contradicted": int(players["position_source"].str.contains("contradicted|FBref's role").sum()),
     }
     return players.drop(columns=["_height_m", "TmPos", "tm_season_position"]), coverage
 
@@ -578,6 +664,35 @@ def backfill_transfermarkt(players: pd.DataFrame, cache: Path,
                      "with_market_value": float(players["market_value_eur"].notna().mean()),
                      "value_coverage_by_season": {_season_label(int(y)): c
                                                   for y, c in by_season.items()}}
+
+
+# Everything a Transfermarkt link brings in, and so everything a wrong link gets wrong.
+TM_DERIVED = ["market_value_eur", "latest_value_eur", "latest_value_date", "date_of_birth",
+              "height_cm", "foot", "nationality"]
+
+
+def _drop_other_people(players: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Clear Transfermarkt fields that belong to someone else.
+
+    FBref records each player's birth year itself. A link whose name does not
+    match and whose date of birth is two or more years from FBref's is another
+    player - the mapping's position check cannot see that when the two happen
+    to play the same position - so his price, age, height, foot and nationality
+    are cleared and the position falls back to FBref's own.
+    """
+    dob_year = pd.to_datetime(players["date_of_birth"], errors="coerce").dt.year
+    born = pd.to_numeric(players["born"], errors="coerce")
+    named = pd.Series([same_person(n, u) if isinstance(u, str) else True
+                       for n, u in zip(players["player"], players["UrlTmarkt"])], index=players.index)
+    wrong = (dob_year - born).abs().ge(2) & ~named
+    players = players.copy()
+    players.loc[wrong, [c for c in TM_DERIVED if c in players.columns]] = np.nan
+    players.loc[wrong, "UrlTmarkt"] = np.nan
+    mapped = [_map_position(None, f) for f in players.loc[wrong, "fbref_position"]]
+    players.loc[wrong, "position_group"] = [m[0] for m in mapped]
+    players.loc[wrong, "position"] = [m[1] for m in mapped]
+    players.loc[wrong, "position_source"] = [m[2] for m in mapped]
+    return players, int(wrong.sum())
 
 
 def _carry_identity(players: pd.DataFrame) -> pd.DataFrame:
@@ -806,6 +921,7 @@ def build_dataset(cache: Path, seasons: range | None = None,
     progress("extending Transfermarkt values past 2022/23 from valuation histories")
     players, extended = backfill_transfermarkt(players, cache, progress=progress)
     coverage.update(extended)
+    players, coverage["wrong_links_by_birth_year"] = _drop_other_people(players)
     players = _carry_identity(players)
 
     players["age"] = _age(players)

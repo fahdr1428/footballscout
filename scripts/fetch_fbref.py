@@ -76,6 +76,9 @@ def main() -> int:
     for key in ("mapped_to_transfermarkt", "detailed_position", "with_market_value"):
         if key in coverage:
             print(f"  {key.replace('_', ' '):26} {coverage[key]:.1%}")
+    for key in ("wrong_links_dropped", "wrong_links_by_birth_year", "positions_contradicted"):
+        if key in coverage:
+            print(f"  {key.replace('_', ' '):26} {coverage[key]:,} player-seasons")
 
     summary = (
         frame.groupby(["season", "league"])

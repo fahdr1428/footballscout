@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build the Premier League dataset (2016/17 - 2025/26) from public season data.
+Build the Premier League dataset (2016/17 to the season being played) from public season data.
 
     python scripts/fetch_premier_league.py                    # clone + build
     python scripts/fetch_premier_league.py --repo /path/to/clone
@@ -42,6 +42,21 @@ def ensure_repo(path: Path) -> Path:
     return path
 
 
+def record_mirror_date(repo: Path, raw: Path) -> None:
+    """When the mirror last changed, for the page to say how current the season in progress is."""
+    import json
+    from datetime import datetime, timezone
+    try:
+        day = subprocess.run(["git", "-C", str(repo), "log", "-1", "--format=%cs"],
+                             check=True, capture_output=True, text=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return
+    target = raw / "live" / "premier_league_meta.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps({"mirror_updated": day,
+                                  "fetched_at": datetime.now(timezone.utc).isoformat()}, indent=1) + "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=DEFAULT_CLONE,
@@ -61,6 +76,7 @@ def main() -> int:
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(args.out, index=False)
+    record_mirror_date(repo, args.out.parent)
     print(f"\nelapsed {time.time() - started:.0f}s")
     print(f"{len(frame):,} player-seasons x {frame.shape[1]} columns -> {args.out}")
 

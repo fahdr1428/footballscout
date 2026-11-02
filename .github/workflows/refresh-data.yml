@@ -1,8 +1,8 @@
 # Keep the public site current. Every week this fetches the seasons the GitHub
 # mirrors stopped short of from the primary sources (understat.com, and the
-# CC0 Transfermarkt dataset), rebuilds the six-league dataset, runs the tests,
-# rebuilds the site, checks nothing was lost and that the page works in a real
-# browser, and commits - which redeploys it.
+# CC0 Transfermarkt dataset), rebuilds the six-league and Premier League
+# datasets, runs the tests, rebuilds the site, checks nothing was lost and that
+# the page works in a real browser, and commits - which redeploys it.
 # Runs on GitHub's runners because they can reach those hosts; see
 # scripts/refresh_sources.py. Disable it from the Actions tab at any time.
 name: Refresh data
@@ -10,8 +10,10 @@ name: Refresh data
 on:
   workflow_dispatch:
   schedule:
-    # Tuesdays 05:41 UTC: after the weekend's and Monday's matches.
+    # Tuesdays 05:41 UTC, after the weekend's and Monday's matches, and Fridays
+    # 05:41 UTC after midweek ones - so one failed fetch costs days, not a week.
     - cron: "41 5 * * 2"
+    - cron: "41 5 * * 5"
 
 permissions:
   contents: write
@@ -41,6 +43,11 @@ jobs:
       - name: Rebuild the six-league dataset
         run: python scripts/fetch_understat.py --include-partial --cache /tmp/understat-big6
 
+      - name: Rebuild the Premier League dataset
+        # Clones the Fantasy-Premier-League mirror (gameweeks so far included)
+        # and rebuilds every season, the one being played too.
+        run: python scripts/fetch_premier_league.py --repo /tmp/fantasy-premier-league
+
       - name: Test
         run: python -m pytest -q
 
@@ -48,7 +55,7 @@ jobs:
         run: python scripts/cross_check.py >> "$GITHUB_STEP_SUMMARY"
 
       - name: Rebuild the site
-        run: python scripts/export_static.py --sources understat_big6
+        run: python scripts/export_static.py --sources understat_big6 premier_league
 
       - name: Check nothing was lost
         run: python scripts/check_site.py

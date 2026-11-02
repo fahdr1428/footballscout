@@ -9,9 +9,9 @@ Four real datasets, switchable in the sidebar, plus a simulated one used to vali
 
 | Dataset | Coverage | What it is good for |
 | --- | --- | --- |
-| **Six leagues** (default, committed) | **2014/15 → 2025/26 complete, plus the season in progress** · big five + the Russian Premier League · **39,756 player-seasons, 11,653 players** | The most current and the longest run. xG, npxG, xA plus **xGChain and xGBuildup**. **Transfermarkt prices, ages, heights and feet for 99% of the minutes played.** Refreshed weekly from understat.com. **Measures no defending at all**, and groups players GK/DEF/MID/FWD. |
+| **Six leagues** (default, committed) | **2014/15 → 2025/26 complete, plus the season in progress** · big five + the Russian Premier League · **39,933 player-seasons, 11,701 players** | The most current and the longest run. xG, npxG, xA plus **xGChain and xGBuildup**. **Transfermarkt prices, ages, heights and feet for 99% of the minutes played.** Refreshed twice a week from understat.com. **Measures no defending at all**, and groups players GK/DEF/MID/FWD. |
 | **Big five leagues** (committed) | **Eight seasons, 2017/18 → 2024/25**, plus 2025/26's opening weeks · Premier League, La Liga, Serie A, Bundesliga, Ligue 1 · **21,400 player-seasons, 7,200 players** | The widest and deepest, and the only one supporting all **ten position groups**. Full match-data metrics — carries into the box, post-shot xG, zone-by-zone touches — plus a **true position** and **side of the pitch**, and **Transfermarkt prices for 97–99% of every season**. Pressures and shot/goal-creating actions end with FBref's 2022 provider switch; the mirror froze in stages, so 2023/24 is the latest season with every block. |
-| **Premier League** (committed) | **Ten seasons, 2016/17 → 2025/26** · 5,343 player-seasons | FPL's ICT and defensive-contribution numbers, **real Transfermarkt prices beside the FPL price**, and ages for 99%. A summary feed: no progressive passes or duels. |
+| **Premier League** (committed) | **Ten seasons, 2016/17 → 2025/26, plus the season in progress** · 5,779 player-seasons | FPL's ICT and defensive-contribution numbers, **real Transfermarkt prices beside the FPL price**, and ages for 99%. A summary feed: no progressive passes or duels. |
 | **StatsBomb Open Data** (committed) | 2,384 matches → 4,989 player-seasons across 10 competitions | Depth. Every metric derived from raw events — progressive actions, pressures, aerials, pass completion under pressure. The newest complete men's league season published openly is 2015/16. |
 | **Top six leagues** (Transfermarkt) | Big five + Liga Portugal, any season · **build it yourself** | **Real market values in euros**, true positions (centre-back, not "defender"), age, height, foot, nationality. Thin on performance: appearances, goals, assists, cards, minutes. |
 | **Simulated** (committed) | 14 leagues × 2 seasons | The only way to score an unsupervised model against known ground truth. |
@@ -30,7 +30,7 @@ Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 
 [![Who Plays Like Him: the search hero, dataset bar and discovery cards, in cream and forest green](assets/screenshot-site.png)](https://whoplayslikehim.vercel.app)
 
-Public, free, no sign-in, works on a phone, and **kept current by a weekly refresh** (below).
+Public, free, no sign-in, works on a phone, and **kept current by a refresh twice a week** (below).
 **31 seasons across three sources** — six leagues 2014/15 to the season being played, the big
 five in depth 2017/18–2024/25, the Premier League 2016/17–2025/26 — every player priced from
 Transfermarkt. Search any player, club or position from the top of the page (accents optional,
@@ -167,7 +167,7 @@ Understat's per-player season aggregates for the big five plus the Russian Premi
 2014/15–2024/25 from the CSV mirror
 [vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated),
 and from 2025/26 **fetched from understat.com itself** every week (see
-[Keeping it current](#keeping-it-current)). **39,756 player-seasons, 11,653 players, twelve
+[Keeping it current](#keeping-it-current)). **39,933 player-seasons, 11,701 players, twelve
 complete seasons plus the one in progress** — roughly 230–350 players past 900 minutes in every
 league in every complete season.
 
@@ -990,13 +990,19 @@ Install `requirements-dev.txt` instead to get the test dependencies as well.
 
 The public mirrors this project started from all froze in September 2025, and the machine it is
 usually built on cannot reach the primary sources. GitHub's runners can, so
-[`.github/workflows/refresh-data.yml`](.github/workflows/refresh-data.yml) runs **every Tuesday**:
+[`.github/workflows/refresh-data.yml`](.github/workflows/refresh-data.yml) runs **every Tuesday and Friday**:
 
 1. `scripts/refresh_sources.py` fetches the six leagues' season tables for the season being played
    and the one before it **from understat.com**, and a compact extract of
-   **dcaribou/transfermarkt-datasets** (CC0): profiles, valuation histories and minutes per club per
-   season. The seasons are worked out from the date, so nothing needs editing each summer.
-2. The six-league dataset is rebuilt, the test suite runs, and the site is re-exported.
+   **dcaribou/transfermarkt-datasets** (CC0): profiles, valuation histories, minutes per club per
+   season and, from the match line-ups, the position each player started most games in each
+   season. The seasons are worked out from the date, so nothing needs editing each summer. A
+   network blip is retried with backoff, and understat.com is tried once more after the
+   Transfermarkt download if it failed the first time; if it still fails, the last good fetch
+   stands and the page keeps its true date.
+2. The six-league and Premier League datasets are rebuilt - the Premier League one from the
+   Fantasy-Premier-League mirror, the season being played included - the test suite runs, and
+   the site is re-exported.
 3. `scripts/check_site.py` refuses to publish if a season disappeared or a complete season lost
    more than a tenth of its players — a fetch that half-failed upstream cannot ship a thinner site.
 4. The result is committed, which redeploys the site.

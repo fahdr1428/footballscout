@@ -112,16 +112,28 @@ def main() -> int:
                 open_(f"#d={key}")
                 st = page.evaluate("""() => ({key: dsKey, n: P.length, modelled: !!G[P[subject].g],
                     rows: document.querySelectorAll('#matches .row').length,
-                    rating: document.querySelectorAll('#rating .attr').length > 0})""")
-                check(st["key"] == key and st["n"] > 0
+                    rating: document.querySelectorAll('#rating .attr').length > 0,
+                    hidden: P.filter(p => p.m < F.mins).length})""")
+                # a season opens with its whole pool in play: a minutes threshold carried
+                # over from a finished season once hid all but 96 of a season in progress
+                check(st["key"] == key and st["n"] > 0 and st["hidden"] == 0
                       and (not st["modelled"] or (st["rows"] > 0 and st["rating"])),
-                      f"{key}: {st['n']} players, {st['rows']} matches, rating {st['rating']}")
+                      f"{key}: {st['n']} players ({st['hidden']} hidden), {st['rows']} matches, rating {st['rating']}")
 
         def go(tab: str, on=None) -> None:
             on = on or page
             if tab in EXPLORE:
                 on.click("#nav-explore"); on.wait_for_timeout(200)
             on.click(f"#tab-{tab}"); on.wait_for_timeout(300)
+
+        # a reader switching from the default season to the one being played keeps every player in it
+        open_()
+        live = page.evaluate("(BUNDLE.catalog.find(c => c.key === sourceOf(dsKey)).seasons.find(s => s.inProgress) || {}).season")
+        if live:
+            page.select_option("#season", live)
+            page.wait_for_function(f"dsKey.endsWith('{live}')", timeout=20000); page.wait_for_timeout(500)
+            hidden = page.evaluate("P.filter(p => p.m < F.mins).length")
+            check(hidden == 0, f"switching to {live}: {hidden} players hidden by the minutes filter")
 
         # 2. the default season, every page
         open_()

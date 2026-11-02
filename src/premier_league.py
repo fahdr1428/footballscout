@@ -49,11 +49,13 @@ ATTRIBUTION = (
     "salimt/football-datasets."
 )
 
+# The last is the season being played: built from the gameweeks so far and
+# exported as in progress (the export spots it from the minutes).
 SEASONS = [
     "2016-17", "2017-18", "2018-19", "2019-20", "2020-21",
-    "2021-22", "2022-23", "2023-24", "2024-25", "2025-26",
+    "2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27",
 ]
-CURRENT_SEASON = "2025-26"
+CURRENT_SEASON = "2026-27"
 
 ELEMENT_TYPE_TO_GROUP = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
 

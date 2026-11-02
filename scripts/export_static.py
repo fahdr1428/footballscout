@@ -75,8 +75,8 @@ SITE_SOURCES = [
     {
         "key": "premier_league", "name": "Premier League", "via": "FPL + Understat",
         "skip": set(),
-        "updated": "Season stats: Fantasy Premier League, complete to 2025/26",
-        "blurb": "Ten complete seasons to 2025/26: FPL's ICT and defensive-contribution numbers "
+        "updated": "Season stats: Fantasy Premier League, every season to the one being played",
+        "blurb": "Every season from 2016/17, the one being played included: FPL's ICT and defensive-contribution numbers "
                  "with Understat's xG, real Transfermarkt prices beside the fantasy price. One "
                  "league and a summary feed - no progressive passes, duels or pass completion.",
     },
@@ -316,6 +316,9 @@ def _published_catalog(site: Path) -> dict[str, dict]:
 
 def _scraped_on(source: str) -> str | None:
     """The day the season in progress was last fetched, for the page to state."""
+    if source == "premier_league":
+        meta = RAW_DIR / "live" / "premier_league_meta.json"
+        return json.loads(meta.read_text()).get("mirror_updated") if meta.exists() else None
     meta = RAW_DIR / "live" / "refresh_meta.json"
     if source != "understat_big6" or not meta.exists():
         return None

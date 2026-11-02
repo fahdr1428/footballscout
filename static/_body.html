@@ -461,13 +461,13 @@
       <li>Similarity is computed in your browser from the same vectors and weights as the Python
       engine, and reproduces its numbers: across 1,200 pairs checked in a browser, 0.07 of a point apart on
       average and never more than 0.4. Reproduce with <code>python scripts/check_parity.py</code>.</li>
-      <li>Every weekly refresh runs the test suite and these checks, and refuses to publish if a
+      <li>Every refresh runs the test suite and these checks, and refuses to publish if a
       finished season lost players. Reproduce the table with
       <code>python scripts/cross_check.py</code>.</li>
     </ul>
     <h3>Keeping it current</h3>
     <p>A scheduled job on GitHub re-fetches Understat's season tables and the Transfermarkt dataset
-    every week and rebuilds this page; the date each source was last refreshed is shown under the
+    twice a week and rebuilds this page; the date each source was last refreshed is shown under the
     data picker. Corrections and suggestions:
     <a href="https://github.com/fahdr1428/footballscout/issues" target="_blank" rel="noopener">open an issue</a>.</p>
   </div>
@@ -504,7 +504,7 @@ let mode = "similar", loadToken = 0;
 let subject = 0, match = null, sortMode = "gap", listSort = "sim";
 let listLimit = 25, resLimit = 25, boardLimit = 25;
 const F = {lgs: new Set(), side: "", amin: 16, amax: 40, val: null, hmin: 160, foot: "",
-           mins: 900, xclub: false, xleague: false};
+           mins: 900, minsSet: false, xclub: false, xleague: false};
 let W = {};                  // category name -> weight multiplier
 let criteria = [];           // [{metric, min}]
 let searchGroup = null, careerOpen = false, searchCleared = false;
@@ -692,7 +692,11 @@ function setupFilters(){
   F.val = null; val.value = val.max;
   const most = Math.max(...P.map(p => p.m));
   $("mins").min = M.minMinutes; $("mins").max = Math.max(M.minMinutes + 90, Math.ceil(most / 90) * 90);
-  F.mins = Math.max(M.minMinutes, Math.min(F.mins, +$("mins").max));
+  // Each season starts at its own floor - 900 minutes for a finished one, the
+  // regular starters' floor for one being played - unless the reader moved the
+  // slider; and never above the busiest player, which would empty the page.
+  if (!F.minsSet || F.mins > Math.floor(most / 90) * 90) F.mins = M.minMinutes;
+  F.mins = Math.max(M.minMinutes, F.mins);
   syncFilterInputs();
 }
 function syncFilterInputs(){
@@ -937,10 +941,11 @@ async function setCrossMatch(key, id){
 const seasonTag = key => `<span class="ssn mono">${esc(seasonLabel(seasonOf(key)))}</span>`;
 
 // ---- subject ---------------------------------------------------------------
+// Accents optional, as in the search: a link naming "David Raya Martin" opens him.
 function findByName(name){
   if (!name) return -1;
-  const t = name.toLowerCase();
-  return P.findIndex(p => p.n.toLowerCase() === t);
+  const t = plain(name);
+  return P.findIndex(p => plain(p.n) === t);
 }
 function defaultSubject(){
   const biggest = Object.keys(G).sort((a, b) => (byGroup[b] || []).length - (byGroup[a] || []).length)[0];
@@ -2539,13 +2544,13 @@ $("foot").addEventListener("change", e => { F.foot = e.target.value; refilter();
 $("amin").addEventListener("input", e => { F.amin = Math.min(+e.target.value, F.amax); refilter(); });
 $("amax").addEventListener("input", e => { F.amax = Math.max(+e.target.value, F.amin); refilter(); });
 $("hmin").addEventListener("input", e => { F.hmin = +e.target.value; refilter(); });
-$("mins").addEventListener("input", e => { F.mins = +e.target.value; refilter(); });
+$("mins").addEventListener("input", e => { F.mins = +e.target.value; F.minsSet = true; refilter(); });
 $("val").addEventListener("input", e => { const v = +e.target.value;
   F.val = v >= +e.target.max ? null : v; refilter(); });
 $("xclub").addEventListener("change", e => { F.xclub = e.target.checked; refilter(); });
 $("xleague").addEventListener("change", e => { F.xleague = e.target.checked; refilter(); });
 $("freset").addEventListener("click", () => {
-  Object.assign(F, {side: "", amin: 16, amax: 40, val: null, hmin: 160, foot: "", mins: M.minMinutes, xclub: false, xleague: false});
+  Object.assign(F, {side: "", amin: 16, amax: 40, val: null, hmin: 160, foot: "", mins: M.minMinutes, minsSet: false, xclub: false, xleague: false});
   F.lgs.clear(); $("val").value = $("val").max; refilter();
 });
 
@@ -2807,7 +2812,7 @@ if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
   const seasons = BUNDLE.catalog.reduce((t, c) => t + c.seasons.length, 0);
   const total = BUNDLE.catalog.reduce((t, c) => t + c.seasons.reduce((u, x) => u + x.players, 0), 0);
   $("hero-facts").innerHTML = `<b>${total.toLocaleString()}</b> player-seasons · <b>${seasons}</b> seasons from ${BUNDLE.catalog.length} sources · `
-    + `free, no sign-in · refreshed every week`;
+    + `free, no sign-in · refreshed twice a week`;
 })();
 
 // ---- start ------------------------------------------------------------------------------

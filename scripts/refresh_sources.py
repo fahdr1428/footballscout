@@ -85,7 +85,9 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
-def fetch(url: str, headers: dict | None = None, retries: int = 4, timeout: int = 120) -> bytes:
+def fetch(url: str, headers: dict | None = None, retries: int = 6, timeout: int = 120) -> bytes:
+    """GET with backoff for the blips a runner meets - a failed DNS lookup, a reset
+    connection - over about two minutes; a 403 or 404 is an answer, not a blip."""
     request = urllib.request.Request(url, headers={
         "User-Agent": USER_AGENT, "Accept-Encoding": "gzip", **(headers or {})})
     for attempt in range(retries):
@@ -101,7 +103,7 @@ def fetch(url: str, headers: dict | None = None, retries: int = 4, timeout: int 
             log(f"  attempt {attempt + 1} failed for {url}: {status or error}")
             if status in (403, 404) or attempt == retries - 1:
                 raise
-            time.sleep(PAUSE_SECONDS * (2 ** attempt))
+            time.sleep(min(60, PAUSE_SECONDS * (2 ** attempt)))
     raise RuntimeError("unreachable")
 
 
@@ -296,16 +298,25 @@ def main() -> int:
     meta_path = args.out / "live" / "refresh_meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
     failures = []
+    understat_failed = None
     if args.only in (None, "understat"):
         try:
             meta["understat"] = refresh_understat(args.seasons, args.out)
         except BaseException as error:  # noqa: BLE001 - report, carry on to the other source
-            failures.append(f"understat: {error}")
+            understat_failed = error
     if args.only in (None, "transfermarkt"):
         try:
             meta["transfermarkt"] = refresh_transfermarkt(args.out)
         except BaseException as error:  # noqa: BLE001
             failures.append(f"transfermarkt: {error}")
+    if understat_failed is not None:
+        # Once more after the Transfermarkt download: a runner's network blip has
+        # usually cleared in the minutes that takes.
+        log(f"understat failed ({understat_failed}); trying once more")
+        try:
+            meta["understat"] = refresh_understat(args.seasons, args.out)
+        except BaseException as error:  # noqa: BLE001
+            failures.append(f"understat: {error}")
     meta_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path.write_text(json.dumps(meta, indent=2) + "\n")
     for failure in failures:

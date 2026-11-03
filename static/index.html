@@ -3247,13 +3247,15 @@ function drawAbout(){
     const first = c.seasons[0].season, last = c.seasons[c.seasons.length - 1];
     const total = c.seasons.reduce((t, x) => t + x.players, 0);
     return `<tr><td><b>${esc(c.name)}</b><br><span class="muted">${esc(c.via)}</span></td>
-      <td class="mono" data-l="Seasons">${seasonLabel(first)}&ndash;${seasonLabel(last.season)}${last.inProgress ? "*" : ""}</td>
+      <td class="mono" data-l="Seasons">${first === last.season ? seasonLabel(first)
+        : `${seasonLabel(first)}&ndash;${seasonLabel(last.season)}`}${last.inProgress ? "*" : ""}</td>
       <td class="num" data-l="Player-seasons">${total.toLocaleString()}</td><td class="fresh">${esc(c.updated || "")}</td></tr>`;
   }).join("");
   $("about-sources").innerHTML = `<div class="tablewrap"><table class="stack-sm">
       <thead><tr><th>Source</th><th>Seasons</th><th class="num">Player-seasons</th><th>Freshness</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-    <p class="fnote">* in progress. Player-seasons counts everyone past each season's minutes floor.</p>
+    <p class="fnote">* in progress. Player-seasons counts the regulars past each season's minutes floor and the
+      squad players past 450 minutes (270 in a season being played), who are scored against them.</p>
     ${BUNDLE.catalog.map(c => `<p class="fnote"><b>${esc(c.name)}:</b> ${esc(c.attribution || "")}</p>`).join("")}`;
 }
 // Same-position players this season show how similar they are to him; anyone

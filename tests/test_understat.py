@@ -314,3 +314,56 @@ def test_line_ups_beat_squad_pages_and_vague_positions_are_dropped(tmp_path, mon
     assert out.loc[7, "tm_season_detail"] == "Left Winger" and out.loc[7, "how"] == "line-ups"
     assert out.loc[8, "tm_season_detail"] == "Centre-Back" and out.loc[8, "how"] == "squad page"
     assert 9 not in out.index                                        # "attack" says nothing new
+
+
+# --------------------------------------------------------------------------
+# Ties: every one broken by a stated rule, so any machine builds the same data
+# --------------------------------------------------------------------------
+
+def test_a_club_of_record_tie_goes_to_the_first_club_alphabetically_whatever_the_row_order():
+    rows = pd.DataFrame([
+        {"player_id": "9", "season": "2026-27", "team": team, "player": "Robert Sanchez",
+         "minutes": 90.0, "goals": 0.0}
+        for team in ("Como", "Chelsea")])
+    for frame in (rows, rows.iloc[::-1]):
+        assert _collapse_transfers(frame).iloc[0]["team"] == "Chelsea"
+
+
+def _tm_rows(*rows):
+    return pd.DataFrame([dict(zip(
+        ["player_id", "season", "competition_id", "club_id", "minutes", "player_name", "club_name"], r))
+        for r in rows]).assign(apps=1, goals=0, assists=0)
+
+
+def _us_rows(*rows):
+    from src.tm_history import normalise_name
+
+    frame = pd.DataFrame([dict(zip(["player_id", "season", "league", "team", "minutes", "player"], r))
+                          for r in rows])
+    frame["key"] = frame["player"].map(normalise_name)
+    return frame
+
+
+def test_a_vote_tie_goes_to_the_exact_name_and_a_full_tie_is_left_unmatched():
+    from src.tm_history import link_by_season
+
+    tm = _tm_rows(
+        # Polyarus: his own record by exact name one season; another Artem at the
+        # same club with the same minutes matches only on the shared first name.
+        (131444, 2019, "RU1", 1, 2000, "Artem Polyarus", "FK Tambov"),
+        (524826, 2020, "RU1", 1, 1500, "Artem Arkhipov", "FK Tambov"),
+        # One Understat id over two people: each season matches a different one
+        # by the same rule, so nothing says which he is.
+        (120705, 2014, "ES1", 2, 1800, "Juan Carlos", "Cordoba CF"),
+        (201861, 2020, "ES1", 3, 1700, "Juan Carlos", "SD Huesca"),
+    )
+    us = _us_rows(
+        ("8601", "2019-20", "Russian Premier League", "FK Tambov", 2000, "Artem Polyarus"),
+        ("8601", "2020-21", "Russian Premier League", "FK Tambov", 1500, "Artem Polyaru"),
+        ("4219", "2014-15", "La Liga", "Cordoba", 1800, "Juan Carlos"),
+        ("4219", "2020-21", "La Liga", "Huesca", 1700, "Juan Carlos"),
+    )
+    for frame in (us, us.iloc[::-1].reset_index(drop=True)):
+        link = link_by_season(frame, tm)
+        assert link.get("8601") == 131444
+        assert "4219" not in link.index

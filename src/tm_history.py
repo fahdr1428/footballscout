@@ -189,7 +189,7 @@ def load_season_positions(cache: Path, progress=print) -> pd.DataFrame:
     out[["tm_id", "start"]] = out[["tm_id", "start"]].astype(int)
     # line-ups first; within one source a player on two squads keeps the first
     out["rank"] = out["how"].map({"line-ups": 0, "squad page": 1})
-    return (out.sort_values("rank").drop_duplicates(["tm_id", "start"])
+    return (out.sort_values("rank", kind="stable").drop_duplicates(["tm_id", "start"])
                .drop(columns="rank").reset_index(drop=True))
 
 
@@ -301,8 +301,11 @@ def link_by_season(frame: pd.DataFrame, tm: pd.DataFrame | None = None) -> pd.Se
     # A surname-and-initial match must also agree on the club.
     candidates = candidates[candidates["exact"] | candidates["same_club"]].copy()
     candidates["gap"] = (candidates["minutes"] - candidates["tm_minutes"]).abs()
-    candidates = candidates.sort_values(["exact", "same_club", "gap"],
-                                        ascending=[False, False, True])
+    # Every tie broken by a stated key, never by the order rows arrived in or by
+    # the sort algorithm a CPU happens to dispatch to: the build must come out
+    # the same on any machine.
+    candidates = candidates.sort_values(["exact", "same_club", "gap", "tm_player"],
+                                        ascending=[False, False, True, True], kind="stable")
     best = candidates.drop_duplicates(["player_id", "season"])
 
     # Names written differently on each side ("Kylian Mbappe-Lottin" against
@@ -325,9 +328,20 @@ def link_by_season(frame: pd.DataFrame, tm: pd.DataFrame | None = None) -> pd.Se
         # Only when exactly one Transfermarkt player fits.
         loose = loose[~loose.duplicated(["player_id", "season"], keep=False)]
         best = pd.concat([best, loose.assign(exact=False)], ignore_index=True)
-    # One Transfermarkt id per Understat player: the one most seasons agree on...
-    votes = best.groupby(["player_id", "tm_player"]).size().rename("n").reset_index()
-    votes = votes.sort_values("n", ascending=False).drop_duplicates("player_id")
+    # One Transfermarkt id per Understat player: the one most seasons agree on,
+    # then the one more of them matched by exact name. A tie on both is two
+    # people the feeds cannot tell apart - one Understat id spanning Juan Carlos
+    # Perez's 2014/15 and Juan Carlos Real's 2020/21 - and is left unmatched.
+    votes = (best.assign(exact=best["exact"].astype(int))
+             .groupby(["player_id", "tm_player"], as_index=False)
+             .agg(n=("season", "size"), exact=("exact", "sum")))
+    votes = votes.sort_values(["player_id", "n", "exact", "tm_player"],
+                              ascending=[True, False, False, True], kind="stable")
+    top = votes.drop_duplicates("player_id")
+    runner_up = votes[votes.duplicated("player_id")].drop_duplicates("player_id")
+    tied = top.merge(runner_up, on="player_id", suffixes=("", "_next"))
+    tied = tied.loc[(tied["n"] == tied["n_next"]) & (tied["exact"] == tied["exact_next"]), "player_id"]
+    votes = top[~top["player_id"].isin(tied)]
     # ...and never the same Transfermarkt player for two Understat players.
     votes = votes[~votes["tm_player"].duplicated(keep=False)]
     return votes.set_index("player_id")["tm_player"].astype("int64")

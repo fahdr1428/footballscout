@@ -985,7 +985,10 @@ regulars. That adds about 9,000 player-seasons: **48,861 across 32 seasons** bef
 and a ulp of difference can tip a borderline player into a neighbouring archetype. The export pins
 OpenBLAS to one thread and one kernel family before numpy loads, clustering runs single-threaded,
 and `constraints.txt` pins the numeric stack both the workflows and a local build install, so the
-daily refresh and a laptop export the same labels. **About &
+daily refresh and a laptop export the same labels. Every tie that decides something is broken by a stated rule rather than by row order or
+the sort routine a CPU dispatches to: a club of record level on minutes goes to the first club
+alphabetically, and two Transfermarkt players with equal claim to one Understat player go to
+the one matched by exact name more often - or, still level, to neither. **About &
 data** lists every source, its licence and freshness; the page carries Open Graph and Twitter
 metadata and a preview card (`static/og.png`), so a shared link unfurls properly.
 

@@ -378,7 +378,8 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
         matched = {}
 
     frame = frame.drop(columns=["roles"], errors="ignore")
-    frame = frame.sort_values(["season", "league", "team", "player"]).reset_index(drop=True)
+    frame = frame.sort_values(["season", "league", "team", "player", "player_id"],
+                              kind="stable").reset_index(drop=True)
     coverage = {
         "rows_in": raw_rows,
         "player_seasons": len(frame),
@@ -401,7 +402,10 @@ def _unescape_names(frame: pd.DataFrame) -> pd.DataFrame:
 def _collapse_transfers(frame: pd.DataFrame) -> pd.DataFrame:
     """One row per player-season, totals summed, club of record by minutes."""
     keys = ["player_id", "season"]
-    frame = frame.sort_values("minutes", ascending=False)
+    # Most minutes first; level on minutes (one game at each club), the club
+    # that comes first alphabetically - a stated rule, so every machine agrees.
+    frame = frame.sort_values(keys + ["minutes", "team"], ascending=[True, True, False, True],
+                              kind="stable")
     sizes = frame.groupby(keys)["minutes"].transform("size")
 
     single = frame[sizes == 1].copy()

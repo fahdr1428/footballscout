@@ -5,7 +5,7 @@ Refuse to publish a site build that has lost data.
     python scripts/check_site.py                       # against the last commit
     python scripts/check_site.py --before old/index.html
 
-Run by the weekly refresh before it commits: a fetch that half-failed upstream
+Run by the daily refresh before it commits: a fetch that half-failed upstream
 would otherwise publish a site with seasons missing. Fails (exit 1) if a
 source or season disappeared, if any season lost more than a tenth of its
 players, or if a season file the page points to does not exist.

@@ -76,6 +76,7 @@ SITE_SOURCES = [
     {
         "key": "fbref_big5", "name": "Big five, in depth", "via": "FBref",
         "skip": {"2025-26"},
+        "stops": "its public mirror of FBref is no longer updated",
         "updated": "Season stats: FBref, via a public mirror last updated 18 Sep 2025",
         "blurb": "The deepest: up to 44 metrics and ten specific positions, 2017/18 to 2024/25, "
                  "priced by Transfermarkt. 2023/24 is the last season every block measured in "
@@ -88,6 +89,16 @@ SITE_SOURCES = [
         "blurb": "Every season from 2016/17, the one being played included: FPL's ICT and defensive-contribution numbers "
                  "with Understat's xG, real Transfermarkt prices beside the fantasy price. One "
                  "league and a summary feed - no progressive passes, duels or pass completion.",
+    },
+    {
+        "key": "statsbomb_2015_16", "name": "Event data", "via": "StatsBomb 2015/16",
+        "skip": set(),
+        "stops": "the one men's season StatsBomb has published openly for whole leagues",
+        "updated": "Season stats: derived from StatsBomb's open event data, a complete season",
+        "blurb": "The Premier League, La Liga, Serie A and Ligue 1 in 2015/16, every metric derived "
+                 "from the raw events - the only tackles, pressures and aerial duels here before "
+                 "2017/18. One season, so every metric weighs the same; Transfermarkt ages and "
+                 "prices joined on.",
     },
 ]
 DEFAULT_DATASET = "understat_big6:2025-26"
@@ -234,7 +245,7 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
             "r": [round(float(w), 3) for w in weights],
             "rr": [model.reliability.get(f) for f in model.features],
         }
-        for metric in set(model.features) | set(display):
+        for metric in sorted(set(model.features) | set(display)):
             labels[metric] = _label(metric)
 
     players = []
@@ -504,6 +515,7 @@ def main() -> int:
             if when else "Season stats: Understat")
         catalog.append({"key": spec["key"], "name": spec["name"], "via": spec["via"],
                         "blurb": spec["blurb"], "updated": updated,
+                        **({"stops": spec["stops"]} if spec.get("stops") else {}),
                         "attribution": DATA_SOURCES[spec["key"]].attribution,
                         "seasons": entries, "all": everything})
 

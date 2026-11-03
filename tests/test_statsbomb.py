@@ -263,3 +263,66 @@ def test_set_piece_chances_are_split_from_open_play():
     assert counters["npxg"] == pytest.approx(0.50)
     assert counters["npxg_set_piece"] == pytest.approx(0.20)
     assert counters["npxg_open_play"] == pytest.approx(0.30)
+
+
+# --------------------------------------------------------------------------
+# The men's 2015/16 season and its Transfermarkt join
+# --------------------------------------------------------------------------
+
+def _season_rows():
+    return pd.DataFrame({
+        "player_id": ["SB1", "SB2", "SB3", "SB4", "SB5"],
+        "player": ["Lionel Messi", "Sam Kerr", "Jamie Vardy", "Sunil Chhetri", "Old Timer"],
+        "gender": ["male", "female", "male", "male", "male"],
+        "season": ["2015-16", "2019-20", "2015-16", "2021-22", "2015-16"],
+        "league": ["La Liga", "FA WSL", "Premier League", "Indian Super League", "Serie A"],
+        "team": ["Barcelona", "Chelsea", "Leicester City", "Bengaluru", "Juventus"],
+        "minutes": [2729, 1500, 3143, 1600, 1000],
+        "age": [None] * 5, "height_cm": [None] * 5,
+    })
+
+
+def test_the_2015_16_season_is_the_four_mens_leagues_only():
+    from src.statsbomb import season_2015_16
+
+    kept = season_2015_16(_season_rows())
+    assert kept["player"].tolist() == ["Lionel Messi", "Jamie Vardy", "Old Timer"]
+
+
+def test_transfermarkt_fields_come_from_the_matched_player_and_bad_ages_are_withdrawn(monkeypatch, tmp_path):
+    from src import statsbomb, tm_history
+
+    rows = statsbomb.season_2015_16(_season_rows())
+    profiles = pd.DataFrame({
+        "tm_id": [28003, 1, 2], "tm_name": ["Lionel Messi", "Jamie Vardy", "Old Timer"],
+        "date_of_birth": pd.to_datetime(["1987-06-24", "1987-01-11", "1950-01-01"]),
+        "height_cm": [170.0, 179.0, 180.0], "foot": ["left", "right", "right"],
+        "nationality": ["Argentina", "England", "Italy"], "tm_bucket": None, "tm_detail": None,
+    })
+    history = pd.DataFrame({"tm_id": [28003, 28003, 1], "date": pd.to_datetime(
+        ["2016-01-01", "2026-05-01", "2016-02-01"]), "value": [120e6, 15e6, 18e6]})
+    monkeypatch.setattr(tm_history, "load_profiles", lambda cache, progress=print: profiles)
+    monkeypatch.setattr(tm_history, "load_valuations", lambda cache, progress=print: history)
+    monkeypatch.setattr(tm_history, "link_players", lambda frame, prof: pd.DataFrame({
+        "player_id": ["SB1", "SB3", "SB5"], "tm_id": [28003, 1, 2], "how": "season"}))
+
+    out, coverage = statsbomb.attach_transfermarkt(rows, tmp_path, progress=lambda *_: None)
+    messi = out.set_index("player").loc["Lionel Messi"]
+    assert messi["age"] == 28.5 and messi["foot"] == "left" and messi["height_cm"] == 170
+    assert messi["market_value_eur"] == 120e6          # in force on 1 July 2016
+    assert messi["latest_value_eur"] == 15e6
+    old = out.set_index("player").loc["Old Timer"]     # 66 years old: the wrong man
+    assert pd.isna(old["age"]) and pd.isna(old["height_cm"]) and pd.isna(old["market_value_eur"])
+    assert coverage["rejected_implausible_age"] == 1
+
+
+def test_the_built_2015_16_file_is_matched_for_nearly_every_minute():
+    from src.config import STATSBOMB_2015_16_CSV
+
+    if not STATSBOMB_2015_16_CSV.exists():
+        pytest.skip("run scripts/build_statsbomb_2015_16.py first")
+    frame = pd.read_csv(STATSBOMB_2015_16_CSV)
+    assert set(frame["league"]) == {"Premier League", "La Liga", "Serie A", "Ligue 1"}
+    assert set(frame["season"]) == {"2015-16"} and set(frame["gender"]) == {"male"}
+    assert frame.loc[frame["age"].notna(), "minutes"].sum() / frame["minutes"].sum() > 0.97
+    assert frame["age"].dropna().between(15, 45).all()

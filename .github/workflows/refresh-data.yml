@@ -1,4 +1,4 @@
-# Keep the public site current. Every week this fetches the seasons the GitHub
+# Keep the public site current. Every day this fetches the seasons the GitHub
 # mirrors stopped short of from the primary sources (understat.com, and the
 # CC0 Transfermarkt dataset), rebuilds the six-league and Premier League
 # datasets, runs the tests, rebuilds the site, checks nothing was lost and that
@@ -10,10 +10,10 @@ name: Refresh data
 on:
   workflow_dispatch:
   schedule:
-    # Tuesdays 05:41 UTC, after the weekend's and Monday's matches, and Fridays
-    # 05:41 UTC after midweek ones - so one failed fetch costs days, not a week.
-    - cron: "41 5 * * 2"
-    - cron: "41 5 * * 5"
+    # Every morning at 05:41 UTC, after the previous evening's matches - so this
+    # season is at most a day old, and a failed fetch is retried the next day
+    # rather than days later. A run that finds nothing new commits nothing.
+    - cron: "41 5 * * *"
 
 permissions:
   contents: write

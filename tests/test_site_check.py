@@ -1,4 +1,4 @@
-"""The weekly refresh must not publish a site that lost data."""
+"""The daily refresh must not publish a site that lost data."""
 
 import json
 import sys

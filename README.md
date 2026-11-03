@@ -26,14 +26,15 @@ Built with **Python · pandas · NumPy · scikit-learn · Plotly · Streamlit**.
 ### ▶ Live: **[whoplayslikehim.vercel.app](https://whoplayslikehim.vercel.app)**
 
 [![CI](https://github.com/fahdr1428/footballscout/actions/workflows/ci.yml/badge.svg)](https://github.com/fahdr1428/footballscout/actions/workflows/ci.yml)
-[![Weekly data refresh](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml/badge.svg)](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml)
+[![Daily data refresh](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml/badge.svg)](https://github.com/fahdr1428/footballscout/actions/workflows/refresh-data.yml)
 
 [![Who Plays Like Him: the search hero, dataset bar and discovery cards, in cream and forest green](assets/screenshot-site.png)](https://whoplayslikehim.vercel.app)
 
-Public, free, no sign-in, works on a phone, and **kept current by a refresh twice a week** (below).
-**31 seasons across three sources** — six leagues 2014/15 to the season being played, the big
-five in depth 2017/18–2024/25, the Premier League 2016/17–2025/26 — every player priced from
-Transfermarkt. Search any player, club or position from the top of the page (accents optional,
+Public, free, no sign-in, works on a phone, and **kept current by a daily refresh** (below).
+**33 seasons across four sources, 50,503 player-seasons** — six leagues 2014/15 to the season
+being played, the big five in depth 2017/18–2024/25, the Premier League 2016/17 to the season
+being played, and event data for four leagues in 2015/16 — every player priced from Transfermarkt,
+and squad players past 450 minutes alongside the regulars. Search any player, club or position from the top of the page (accents optional,
 every season of the source, arrow keys and Enter to pick), or start from **Explore the player
 universe** — cards built from the season's own numbers: the highest-rated under-21s, the players
 rated furthest above their price, the best chance creators, the top player in each league and in
@@ -76,7 +77,7 @@ licence and how fresh it is.
 **Every push is checked in a real browser**: CI runs the test suite, the four-feed cross-check
 and `scripts/check_ui.py`, which opens the built site in Chromium, loads all 31 seasons, uses every
 tool (including the comparison's ring, tiles, grouped table, metric search and keyboard search),
-draws a share card and checks phones 360–414px wide never scroll sideways. The weekly
+draws a share card and checks phones 360–414px wide never scroll sideways. The daily
 refresh runs the same check and will not publish a page that fails it.
 
 **One design system, cream and forest green.** Warm off-white pages and white cards carry most of
@@ -166,7 +167,7 @@ The real dataset is committed, so the app runs immediately — no downloads or A
 Understat's per-player season aggregates for the big five plus the Russian Premier League:
 2014/15–2024/25 from the CSV mirror
 [vibedatascience/understat_players_aggregated](https://github.com/vibedatascience/understat_players_aggregated),
-and from 2025/26 **fetched from understat.com itself** every week (see
+and from 2025/26 **fetched from understat.com itself** every day (see
 [Keeping it current](#keeping-it-current)). **39,933 player-seasons, 11,701 players, twelve
 complete seasons plus the one in progress** — roughly 230–350 players past 900 minutes in every
 league in every complete season.
@@ -199,7 +200,7 @@ four-bucket taxonomy.
 **Each season is labelled with where he played that season**, not where he plays today. A
 Transfermarkt profile carries one position, today's, which once labelled Ousmane Dembélé's
 Barcelona seasons "Centre-Forward". The label now comes, best first, from the position he started
-most league games in that season (Transfermarkt's match line-ups, gathered by the weekly refresh),
+most league games in that season (Transfermarkt's match line-ups, gathered by the daily refresh),
 then his club's squad page for that season (big five, to 2022/23), and only then today's profile —
 always among the roles Understat says he played, and each row says which record decided.
 
@@ -417,8 +418,24 @@ from the possession chain.
 
 It has no ages, heights or post-shot xG, so those tools switch off rather than being filled in.
 
+**On the public site: the men's 2015/16 season, with ages and prices.** The four men's leagues
+are the only event-level data here from before 2017/18 — the only tackles, interceptions,
+pressures and aerial duels for 2015/16 — so the site carries them as a fourth source, *Event data*.
+`scripts/build_statsbomb_2015_16.py` takes those 2,214 player-seasons and joins on Transfermarkt's
+date of birth, height, foot and valuations with the Understat source's matcher (name, season,
+league and club, then a name unique on both sides): **99.1% of minutes matched**, and on 1,326
+matched regulars Transfermarkt's own goal count equals StatsBomb's **97.5%** of the time (minutes
+within 10%: 98.2%). The unmatched are single-name nicknames held by several players (four
+Juanfrans), left blank rather than guessed. A price is the valuation in force on 1 July 2016.
+Positions stay StatsBomb's own — where he was lined up for most of his minutes, match by match.
+With one season, no metric's repeatability can be measured, so every metric weighs the same in a
+similarity score, and the page says so instead of offering the repeatability switch. 1,335
+regulars and 307 squad players; Kanté's closest match is Kankava, Kroos's Marchisio, Vardy's
+Benzema.
+
 ```bash
 python scripts/fetch_statsbomb.py          # ~10 minutes, resumable
+python scripts/build_statsbomb_2015_16.py  # the site's 2015/16 season, with Transfermarkt joined on
 ```
 
 ### Simulated — the supervised check real data cannot give
@@ -704,7 +721,7 @@ not compared with Understat's: that would be a feed checked against itself.) Ass
 fantasy game define them their own way (the fantasy game credits winning a penalty, for one), so
 they match Understat only 64–80% of the time, against 97% between Understat and FBref.
 
-These run as tests (`tests/test_cross_check.py`) on every weekly refresh, so a broken scrape or a
+These run as tests (`tests/test_cross_check.py`) on every daily refresh, so a broken scrape or a
 join gone wrong blocks publishing instead of reaching the site. Running the check also found a
 real defect, now fixed: Understat serves names HTML-escaped, so 195 player-seasons —
 N'Golo Kanté's among them — were showing as `N&#039;Golo Kanté`.
@@ -846,8 +863,8 @@ scripts/
   fetch_statsbomb.py        Build the StatsBomb dataset from the open-data feed
   build_dataset.py          Regenerate the simulated raw + processed data
   validate_models.py        Fit everything and write the validation report
-  refresh_sources.py        Weekly: fetch the season being played (runs on GitHub Actions)
-  check_site.py             Weekly: refuse to publish a rebuild that lost data
+  refresh_sources.py        Daily: fetch the season being played (runs on GitHub Actions)
+  check_site.py             Daily: refuse to publish a rebuild that lost data
   cross_check.py            Count the same player-seasons in four feeds and compare them
   check_parity.py           Compare the page's similarity numbers with the engine's, in a browser
   check_ui.py               Open the built site in Chromium and use every part of it
@@ -962,13 +979,13 @@ nearest K-Means centroid, and his matches are regulars only. Nothing about a reg
 `tests/test_squad_players.py` asserts it. On the page they are hidden until the minutes slider is
 lowered below the regulars' floor, they are found by search, and they carry a **small sample** tag
 everywhere they are listed. Discovery cards, the value-for-money fit and chart medians stay on
-regulars. That adds about 9,000 player-seasons: **48,861 across 32 seasons**.
+regulars. That adds about 9,000 player-seasons: **48,861 across 32 seasons** before the 2015/16 event data, **50,503 across 33** with it.
 
 **The same build on any machine.** K-Means and the scaler run on BLAS, whose kernels differ by CPU,
 and a ulp of difference can tip a borderline player into a neighbouring archetype. The export pins
 OpenBLAS to one thread and one kernel family before numpy loads, clustering runs single-threaded,
 and `constraints.txt` pins the numeric stack both the workflows and a local build install, so the
-twice-weekly refresh and a laptop export the same labels. **About &
+daily refresh and a laptop export the same labels. **About &
 data** lists every source, its licence and freshness; the page carries Open Graph and Twitter
 metadata and a preview card (`static/og.png`), so a shared link unfurls properly.
 
@@ -1008,7 +1025,7 @@ Install `requirements-dev.txt` instead to get the test dependencies as well.
 
 The public mirrors this project started from all froze in September 2025, and the machine it is
 usually built on cannot reach the primary sources. GitHub's runners can, so
-[`.github/workflows/refresh-data.yml`](.github/workflows/refresh-data.yml) runs **every Tuesday and Friday**:
+[`.github/workflows/refresh-data.yml`](.github/workflows/refresh-data.yml) runs **every morning**:
 
 1. `scripts/refresh_sources.py` fetches the six leagues' season tables for the season being played
    and the one before it **from understat.com**, and a compact extract of
@@ -1031,7 +1048,7 @@ switched off there too. The dcaribou dataset itself paused in July 2026 (valuati
 
 ### Rebuilding the data
 
-`scripts/fetch_understat.py --include-partial` rebuilds the six-league dataset (the weekly job
+`scripts/fetch_understat.py --include-partial` rebuilds the six-league dataset (the daily job
 runs it); `scripts/fetch_fbref.py`, `scripts/fetch_premier_league.py` and
 `scripts/fetch_statsbomb.py` re-derive the other bundled real datasets from their public feeds
 (`pip install -r requirements-dev.txt` first: the FBref build reads R files),

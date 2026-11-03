@@ -829,3 +829,67 @@ def build_dataset(
     if not frames:
         return pd.DataFrame()
     return aggregate_player_seasons(pd.concat(frames, ignore_index=True))
+
+
+# --------------------------------------------------------------------------
+# The men's 2015/16 season, with what the event feed does not publish
+# --------------------------------------------------------------------------
+# The four men's leagues the open data covers in full for one season are the
+# only event-level data in this project from before 2017/18 - the only
+# tackles, interceptions, pressures and aerial duels for 2015/16. The feed
+# carries no birth date, height, foot or price, so they are joined on from
+# Transfermarkt by the same matcher the Understat source uses (name, season,
+# league and club first, then a name unique on both sides). Positions stay
+# StatsBomb's own: the position a player was lined up in for most of his
+# minutes, which no other source here records match by match.
+MEN_2015_16 = {"Premier League", "La Liga", "Serie A", "Ligue 1"}
+
+
+def season_2015_16(frame: pd.DataFrame) -> pd.DataFrame:
+    """The men's 2015/16 rows of the StatsBomb player-season table."""
+    keep = (frame["gender"].eq("male") & frame["season"].eq("2015-16")
+            & frame["league"].isin(MEN_2015_16))
+    return frame[keep].reset_index(drop=True)
+
+
+def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
+                         progress=print) -> tuple[pd.DataFrame, dict]:
+    """Age, height, foot and market values from Transfermarkt, where a match is sure.
+
+    The matching and the value rules are the Understat source's
+    (`understat.attach_transfermarkt`): a name-season-club match first, a name
+    held by one player on both sides second, a date of birth implying an
+    impossible age withdraws the whole match, and a price is the valuation in
+    force on 1 July after the season. StatsBomb's own nationality is kept.
+    """
+    from . import tm_history
+    from .understat import MAX_PLAUSIBLE_AGE, MIN_PLAUSIBLE_AGE, _age, _attach_values
+
+    frame = frame.drop(columns=["age", "height_cm", "foot", "date_of_birth",
+                                "market_value_eur", "latest_value_eur",
+                                "latest_value_date"], errors="ignore").copy()
+    frame["key"] = frame["player"].map(tm_history.normalise_name)
+    profiles = tm_history.load_profiles(cache, progress=progress)
+    progress("matching players to Transfermarkt by name, season and club")
+    link = tm_history.link_players(frame, profiles)
+    frame = frame.merge(link[["player_id", "tm_id", "how"]], on="player_id", how="left")
+    frame = frame.merge(profiles[["tm_id", "date_of_birth", "height_cm", "foot"]],
+                        on="tm_id", how="left")
+    frame["date_of_birth"] = pd.to_datetime(frame["date_of_birth"]).dt.strftime("%Y-%m-%d")
+    frame["age"] = _age(frame)
+    wrong = frame["age"].notna() & ~frame["age"].between(MIN_PLAUSIBLE_AGE, MAX_PLAUSIBLE_AGE)
+    frame.loc[wrong, ["age", "height_cm", "foot", "tm_id", "date_of_birth"]] = np.nan
+    progress("attaching market values")
+    frame = _attach_values(frame, cache, progress=progress)
+
+    matched = frame["tm_id"].notna()
+    coverage = {
+        "rejected_implausible_age": int(wrong.sum()),
+        "matched_players": int(matched.sum()),
+        "matched_by_season_and_club": int((matched & frame["how"].eq("season")).sum()),
+        "total_players": int(len(frame)),
+        "minutes_covered": float(frame.loc[matched, "minutes"].sum() / frame["minutes"].sum()),
+        "with_age": float(frame["age"].notna().mean()),
+        "with_market_value": float(frame["market_value_eur"].notna().mean()),
+    }
+    return frame.drop(columns=["key", "tm_id", "how"]), coverage

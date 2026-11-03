@@ -29,6 +29,7 @@ MODELS_DIR = ROOT_DIR / "models"
 RAW_PLAYERS_CSV = RAW_DIR / "players_raw.csv.gz"
 PROCESSED_PLAYERS_CSV = PROCESSED_DIR / "players_processed.csv.gz"
 STATSBOMB_PLAYERS_CSV = RAW_DIR / "statsbomb_players.csv.gz"
+STATSBOMB_2015_16_CSV = RAW_DIR / "statsbomb_2015_16.csv.gz"
 PREMIER_LEAGUE_CSV = RAW_DIR / "premier_league.csv.gz"
 FBREF_BIG5_CSV = RAW_DIR / "fbref_big5.csv.gz"
 UNDERSTAT_CSV = RAW_DIR / "understat_big6.csv.gz"
@@ -1083,13 +1084,13 @@ DATA_SOURCES: dict[str, DataSource] = {
         summary=(
             "Twelve complete seasons, 2014/15 to 2025/26, plus the season being played, across "
             "the big five and the Russian Premier League - 39,756 player-seasons, 11,653 "
-            "players. The longest and most recent run of real data here, refreshed weekly."
+            "players. The longest and most recent run of real data here, refreshed daily."
         ),
         attribution=(
             "Understat per-player season aggregates (https://understat.com) - to 2024/25 via "
             "the open-source understat_players_aggregated mirror "
             "(https://github.com/vibedatascience/understat_players_aggregated), from 2025/26 "
-            "fetched from understat.com weekly. Ages, heights, feet and market values from "
+            "fetched from understat.com daily. Ages, heights, feet and market values from "
             "Transfermarkt via dcaribou/transfermarkt-datasets "
             "(https://github.com/dcaribou/transfermarkt-datasets, CC0) and "
             "salimt/football-datasets."
@@ -1308,6 +1309,38 @@ DATA_SOURCES: dict[str, DataSource] = {
             "the feed carries a single club are excluded.",
         ),
         missing=("age", "height_cm", "gk_psxg"),
+    ),
+    "statsbomb_2015_16": DataSource(
+        key="statsbomb_2015_16",
+        label="Four leagues 2015/16, event data (StatsBomb)",
+        path=STATSBOMB_2015_16_CSV,
+        kind="real",
+        summary=(
+            "Every men's match the open data publishes for a whole league - the Premier League, "
+            "La Liga, Serie A and Ligue 1 in 2015/16 - with each metric derived here from the raw "
+            "events, and Transfermarkt's ages, heights, feet and prices joined on."
+        ),
+        attribution=(
+            "Data provided by StatsBomb Open Data "
+            "(https://github.com/statsbomb/open-data), free for public use. Ages, heights, feet "
+            "and market values from Transfermarkt via dcaribou/transfermarkt-datasets "
+            "(https://github.com/dcaribou/transfermarkt-datasets, CC0) and "
+            "salimt/football-datasets."
+        ),
+        caveats=(
+            "**One season.** The only event-level data here from before 2017/18 - the only "
+            "tackles, interceptions, pressures and aerial duels for 2015/16 - but with no second "
+            "season, a metric's season-to-season repeatability cannot be measured, so every "
+            "metric weighs the same in a similarity score.",
+            "**Positions are StatsBomb's own**: the position a player was lined up in for most of "
+            "his minutes, match by match.",
+            "**Ages, heights, feet and prices are matched from Transfermarkt** on name, season, "
+            "league and club (99% of minutes). Goals agree with Transfermarkt's own count for "
+            "97.5% of matched regulars. A price is the valuation in force on 1 July 2016.",
+            "Post-shot xG is a paid StatsBomb feature, so goalkeepers are measured on saves and "
+            "goals conceded rather than goals prevented.",
+        ),
+        missing=("gk_psxg",),
     ),
     "simulated": DataSource(
         key="simulated",

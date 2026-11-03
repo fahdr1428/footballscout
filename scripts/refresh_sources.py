@@ -85,14 +85,28 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
-def fetch(url: str, headers: dict | None = None, retries: int = 6, timeout: int = 120) -> bytes:
+def unreachable(error: BaseException) -> bool:
+    """No answer at all - a failed DNS lookup, a refused or hung connection - as
+    opposed to an HTTP status, which is the host answering."""
+    return getattr(error, "code", None) is None
+
+
+def fetch(url: str, headers: dict | None = None, retries: int = 6, timeout: int = 60,
+          deadline: float | None = None) -> bytes:
     """GET with backoff for the blips a runner meets - a failed DNS lookup, a reset
-    connection - over about two minutes; a 403 or 404 is an answer, not a blip."""
+    connection - over about two minutes; a 403 or 404 is an answer, not a blip.
+
+    `timeout` bounds each wait on the socket, not the download, so a large file
+    on a slow link still arrives. `deadline` (a time.monotonic() value) caps the
+    whole thing: a host that hangs every connection would otherwise cost
+    retries x timeout, and the job has an hour for everything.
+    """
     request = urllib.request.Request(url, headers={
         "User-Agent": USER_AGENT, "Accept-Encoding": "gzip", **(headers or {})})
     for attempt in range(retries):
+        wait = timeout if deadline is None else max(1.0, min(timeout, deadline - time.monotonic()))
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with urllib.request.urlopen(request, timeout=wait) as response:
                 body = response.read()
             # Understat compresses its JSON whether or not it was asked to.
             if body[:2] == b"\x1f\x8b" and not url.endswith(".gz"):
@@ -101,9 +115,11 @@ def fetch(url: str, headers: dict | None = None, retries: int = 6, timeout: int 
         except (urllib.error.URLError, TimeoutError) as error:
             status = getattr(error, "code", None)
             log(f"  attempt {attempt + 1} failed for {url}: {status or error}")
-            if status in (403, 404) or attempt == retries - 1:
+            pause = min(60, PAUSE_SECONDS * (2 ** attempt))
+            if status in (403, 404) or attempt == retries - 1 or (
+                    deadline is not None and time.monotonic() + pause >= deadline):
                 raise
-            time.sleep(min(60, PAUSE_SECONDS * (2 ** attempt)))
+            time.sleep(pause)
     raise RuntimeError("unreachable")
 
 
@@ -121,22 +137,34 @@ def _decode_embedded(page: str, variable: str) -> list | None:
     return json.loads(text)
 
 
-def understat_players(league: str, season: int) -> tuple[list[dict], str]:
+# understat.com's pages are small: if it has not answered in this long across
+# every league-season, it is down, and the last good fetch stands.
+UNDERSTAT_BUDGET_SECONDS = 8 * 60
+UNDERSTAT_TIMEOUT = 30
+
+
+def understat_players(league: str, season: int,
+                      deadline: float | None = None) -> tuple[list[dict], str]:
     """One league-season of player aggregates, and which route returned it."""
     page_url = f"{UNDERSTAT}/league/{league}/{season}"
     try:
         raw = fetch(f"{UNDERSTAT}/getLeagueData/{league}/{season}", headers={
             "X-Requested-With": "XMLHttpRequest", "Referer": page_url,
-            "Accept": "application/json, text/javascript, */*; q=0.01"})
+            "Accept": "application/json, text/javascript, */*; q=0.01"},
+            retries=4, timeout=UNDERSTAT_TIMEOUT, deadline=deadline)
         data = json.loads(raw.decode("utf-8"))
         players = data.get("players") if isinstance(data, dict) else None
         if players:
             return players, "getLeagueData"
         log(f"  getLeagueData returned no players (keys: {list(data)[:6] if isinstance(data, dict) else type(data)})")
     except Exception as error:  # noqa: BLE001 - fall through to the page
+        if unreachable(error):
+            # The page is on the same host: asking it a second way only doubles the wait.
+            raise
         log(f"  getLeagueData unavailable: {error}")
     time.sleep(PAUSE_SECONDS)
-    page = fetch(page_url).decode("utf-8", "replace")
+    page = fetch(page_url, retries=4, timeout=UNDERSTAT_TIMEOUT,
+                 deadline=deadline).decode("utf-8", "replace")
     players = _decode_embedded(page, "playersData")
     if players:
         return players, "embedded JSON"
@@ -147,11 +175,12 @@ def understat_players(league: str, season: int) -> tuple[list[dict], str]:
 def refresh_understat(seasons: list[int], out: Path) -> dict:
     # The day, not the second: a re-run the same day writes identical rows.
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    deadline = time.monotonic() + UNDERSTAT_BUDGET_SECONDS
     frames, summary = [], {}
     for season in seasons:
         for league in UNDERSTAT_LEAGUES:
             log(f"understat {league} {season}")
-            players, route = understat_players(league, season)
+            players, route = understat_players(league, season, deadline)
             time.sleep(PAUSE_SECONDS)
             if not players:
                 summary[f"{league} {season}"] = {"players": 0, "route": route}
@@ -193,7 +222,8 @@ def refresh_understat(seasons: list[int], out: Path) -> dict:
 
 def tm_table(name: str, usecols=None) -> pd.DataFrame:
     log(f"transfermarkt {name}")
-    raw = fetch(f"{TM_BASE}/{name}.csv.gz", timeout=600)
+    # 120 seconds of silence mid-download is a stalled connection, not a slow one.
+    raw = fetch(f"{TM_BASE}/{name}.csv.gz", timeout=120)
     frame = pd.read_csv(io.BytesIO(gzip.decompress(raw)), low_memory=False)
     log(f"  {len(frame):,} rows; columns: {list(frame.columns)}")
     if usecols:

@@ -468,7 +468,7 @@
     </ul>
     <h3>Keeping it current</h3>
     <p>A scheduled job on GitHub re-fetches Understat's season tables and the Transfermarkt dataset
-    twice a week and rebuilds this page; the date each source was last refreshed is shown under the
+    every day and rebuilds this page; the date each source was last refreshed is shown under the
     data picker. Corrections and suggestions:
     <a href="https://github.com/fahdr1428/footballscout/issues" target="_blank" rel="noopener">open an issue</a>.</p>
   </div>
@@ -496,7 +496,8 @@ const CACHE = Object.assign({}, BUNDLE.inline);
 // Transfermarkt uses, which the other seasons already have.
 const POS_NAME = {GK: "Goalkeeper", CB: "Centre-Back", LB: "Left-Back", RB: "Right-Back", DM: "Defensive Midfield",
   CM: "Central Midfield", LM: "Left Midfield", RM: "Right Midfield", AM: "Attacking Midfield", LW: "Left Winger",
-  RW: "Right Winger", SS: "Second Striker", CF: "Centre-Forward", DEF: "Defender", MID: "Midfielder", FWD: "Forward"};
+  RW: "Right Winger", SS: "Second Striker", CF: "Centre-Forward", DEF: "Defender", MID: "Midfielder", FWD: "Forward",
+  LCB: "Left Centre-Back", RCB: "Right Centre-Back", LWB: "Left Wing-Back", RWB: "Right Wing-Back", ST: "Striker"};
 const named = d => { if (!d.named){ d.players.forEach(p => { if (POS_NAME[p.p]) p.p = POS_NAME[p.p]; }); d.named = true; } return d; };
 
 // ---- state ---------------------------------------------------------------
@@ -629,7 +630,7 @@ function renderDatasetBar(){
     note = `<b>You are looking at ${seasonLabel(season)}.</b> Clubs, ages, positions and prices are as they were that season.
       ${goTo(src + ":" + latest.season, "Latest complete season, " + seasonLabel(latest.season))}`;
   else if (!M.inProgress && newest && year(newest[1]) > year(latest))
-    note = `<b>${esc(cat.name)} stops at ${seasonLabel(latest.season)}</b> - its public mirror is no longer updated.
+    note = `<b>${esc(cat.name)} stops at ${seasonLabel(latest.season)}</b> - ${esc(cat.stops || "its public mirror is no longer updated")}.
       ${goTo(newest[0].key + ":" + newest[1].season, `${newest[0].name}, ${seasonLabel(newest[1].season)}`)}`;
   else if (!M.inProgress && live)
     note = `<b>${seasonLabel(season)} is the last complete season</b>, so clubs are as they finished it.
@@ -1192,10 +1193,11 @@ function drawWeights(){
   }).join("");
   const loose = spec.w.filter(cats => !cats.length).length;
   $("w-state").textContent = weightState();
-  const rwOk = !!(spec.r && spec.rr);
+  const rwOk = !!(spec.r && spec.rr && spec.rr.some(x => x != null));
   $("rw").closest("label").hidden = !rwOk;
   $("rw").checked = RW;
-  if (!rwOk) $("rw-note").textContent = "";
+  if (!rwOk) $("rw-note").textContent = spec.rr && spec.r ? "This source has one season, so how well a metric repeats "
+    + "for the same player a season later cannot be measured: every metric counts the same." : "";
   else {
     const club = new Set(M.club || []);
     const known = spec.f.map((k, i) => ({k, r: spec.rr[i]})).filter(x => x.r != null && !club.has(x.k))
@@ -1451,8 +1453,11 @@ function simLabel(sim){
   return sim >= 95 ? "Near-identical statistical profiles" : sim >= 90 ? "Very similar statistical profiles"
     : sim >= 80 ? "Similar statistical profiles" : sim >= 70 ? "Partly similar profiles" : "Different statistical profiles";
 }
-const SIM_TIP = "Similarity is 100 × the cosine between the two players' standardised per-90 profiles, each metric weighted by "
-  + "how well it repeats from season to season. It says how alike their numbers are - not ability, quality, potential or "
+// A source with one season has no repeatability to weight by: every metric counts the same.
+const flatWeights = () => Object.values(M.groups || {}).every(s => !(s.rr || []).some(x => x != null));
+const simTip = () => "Similarity is 100 × the cosine between the two players' standardised per-90 profiles, "
+  + (flatWeights() ? "every metric counting the same (one season, so repeatability cannot be measured). "
+                   : "each metric weighted by how well it repeats from season to season. ") + "It says how alike their numbers are - not ability, quality, potential or "
   + "tactical role - and it is not a probability, nor adjusted for league or team strength. Labels: 95+ near-identical, 90+ very similar, 80+ similar, 70+ partly similar.";
 const unitOf = key => key === RATING_KEY ? "out of 100" : /_per90$/.test(key) ? "per 90 minutes" : PCT.has(key) ? "percentage" : key === "minutes" ? "minutes this season" : "";
 const bareLabel = key => shortLabel(key).replace(/ per 90$/, "");
@@ -1517,8 +1522,8 @@ function drawCompare(){
         <svg viewBox="0 0 148 148" aria-hidden="true"><circle class="rb" cx="74" cy="74" r="64"/>
           <circle class="rf" cx="74" cy="74" r="64" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/></svg>
         <div class="sim-val"><b>${sim.toFixed(1)}%</b><span>similarity</span></div></div>
-      <div class="sim-label">${simLabel(sim)} <span class="info" tabindex="0" data-tip="${esc(SIM_TIP)}">i</span></div>`
-    : `<div class="sim-label">Not comparable <span class="info" tabindex="0" data-tip="${esc(SIM_TIP)}">i</span></div>`}</div>`
+      <div class="sim-label">${simLabel(sim)} <span class="info" tabindex="0" data-tip="${esc(simTip())}">i</span></div>`
+    : `<div class="sim-label">Not comparable <span class="info" tabindex="0" data-tip="${esc(simTip())}">i</span></div>`}</div>`
     + side(b, "b", sB, "--mark-b", "Player B");
   const ring = $("vs").querySelector(".rf");
   if (ring) requestAnimationFrame(() => requestAnimationFrame(() => { ring.style.strokeDashoffset = (C * (1 - sim / 100)).toFixed(1); }));
@@ -2825,7 +2830,7 @@ if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
   const seasons = BUNDLE.catalog.reduce((t, c) => t + c.seasons.length, 0);
   const total = BUNDLE.catalog.reduce((t, c) => t + c.seasons.reduce((u, x) => u + x.players, 0), 0);
   $("hero-facts").innerHTML = `<b>${total.toLocaleString()}</b> player-seasons · <b>${seasons}</b> seasons from ${BUNDLE.catalog.length} sources · `
-    + `free, no sign-in · refreshed twice a week`;
+    + `free, no sign-in · refreshed daily`;
 })();
 
 // ---- start ------------------------------------------------------------------------------

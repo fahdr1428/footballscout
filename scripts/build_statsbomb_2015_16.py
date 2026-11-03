@@ -37,7 +37,10 @@ def main() -> int:
     frame, coverage = attach_transfermarkt(frame, args.cache)
     for key, value in coverage.items():
         print(f"  {key}: {value:.1%}" if isinstance(value, float) else f"  {key}: {value:,}")
-    frame.to_csv(args.out, index=False)
+    # A fixed gzip timestamp: an unchanged table is an unchanged file, so a
+    # refresh that found nothing new has nothing to commit.
+    frame.to_csv(args.out, index=False, compression=(
+        {"method": "gzip", "mtime": 0} if str(args.out).endswith(".gz") else "infer"))
     print(f"-> {args.out}")
     return 0
 

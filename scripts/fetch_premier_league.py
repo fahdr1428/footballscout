@@ -75,7 +75,10 @@ def main() -> int:
         return 1
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(args.out, index=False)
+    # A fixed gzip timestamp: an unchanged table is an unchanged file, so a
+    # refresh that found nothing new has nothing to commit.
+    frame.to_csv(args.out, index=False, compression=(
+        {"method": "gzip", "mtime": 0} if str(args.out).endswith(".gz") else "infer"))
     record_mirror_date(repo, args.out.parent)
     print(f"\nelapsed {time.time() - started:.0f}s")
     print(f"{len(frame):,} player-seasons x {frame.shape[1]} columns -> {args.out}")

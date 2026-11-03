@@ -44,6 +44,26 @@ for _var, _value in (("OPENBLAS_CORETYPE", "Haswell"), ("OPENBLAS_NUM_THREADS", 
                      ("OMP_NUM_THREADS", "1"), ("MKL_NUM_THREADS", "1")):
     os.environ.setdefault(_var, _value)
 
+
+def _cpu_flags() -> set[str]:
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8") as info:
+            for line in info:
+                if line.startswith("flags"):
+                    return set(line.split(":", 1)[1].split())
+    except OSError:
+        pass
+    return set()
+
+
+# numpy chooses its own vector code by processor as well - AVX-512 on a recent
+# Intel Xeon, AVX2 on GitHub's AMD runners - and a sum's last bits differ between
+# them, enough to tip a near-tie in the choice of how many archetypes a position
+# has. Where the processor can run it, numpy's AVX2 level (X86_V3) is used.
+if {"avx2", "fma", "bmi1", "bmi2", "f16c", "movbe"} <= _cpu_flags() and not (
+        os.environ.get("NPY_DISABLE_CPU_FEATURES") or os.environ.get("NPY_ENABLE_CPU_FEATURES")):
+    os.environ["NPY_ENABLE_CPU_FEATURES"] = "X86_V3"
+
 import numpy as np  # noqa: E402
 import pandas as pd
 

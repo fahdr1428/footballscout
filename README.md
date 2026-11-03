@@ -981,9 +981,11 @@ lowered below the regulars' floor, they are found by search, and they carry a **
 everywhere they are listed. Discovery cards, the value-for-money fit and chart medians stay on
 regulars. That adds about 9,000 player-seasons: **48,861 across 32 seasons** before the 2015/16 event data, **50,503 across 33** with it.
 
-**The same build on any machine.** K-Means and the scaler run on BLAS, whose kernels differ by CPU,
-and a ulp of difference can tip a borderline player into a neighbouring archetype. The export pins
-OpenBLAS to one thread and one kernel family before numpy loads, clustering runs single-threaded,
+**The same build on any machine.** K-Means and the scaler run on BLAS and on numpy's vector code,
+both of which pick their instructions by CPU, and a last-bit difference can tip a borderline player
+into a neighbouring archetype - or a near-tie between three and four archetypes for a position. The
+export pins OpenBLAS to one thread and one kernel family and numpy to its AVX2 level before numpy
+loads, clustering runs single-threaded,
 and `constraints.txt` pins the numeric stack both the workflows and a local build install, so the
 daily refresh and a laptop export the same labels. Every tie that decides something is broken by a stated rule rather than by row order or
 the sort routine a CPU dispatches to: a club of record level on minutes goes to the first club

@@ -30,12 +30,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
+# One maths kernel and one thread on every machine, set before numpy loads.
+# OpenBLAS picks its kernels by processor, and a K-Means fit on a laptop's Intel
+# chip and on GitHub's AMD runners drifted far enough apart to give 1,542
+# player-seasons a different playing style. Haswell's kernels run on both.
+for _var, _value in (("OPENBLAS_CORETYPE", "Haswell"), ("OPENBLAS_NUM_THREADS", "1"),
+                     ("OMP_NUM_THREADS", "1"), ("MKL_NUM_THREADS", "1")):
+    os.environ.setdefault(_var, _value)
+
+import numpy as np  # noqa: E402
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -45,7 +54,7 @@ from src.config import (  # noqa: E402
     DEFAULT_WEIGHTS, POSITION_GROUP_NAMES, RAW_DIR, ROOT_DIR, TEAM_CONTEXT_METRICS,
     categories_for,
 )
-from src.feature_engineering import metrics_for_percentiles  # noqa: E402
+from src.feature_engineering import category_scores, metrics_for_percentiles  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
 
 SITE_DIR = ROOT_DIR / "static"
@@ -91,6 +100,83 @@ IN_PROGRESS_MAX_MINUTES = 1800
 IN_PROGRESS_SHARE = 0.5
 IN_PROGRESS_MIN_FLOOR = 180
 
+# Squad players - short of the floor but with five full games behind them (three
+# in a season being played) - are exported too, scored against the regulars:
+# every model, percentile and count is fitted on the regulars alone, and a squad
+# player is placed on that scale without moving it. The page lists regulars
+# until a reader lowers the minutes slider, and tags a squad player wherever he
+# appears, because a rate over 450 minutes swings more than one over 900.
+SQUAD_MINUTES = 450
+SQUAD_MINUTES_IN_PROGRESS = 270
+
+
+def squad_players(features: pd.DataFrame, platform, season: str, floors: dict | None) -> pd.DataFrame:
+    """This season's players between the squad floor and the regulars' floor."""
+    rows = features[features["season"] == season]
+    if floors:
+        regular = rows["league"].map(floors).fillna(MIN_MINUTES)
+        squad = rows[(rows["minutes"] >= SQUAD_MINUTES_IN_PROGRESS) & (rows["minutes"] < regular)]
+    else:
+        squad = rows[(rows["minutes"] >= SQUAD_MINUTES) & (rows["minutes"] < platform.min_minutes)]
+    squad = squad[squad["league"].isin(set(platform.pool["league"]))].copy()
+    # A group folded into its parent for this pool is folded for its squad players too.
+    parent = {g: info["parent"] for g, info in platform.collapsed_groups.items()}
+    squad["position_group"] = squad["position_group"].map(lambda g: parent.get(g, g))
+    return squad
+
+
+def project_squad(platform, squad: pd.DataFrame):
+    """Score squad players on the regulars' scale, leaving the regulars untouched.
+
+    * a percentile is where his figure would rank if he were one more member of
+      his position's regulars - the same average-rank rule, flipped where lower
+      is better - so a 90 means what it means for everyone else;
+    * his z-vector uses the position model's own scaler, with gaps filled by the
+      regulars' medians, as theirs were;
+    * his playing style is the regulars' nearest archetype.
+    """
+    pool = platform.pool
+    squad = squad.copy()
+    squad.index = pd.RangeIndex(len(pool), len(pool) + len(squad))
+    peers = ["position_group"] + (["gender"] if "gender" in pool.columns and pool["gender"].nunique() > 1 else [])
+    pct = pd.DataFrame(index=squad.index)
+    for column in platform.percentiles.columns:
+        metric = column[4:]
+        if metric not in squad.columns:
+            continue
+        out = pd.Series(np.nan, index=squad.index)
+        for key, block in squad.groupby(peers):
+            key = key if isinstance(key, tuple) else (key,)
+            mask = np.logical_and.reduce([pool[c].eq(k) for c, k in zip(peers, key)])
+            ref = np.sort(pool.loc[mask, metric].astype(float).dropna().to_numpy())
+            values = block[metric].astype(float).to_numpy()
+            if not len(ref):
+                continue
+            below = np.searchsorted(ref, values, side="left")
+            ties = np.searchsorted(ref, values, side="right") - below
+            rank = (below + ties / 2 + 1) / (len(ref) + 1) * 100
+            if metric in LOWER_IS_BETTER:
+                rank = 100 - rank
+            rank[np.isnan(values)] = np.nan
+            out.loc[block.index] = np.round(rank, 1)
+        pct[column] = out
+    categories = category_scores(pct, squad["position_group"])
+    z: dict[int, pd.Series] = {}
+    squad["archetype"] = None
+    for group, block in squad.groupby("position_group"):
+        model = platform.models.get(group)
+        if model is None:
+            continue
+        clean = lambda frame: frame[model.features].astype(float).replace([np.inf, -np.inf], np.nan)
+        matrix = clean(block).fillna(clean(pool.loc[model.index]).median()).fillna(0.0)
+        scaled = pd.DataFrame(model.scaler.transform(matrix), index=block.index, columns=model.features)
+        z.update({i: scaled.loc[i] for i in block.index})
+        labels = model.clusters.kmeans.predict(scaled)
+        names = model.clusters.names
+        squad.loc[block.index, "archetype"] = [names.get(int(l)) if hasattr(names, "get") else None
+                                               for l in labels]
+    return squad, pct, categories, z
+
 
 def _num(value, places: int = 1):
     if value is None or pd.isna(value):
@@ -103,7 +189,7 @@ def _label(column: str) -> str:
     return METRIC_LABELS.get(column) or COUNTING_STATS.get(column) or column
 
 
-def export(platform, season: str) -> dict:
+def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
     """Everything the page needs for one season, keyed short because it ships over the wire.
 
     The important choice is shipping each player's **z-vector** and each
@@ -115,6 +201,13 @@ def export(platform, season: str) -> dict:
     players together.
     """
     pool, categories, percentiles = platform.pool, platform.categories, platform.percentiles
+    squad_z: dict = {}
+    rows = pool
+    if squad is not None and len(squad):
+        squad, squad_pct, squad_cat, squad_z = project_squad(platform, squad)
+        rows = pd.concat([pool, squad])
+        percentiles = pd.concat([percentiles, squad_pct])
+        categories = pd.concat([categories, squad_cat])
 
     groups: dict[str, dict] = {}
     labels: dict[str, str] = {}
@@ -145,16 +238,16 @@ def export(platform, season: str) -> dict:
             labels[metric] = _label(metric)
 
     players = []
-    for index in pool.index:
-        row = pool.loc[index]
+    for index in rows.index:
+        row = rows.loc[index]
         group = row["position_group"]
         spec = groups.get(group)
 
         zrow, display = [], []
         if spec is not None:
             model = platform.models[group]
-            seat = model.z.index.get_loc(index)
-            zrow = [round(float(v), 2) for v in model.z.iloc[seat]]
+            vector = squad_z[index] if index in squad_z else model.z.iloc[model.z.index.get_loc(index)]
+            zrow = [round(float(v), 2) for v in vector]
             for metric in spec["d"]:
                 value = row.get(metric)
                 pct = percentiles.loc[index].get(f"pct_{metric}")
@@ -182,6 +275,7 @@ def export(platform, season: str) -> dict:
                    for c in (spec["c"] if spec else [])],
             "z": zrow,
             "d": display,
+            **({"sq": 1} if index in squad_z or (squad is not None and index in squad.index) else {}),
         })
 
     # A metric can be listed for a position and still be empty in this season -
@@ -200,6 +294,7 @@ def export(platform, season: str) -> dict:
         "meta": {
             "season": season,
             "minMinutes": int(platform.min_minutes),
+            "squadPlayers": int(len(squad)) if squad is not None else 0,
             "leagues": sorted(pool["league"].unique()),
             # Folded and unmodelled groups are named on the page too, so they
             # need a name here even though no player in the pool carries them.
@@ -277,7 +372,9 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
         if platform.pool.empty or not platform.models:
             progress(f"  {season}: nothing to model - skipped")
             continue
-        payloads[season] = export(platform, season)
+        squad = squad_players(features, platform, season, floors if in_progress else None)
+        payloads[season] = export(platform, season, squad)
+        payloads[season]["meta"]["squadMinutes"] = (SQUAD_MINUTES_IN_PROGRESS if in_progress else SQUAD_MINUTES) if len(squad) else None
         if in_progress:
             payloads[season]["meta"].update({
                 "inProgress": True, "floors": floors,
@@ -285,7 +382,8 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
                 "rounds": {lg: int(b["matches"].max()) for lg, b in rows.groupby("league")
                            if "matches" in b and b["matches"].notna().any()},
             })
-        progress(f"  {season}: {len(payloads[season]['players']):,} players"
+        progress(f"  {season}: {len(payloads[season]['players']):,} players, "
+                 f"{payloads[season]['meta']['squadPlayers']:,} of them squad players"
                  + (f" (in progress, floors {floors})" if in_progress else ""))
 
     # Which other seasons each player appears in, so the page can follow him.
@@ -343,7 +441,7 @@ def all_seasons(payloads: dict[str, dict]) -> dict:
         for p in payloads[season]["players"]:
             if p["z"]:
                 rows.append([p["id"], p["n"], p["t"], p["l"], i, p["g"], p["a"], p["m"], p["v"], p["z"],
-                             p["h"], p["ft"], p["fl"]])
+                             p["h"], p["ft"], p["fl"], p.get("sq", 0)])
     return {"seasons": seasons, "groups": groups, "players": rows}
 
 

@@ -113,8 +113,8 @@ def main() -> int:
                 st = page.evaluate("""() => ({key: dsKey, n: P.length, modelled: !!G[P[subject].g],
                     rows: document.querySelectorAll('#matches .row').length,
                     rating: document.querySelectorAll('#rating .attr').length > 0,
-                    hidden: P.filter(p => p.m < F.mins).length})""")
-                # a season opens with its whole pool in play: a minutes threshold carried
+                    hidden: P.filter(p => p.m < F.mins && !p.sq).length})""")
+                # a season opens with all its regulars in play: a minutes threshold carried
                 # over from a finished season once hid all but 96 of a season in progress
                 check(st["key"] == key and st["n"] > 0 and st["hidden"] == 0
                       and (not st["modelled"] or (st["rows"] > 0 and st["rating"])),
@@ -132,10 +132,21 @@ def main() -> int:
         if live:
             page.select_option("#season", live)
             page.wait_for_function(f"dsKey.endsWith('{live}')", timeout=20000); page.wait_for_timeout(500)
-            hidden = page.evaluate("P.filter(p => p.m < F.mins).length")
+            hidden = page.evaluate("P.filter(p => p.m < F.mins && !p.sq).length")
             check(hidden == 0, f"switching to {live}: {hidden} players hidden by the minutes filter")
 
         # 2. the default season, every page
+        open_()
+        # squad players: off the lists by default, all of them in at the slider's floor
+        squad = page.evaluate("""() => ({n: P.filter(p => p.sq).length, floor: +document.getElementById('mins').min,
+            regular: M.minMinutes, shown: P.filter(p => p.sq && p.m >= F.mins).length})""")
+        check(squad["n"] > 0 and squad["shown"] == 0 and squad["floor"] < squad["regular"],
+              f"squad players: {squad['n']} in the season, none listed by default")
+        page.evaluate("""() => { const s = document.getElementById('mins'); s.value = s.min;
+            s.dispatchEvent(new Event('input')); }""")
+        page.wait_for_timeout(400)
+        reach = page.evaluate("P.filter(p => p.m < F.mins).length")
+        check(reach == 0, f"squad players: lowering minutes to {squad['floor']} lists all of them ({reach} still hidden)")
         open_()
         check(page.locator("#discover-grid .dcard").count() >= 3, "discovery cards")
         check(page.locator("#vs .sim-ring").count() == 1, "head to head: similarity ring")

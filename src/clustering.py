@@ -17,6 +17,7 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
+from threadpoolctl import threadpool_limits
 
 from .config import LOWER_IS_BETTER, METRIC_LABELS, POSITION_GROUP_NAMES, categories_for
 
@@ -365,7 +366,18 @@ def fit_clusters(
     k_max: int = 9,
     random_state: int = 42,
 ) -> ClusterModel:
-    """Fit K-Means for one position group and label the resulting archetypes."""
+    """Fit K-Means for one position group and label the resulting archetypes.
+
+    On one thread: K-Means sums in a different order on a machine with more
+    cores, and on players near a boundary that is enough to move them - the
+    scheduled refresh was relabelling hundreds of playing styles that nothing
+    had changed. One thread gives the same styles on any machine.
+    """
+    with threadpool_limits(limits=1):
+        return _fit_clusters(z, position_group, k, k_min, k_max, random_state)
+
+
+def _fit_clusters(z, position_group, k, k_min, k_max, random_state) -> ClusterModel:
     evaluation = evaluate_k(z, k_min=k_min, k_max=k_max, random_state=random_state)
     # An archetype needs enough players behind it for its centroid - and so its
     # generated name - to mean anything.

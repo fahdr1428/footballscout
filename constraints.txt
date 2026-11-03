@@ -1,0 +1,13 @@
+# Exact versions of the numerical stack for every build of the site's data -
+# CI, the scheduled refresh and a local rebuild all install with
+#     pip install -r requirements-dev.txt -c constraints.txt
+# A K-Means fit or a percentile on a float boundary can come out differently
+# under another pandas or BLAS, and the scheduled refresh used to relabel
+# hundreds of playing styles that way. Raise these deliberately, together.
+numpy==2.4.6
+pandas==3.1.0
+scikit-learn==1.9.1
+scipy==1.17.1
+threadpoolctl==3.7.0
+joblib==1.6.0
+pyreadr==0.5.9

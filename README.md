@@ -108,7 +108,7 @@ validation suite, takes about three minutes to put on
 [Streamlit Community Cloud](#streamlit-community-cloud--free-and-the-shortest-path).
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 streamlit run app.py
 ```
 
@@ -950,7 +950,25 @@ That means:
   it as a link that re-opens the same players.
 
 A season still being played is exported with each league's own minutes floor (half its busiest
-player's minutes) and a banner saying how many rounds it holds and when it was fetched. **About &
+player's minutes) and a banner saying how many rounds it holds and when it was fetched.
+
+**Squad players.** The models are fitted on regulars (900+ minutes, or a league's own floor in a
+season still being played), but a player short of that — Musiala's injury-hit 2025/26, a
+January signing, a breakthrough teenager — is still in the data. Each season also exports
+everyone with **450+ minutes** (270+ in a season being played), *placed among the regulars rather
+than added to them*: his z-vector uses the regulars' scaler and medians, his percentile is where
+his rate would rank among theirs (average rank, ties split), his archetype is the regulars'
+nearest K-Means centroid, and his matches are regulars only. Nothing about a regular changes —
+`tests/test_squad_players.py` asserts it. On the page they are hidden until the minutes slider is
+lowered below the regulars' floor, they are found by search, and they carry a **small sample** tag
+everywhere they are listed. Discovery cards, the value-for-money fit and chart medians stay on
+regulars. That adds about 9,000 player-seasons: **48,861 across 32 seasons**.
+
+**The same build on any machine.** K-Means and the scaler run on BLAS, whose kernels differ by CPU,
+and a ulp of difference can tip a borderline player into a neighbouring archetype. The export pins
+OpenBLAS to one thread and one kernel family before numpy loads, clustering runs single-threaded,
+and `constraints.txt` pins the numeric stack both the workflows and a local build install, so the
+twice-weekly refresh and a laptop export the same labels. **About &
 data** lists every source, its licence and freshness; the page carries Open Graph and Twitter
 metadata and a preview card (`static/og.png`), so a shared link unfurls properly.
 
@@ -980,7 +998,7 @@ and skip the Dockerfile entirely.
 ### Locally
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 streamlit run app.py
 ```
 

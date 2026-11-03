@@ -137,6 +137,7 @@
         <div class="field">
           <label for="mins">Minimum minutes: <b class="tnum" id="mins-v">900</b></label>
           <input type="range" id="mins" min="900" max="3400" value="900" step="90">
+          <p class="fnote" id="mins-note"></p>
         </div>
         <div class="field" id="f-excl"><span class="lbl">Closest matches</span>
           <label class="chk"><input type="checkbox" id="xclub"> Exclude his own club</label>
@@ -690,13 +691,13 @@ function setupFilters(){
   if (has.value){ val.min = 0; val.max = VAL_ANY; val.step = 1; $("val-l").textContent = "Max market value"; }
   else if (has.price){ val.min = 3.5; val.max = 15.5; val.step = 0.5; $("val-l").textContent = "Max FPL price"; }
   F.val = null; val.value = val.max;
-  const most = Math.max(...P.map(p => p.m));
-  $("mins").min = M.minMinutes; $("mins").max = Math.max(M.minMinutes + 90, Math.ceil(most / 90) * 90);
+  const most = Math.max(...P.map(p => p.m)), lowest = M.squadMinutes || M.minMinutes;
+  $("mins").min = lowest; $("mins").max = Math.max(M.minMinutes + 90, Math.ceil(most / 90) * 90);
   // Each season starts at its own floor - 900 minutes for a finished one, the
   // regular starters' floor for one being played - unless the reader moved the
   // slider; and never above the busiest player, which would empty the page.
   if (!F.minsSet || F.mins > Math.floor(most / 90) * 90) F.mins = M.minMinutes;
-  F.mins = Math.max(M.minMinutes, F.mins);
+  F.mins = Math.max(lowest, F.mins);
   syncFilterInputs();
 }
 function syncFilterInputs(){
@@ -707,6 +708,9 @@ function syncFilterInputs(){
   $("age-v").textContent = ageActive() ? `${F.amin}–${F.amax >= 40 ? "40+" : F.amax}` : "any";
   $("h-v").textContent = F.hmin > 160 ? F.hmin + " cm+" : "any";
   $("mins-v").textContent = F.mins.toLocaleString();
+  $("mins-note").textContent = !M.squadMinutes ? "" : F.mins < M.minMinutes
+    ? `Squad players included: those under ${M.minMinutes.toLocaleString()} are scored against the regulars and tagged as small samples.`
+    : `${M.minMinutes.toLocaleString()} is the regulars' floor. Lower it to ${M.squadMinutes.toLocaleString()} to add ${(M.squadPlayers || 0).toLocaleString()} squad players.`;
   const priced = !(M.has || {}).value && (M.has || {}).price;
   $("val-v").textContent = F.val == null ? "any" : priced ? "£" + F.val.toFixed(1) + "m" : "€" + F.val + "m";
   $("f-excl").hidden = mode !== "similar";
@@ -721,7 +725,7 @@ function syncFilterInputs(){
 const ageActive = () => F.amin > 16 || F.amax < 40;
 function activeFilterCount(){
   return F.lgs.size + (F.side ? 1 : 0) + (ageActive() ? 1 : 0) + (F.val != null ? 1 : 0) +
-    (F.hmin > 160 ? 1 : 0) + (F.foot ? 1 : 0) + (F.mins > M.minMinutes ? 1 : 0) +
+    (F.hmin > 160 ? 1 : 0) + (F.foot ? 1 : 0) + (F.mins !== M.minMinutes ? 1 : 0) +
     (mode === "similar" ? (F.xclub ? 1 : 0) + (F.xleague ? 1 : 0) : 0);
 }
 function passes(o, forSimilar){
@@ -841,7 +845,7 @@ function vfmFit(g){
   const pts = [];
   for (const i of (byGroup[g] || [])){
     const o = P[i], r = ratingOf(o);
-    if (o.v > 0 && r != null) pts.push([i, Math.log10(o.v), r]);
+    if (o.v > 0 && r != null && !o.sq) pts.push([i, Math.log10(o.v), r]);   // fitted on regulars
   }
   if (pts.length < 20) return (VFM[g] = null);
   const n = pts.length, mx = pts.reduce((t, p) => t + p[1], 0) / n, my = pts.reduce((t, p) => t + p[2], 0) / n;
@@ -992,6 +996,11 @@ const HUE = {GK: 42, CB: 160, FB: 160, DEF: 160, DM: 214, CM: 214, WM: 214, MID:
 // First and last name: "Marc-Oliver Kempf" is MK, "Pedri" is P.
 const initials = n => { const w = n.split(/\s+/).filter(x => /^\p{L}/u.test(x));
   return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || "?")[0]).toUpperCase(); };
+// A squad player - short of the regulars' minutes, scored against them - is
+// tagged wherever he is listed, so a rate over five games is never read like
+// one over thirty.
+const SMALL_TIP = "Fewer minutes than this season's regulars. His numbers are placed among theirs - the same scale, the same percentiles - but a rate over a few games swings more than one over a season.";
+const smallTag = o => o && o.sq ? `<span class="tag small" tabindex="0" data-tip="${SMALL_TIP}">small sample</span>` : "";
 const avatar = (o, size = "") => `<span class="avatar ${size}" style="--h:${HUE[o.g] ?? 214}" aria-hidden="true">${esc(initials(o.n))}</span>`;
 function drawSubject(){
   const p = P[subject], has = M.has || {};
@@ -1026,6 +1035,9 @@ function drawSubject(){
         p.fs ? `${p.fs}: a wide player whose stronger foot is ${p.fs === "Inverted" ? "on the opposite side to his flank, so he tends to cut inside" : "on the same side as his flank"}.` : "") : ""}
       ${fact("Playing style", p.ar ? esc(p.ar) : "—", p.ar ? "A style found by clustering this position's statistical profiles - a label from the data, not an official role." : "")}
     </div>
+    ${p.sq ? `<p class="small-note"><b>Small sample: ${p.m.toLocaleString()} minutes.</b> Short of the ${M.minMinutes.toLocaleString()}
+      this season's regulars have, so he is scored against them - his percentiles and rating are where his numbers would rank among
+      ${(M.counts[p.g] || 0).toLocaleString()} regular ${esc(gname(p.g).toLowerCase())}s - and his matches are regulars. A rate over a few games swings more than one over a season.</p>` : ""}
     ${others.length ? `<div class="seasons-line"><span class="lbl">Also in</span>${others.map(x =>
       `<button type="button" class="chip-btn" data-goseason="${x}">${seasonLabel(x)}</button>`).join("")}</div>` : ""}`;
 }
@@ -1223,7 +1235,7 @@ function closestOn(a, bz, spec, pos, scale){
   if (gapBase.key !== key){
     const tot = spec.c.map(() => [0, 0]);
     for (const i of (byGroup[a.g] || [])){
-      if (P[i] === a || !P[i].z.length) continue;
+      if (P[i] === a || !P[i].z.length || P[i].sq) continue;
       catGaps(a, P[i].z, spec, null, scale).forEach((g, c) => { if (g != null){ tot[c][0] += g; tot[c][1]++; } });
     }
     gapBase = {key, base: tot.map(([g, n]) => n ? g / n : null)};
@@ -1282,7 +1294,7 @@ function drawMatches(){
       const on = here ? (match != null && P[match].id === o.id) : (curKey === key && curId === o.id);
       return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-xm="${esc(key)}|${esc(o.id)}" aria-current="${on}">
         <span class="rk">${n+1}</span>${avatar({n: o.n, g: x.r[5]}, "sm")}
-        <span><span class="nm">${esc(o.n)} ${seasonTag(key)}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}${
+        <span><span class="nm">${esc(o.n)} ${seasonTag(key)}${smallTag({sq: x.r[13]})}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}${
           x.shared < specNow.f.length ? ` · ${x.shared} shared metrics` : ""}</span>${whyTag(closestOn(s, x.r[9], specNow, x.pos, scaleNow))}</span>
         ${meta(o)}${bar(sc)}</button>`;
     }).join("") + (rows.length > listLimit
@@ -1296,7 +1308,7 @@ function drawMatches(){
     const o = P[i];
     return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-m="${i}" aria-current="${i === match && !xm}">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span>${whyTag(closestOn(s, o.z, specNow, null, scaleNow))}</span>
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span>${whyTag(closestOn(s, o.z, specNow, null, scaleNow))}</span>
       ${meta(o)}${bar(sc)}</button>`;
   }).join("") + (rows.length > listLimit
     ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
@@ -1343,7 +1355,7 @@ const DICON = {
 function drawDiscover(){
   if (mode !== "similar") return;
   const has = M.has || {};
-  const rated = P.map((o, i) => ({o, i, r: ratingOf(o)})).filter(x => x.r != null);
+  const rated = P.map((o, i) => ({o, i, r: ratingOf(o)})).filter(x => x.r != null && !x.o.sq);
   const best = (xs, f, n = 3) => xs.slice().sort((a, b) => f(b) - f(a)).slice(0, n);
   const row = (x, val, sub) => `<button type="button" class="drow" data-s="${x.i}"><span><span class="nm">${esc(x.o.n)}</span>
     <span class="mt">${esc(sub || `${x.o.p} · ${x.o.t}`)}</span></span><span class="v">${val}</span></button>`;
@@ -1359,7 +1371,7 @@ function drawDiscover(){
     best(priced, x => x.f).map(x => row(x, "+" + x.f.toFixed(0), `${x.o.p} · ${eur(x.o.v)}`)), "vfm", "The value-for-money ranking"));
   const cKey = ["xa_per90", "key_passes_per90", "creativity_per90"].find(k => Object.values(G).some(sp => sp.d.includes(k)));
   if (cKey){
-    const xs = P.map((o, i) => ({o, i, v: cellOf(o, cKey)[0]})).filter(x => x.v != null && x.o.g !== "GK");
+    const xs = P.map((o, i) => ({o, i, v: cellOf(o, cKey)[0]})).filter(x => x.v != null && x.o.g !== "GK" && !x.o.sq);
     if (xs.length >= 3) cards.push(card("create", "Chance creators", `The highest ${esc(label(cKey))} this season, across every outfield position.`,
       best(xs, x => x.v).map(x => row(x, fmt(cKey, x.v))), "metric:" + cKey, "The full ranking"));
   }
@@ -1373,7 +1385,7 @@ function drawDiscover(){
   cards.push(`<article class="card dcard wide"><div class="dcard-head"><span class="dicon">${DICON.positions}</span>
     <div><h3>By position</h3><p class="def">Rank a position by rating - every player compared only with his own position.</p></div></div>
     <div class="dchips">${groups.map(g => `<button type="button" class="chip-btn" data-godisc="group:${g}">${esc(gname(g))}s
-      <span class="muted">${(byGroup[g] || []).length}</span></button>`).join("")}</div></article>`);
+      <span class="muted">${(M.counts[g] || 0).toLocaleString()}</span></button>`).join("")}</div></article>`);
   $("discover-grid").innerHTML = cards.join("");
 }
 function openDiscovery(what){
@@ -1409,7 +1421,7 @@ function drawAlternatives(){
   const row = ([[i, sc], rank]) => { const o = P[i];
     return `<button type="button" class="row" data-m="${i}">
       <span class="rk">${rank}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}</span></span>
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}</span></span>
       <span class="meta">${o.a != null ? "Age " + o.a.toFixed(1) : "—"}<br>${worth(o)}</span>
       <span class="score"><span class="pc">${sc.toFixed(1)}%</span>
         <span class="tr"><span class="fl" style="width:${sc}%"></span></span></span></button>`; };
@@ -1498,7 +1510,7 @@ function drawCompare(){
   const side = (o, cls, season, mark, who) => `<div class="vs-side ${cls}">${avatar(o, "lg")}<div class="who">
       <span class="tagline"><i style="background:var(${mark})"></i>${who}</span>
       <div class="vs-name">${esc(o.n)}</div>
-      <div class="vs-meta">${esc(o.p || gname(o.g))} · ${esc(o.t)}<br>${esc(o.l)} · ${esc(season)}${o.a != null ? " · age " + o.a.toFixed(1) : ""}</div></div></div>`;
+      <div class="vs-meta">${esc(o.p || gname(o.g))} · ${esc(o.t)}<br>${esc(o.l)} · ${esc(season)}${o.a != null ? " · age " + o.a.toFixed(1) : ""}${smallTag(o)}</div></div></div>`;
   const C = 2 * Math.PI * 64;
   $("vs").innerHTML = side(a, "a", sA, "--mark-a", "Player A") + `<div class="vs-mid">${same
     ? `<div class="sim-ring" role="img" aria-label="${sim.toFixed(1)} per cent statistical similarity">
@@ -1644,7 +1656,7 @@ async function drawCareer(){
     <tbody>${rows.map(r => r.err ? `<tr><td>${seasonLabel(r.season)}</td><td colspan="${4 + cats.length}" class="muted">could not load</td></tr>` : (() => {
       const spec = r.d.meta.groups[r.q.g] || {c: []};
       const val = c => { const i = spec.c.indexOf(c); return i < 0 ? null : r.q.cv[i]; };
-      return `<tr class="${r.season === M.season ? "here" : ""}"><td class="mono">${seasonLabel(r.season)}</td>
+      return `<tr class="${r.season === M.season ? "here" : ""}"><td class="mono">${seasonLabel(r.season)}${smallTag(r.q)}</td>
         <td>${esc(r.q.t)}</td><td>${esc(r.q.p)}</td><td class="num">${r.q.m.toLocaleString()}</td>
         <td class="num">${r.q.a != null ? r.q.a.toFixed(1) : "—"}</td><td>${r.rt != null ? chip(Math.round(r.rt)) : "—"}</td>${cats.map(c => `<td style="white-space:nowrap">${bar(val(c))}</td>`).join("")}</tr>`;
     })()).join("")}</tbody></table></div>
@@ -1741,7 +1753,7 @@ function drawResults(){
     const o = P[i];
     return `<button type="button" class="row res" data-s="${i}">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
         o.a != null ? " · age " + o.a.toFixed(1) : ""}</span></span>
       <span class="cells" title="${esc(criteria.map(c => label(c.metric)).join(" · "))}">${got.map(chip).join("")}</span>
       <span class="bval">${avg.toFixed(0)}</span></button>`;
@@ -1782,7 +1794,7 @@ function drawBoard(){
     const o = P[i], r = metric === VFM_KEY ? ratingOf(o) : null;
     return `<button type="button" class="row brd" data-s="${i}" data-tosim="1">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
         o.a != null ? " · age " + o.a.toFixed(1) : ""} · ${r != null ? `rated ${Math.round(r)} at ${eur(o.v)}` : o.m.toLocaleString() + " min"}</span></span>
       ${metric === RATING_KEY ? `<span></span><span>${chip(Math.round(v))}</span>`   // the rating, banded like the clubs table
         : `<span class="bval">${fmt(metric, v)}</span><span>${pct == null ? "" : chip(pct)}</span>`}</button>`;
@@ -1899,7 +1911,8 @@ function drawScatter(){
       <text x="${sx(v)}" y="${Ht - m.b + 16}" text-anchor="middle" class="tk">${t}</text>`).join("")
     + ty.map(([v, t]) => `<line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line)"/>
       <text x="${m.l - 7}" y="${sy(v) + 4}" text-anchor="end" class="tk">${t}</text>`).join("");
-  const mx = median(all.map(p => p[1])), my = median(all.map(p => p[2]));
+  const regs = all.filter(p => !P[p[0]].sq);
+  const mx = median(regs.map(p => p[1])), my = median(regs.map(p => p[2]));
   const meds = `<line x1="${sx(mx)}" x2="${sx(mx)}" y1="${m.t}" y2="${Ht - m.b}" class="med"/>
     <line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(my)}" y2="${sy(my)}" class="med"/>
     <text x="${sx(mx) + 4}" y="${m.t + 10}" class="tk">median</text>`;
@@ -1987,9 +2000,9 @@ function drawScatter(){
     + `<span><i style="background:var(--muted);opacity:.5"></i>Everyone else</span>`
     + (trend ? `<span><i class="trend-key"></i>Rating his price predicts</span>` : "");
   const r = pearson(shown);
-  $("ex-note").innerHTML = `Each dot is one ${esc(gname(exGroup).toLowerCase())} with ${M.minMinutes.toLocaleString()}+ minutes`
+  $("ex-note").innerHTML = `Each dot is one ${esc(gname(exGroup).toLowerCase())} with ${F.mins.toLocaleString()}+ minutes`
     + ` this season${activeFilterCount() ? " who clears the filters" : ""}; the dashed lines are the medians of all `
-    + `${all.length.toLocaleString()} in the position. ${r != null ? `Across the dots shown the two ${logAxis(xi) || logAxis(yi) ? "axes" : "metrics"} correlate at r = ${r.toFixed(2)}. ` : ""}`
+    + `${regs.length.toLocaleString()} regulars in the position. ${r != null ? `Across the dots shown the two ${logAxis(xi) || logAxis(yi) ? "axes" : "metrics"} correlate at r = ${r.toFixed(2)}. ` : ""}`
     + (trend ? `The solid line is the rating each price predicts, fitted over all ${fit.n.toLocaleString()} priced ${esc(gname(exGroup).toLowerCase())}s
       (r² = ${fit.r2.toFixed(2)}): a dot above it rates higher than players at his price usually do. The Rankings tab's
       <b>Value for money</b> ranks that gap. ` : "")
@@ -2006,7 +2019,7 @@ function drawExCard(){
   const sim = s && s.g === o.g && exSel !== subject && s.z.length && o.z.length ? pctSim(s.z, o.z, weightScale(o.g)) : null;
   const priced = (M.has || {}).value || (M.has || {}).price;
   $("ex-card").innerHTML = `<div class="excard">
-    <div><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
+    <div><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
       o.a != null ? " · age " + o.a.toFixed(1) : ""} · ${o.m.toLocaleString()} min${priced ? " · " + worth(o) : ""}</span></div>
     <div class="exvals">${[exX, exY].map(k => `<span>${esc(label(k))} <b class="mono">${fmt(k, cell(k)[0])}</b> ${cell(k)[1] == null ? "" : chip(cell(k)[1])}</span>`).join("")}
       ${sim != null ? `<span><b class="mono">${sim.toFixed(1)}%</b> like ${esc(s.n)}</span>` : ""}</div>
@@ -2057,7 +2070,7 @@ function drawClub(){
     const o = x.o, head = by === "pos" && o.g !== lastGroup;
     lastGroup = o.g;
     return (head ? `<tr class="grp" style="--h:${HUE[o.g] ?? 214}"><td colspan="${priced ? 7 : 5}">${esc(gname(o.g))}s</td></tr>` : "") + `<tr>
-      <td><button type="button" class="linkish" data-s="${x.i}">${esc(o.n)}</button><span class="mt">${esc(o.p)}</span></td>
+      <td><button type="button" class="linkish" data-s="${x.i}">${esc(o.n)}</button>${smallTag(o)}<span class="mt">${esc(o.p)}</span></td>
       <td class="num">${o.a != null ? o.a.toFixed(1) : "—"}</td><td class="num">${o.m.toLocaleString()}</td>
       <td>${x.r != null ? chip(Math.round(x.r)) : '<span class="muted">no model</span>'}</td>
       ${priced ? `<td class="num">${worth(o)}</td><td class="num">${x.f != null ? fmt(VFM_KEY, x.f) : "—"}</td>` : ""}
@@ -2340,7 +2353,7 @@ $("quick").addEventListener("click", e => {
 });
 // One search result: avatar, name, a line of context, and something on the right.
 const pickRow = (id, attrs, o, side) => `<button type="button" class="prow" role="option" id="${id}" aria-selected="false" ${attrs}>
-  ${avatar(o, "sm")}<span class="pbody"><span class="nm">${esc(o.n)}</span><span class="mt">${esc(o.sub)}</span></span><span class="side">${side}</span></button>`;
+  ${avatar(o, "sm")}<span class="pbody"><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.sub)}</span></span><span class="side">${side}</span></button>`;
 // Arrow keys move through a result list, Enter picks, Escape closes it.
 function listKeys(e, input, box, st){
   const opts = [...box.querySelectorAll(".prow")];
@@ -2362,7 +2375,7 @@ function drawPicker(){
   const hits = pickerHits(q, -1, 40);
   const opt = (k, attrs, o, side) => pickRow(`opt-${k}`, attrs, o, side);
   const here = hits.map((i, k) => { const p = P[i];
-    return opt(k, `data-s="${i}"`, {n: p.n, g: p.g, sub: `${p.p} · ${p.t} · ${p.l}`}, worth(p) === "—" ? "" : worth(p)); }).join("");
+    return opt(k, `data-s="${i}"`, {n: p.n, g: p.g, sub: `${p.p} · ${p.t} · ${p.l}${p.sq ? ` · ${p.m.toLocaleString()} min, small sample` : ""}`}, worth(p) === "—" ? "" : worth(p)); }).join("");
   // Few or no hits this season: look through every other season of the source too.
   let there = "", waiting = false;
   if (hits.length < 8){

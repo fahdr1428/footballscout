@@ -9,7 +9,7 @@
 
 <header class="site-header">
   <div class="container nav">
-    <a class="brand" href="#" id="brand" aria-label="Who Plays Like Him - back to the start">
+    <a class="brand" href="#" id="brand" aria-label="Who Plays Like Him, home">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
         <rect class="lg-bg" x="0" y="0" width="32" height="32" rx="9"/>
         <path class="lg-l" d="M16 4v24M4 16h4M24 16h4"/>
@@ -18,13 +18,15 @@
       <span class="brand-name">Who Plays Like Him</span>
     </a>
     <nav class="nav-links" aria-label="Main">
-      <button type="button" class="nav-link" id="tab-similar" data-mode="similar" aria-current="page">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg><span>Discover</span></button>
-      <button type="button" class="nav-link" id="nav-compare">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16M17 4v16M3 8h8M13 16h8"/></svg><span>Compare</span></button>
-      <button type="button" class="nav-link" id="nav-explore" data-group="explore">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg><span>Explore</span></button>
-      <button type="button" class="nav-link" id="tab-shortlist" data-mode="shortlist">
+      <button type="button" class="nav-link" id="nav-players" data-nav="players">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg><span>Players</span></button>
+      <button type="button" class="nav-link" id="nav-compare" data-nav="compare">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg><span>Compare</span></button>
+      <button type="button" class="nav-link" id="nav-rankings" data-nav="rankings">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg><span>Rankings</span></button>
+      <button type="button" class="nav-link" id="nav-clubs" data-nav="clubs">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 7.8 8 9 4.6-1.2 8-4.5 8-9V6z"/></svg><span>Clubs</span></button>
+      <button type="button" class="nav-link" id="nav-shortlist" data-nav="shortlist">
         <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg><span>Shortlist</span>
         <span class="count-pill" id="sl-count" hidden></span></button>
     </nav>
@@ -32,7 +34,7 @@
       <button type="button" class="icon-btn" id="nav-search" aria-label="Search players" data-tip="Search players (press /)">
         <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
       <button type="button" class="btn btn-ghost" id="about-btn" aria-haspopup="dialog">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span class="btn-label">Methodology</span></button>
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span class="btn-label">How it works</span></button>
       <button type="button" class="icon-btn" id="theme" aria-label="Switch between light and dark">
         <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
         <span id="theme-l" class="sr-only">Dark</span></button>
@@ -42,139 +44,128 @@
 
 <main id="main" class="container page-top">
 
-  <!-- ================= discover: the hero ================= -->
-  <section class="hero" id="hero" aria-labelledby="hero-h">
-    <div class="hero-inner">
-      <span class="hero-kicker">Football similarity, explained</span>
-      <h1 id="hero-h">Find your next player match.</h1>
-      <p class="hero-sub">Discover footballers with similar playing styles, compare their performances and
-      uncover the numbers behind the match.</p>
-      <div class="search pick" id="search-box">
-        <label for="q" class="sr-only">Search a player, club or position</label>
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input type="search" id="q" placeholder="Search a player, club or position…" autocomplete="off" spellcheck="false"
-          role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="picker">
-        <span class="kbd" aria-hidden="true">/</span>
-        <div id="picker" class="picker" role="listbox" aria-label="Matching players" hidden></div>
-      </div>
-      <div class="try"><span class="label-caps">Try a player</span><div class="quick" id="quick"></div></div>
-      <p class="hero-facts" id="hero-facts"></p>
-    </div>
-  </section>
-
-  <!-- ================= explore and shortlist page heads ================= -->
-  <section class="page-head" id="explore-head" hidden>
-    <h1>Explore the numbers</h1>
-    <p>Rank a position on any metric, plot it on two, browse a club's squad or describe the player you are
-    looking for. Tap any player to see who plays like him.</p>
-    <div class="subnav" role="tablist" aria-label="Explore">
-      <button type="button" role="tab" id="tab-board" data-mode="board" aria-selected="false" aria-controls="view-board">Rankings</button>
-      <button type="button" role="tab" id="tab-explore" data-mode="explore" aria-selected="false" aria-controls="view-explore">Charts</button>
-      <button type="button" role="tab" id="tab-clubs" data-mode="clubs" aria-selected="false" aria-controls="view-clubs">Clubs</button>
-      <button type="button" role="tab" id="tab-search" data-mode="search" aria-selected="false" aria-controls="view-search">Profile search</button>
-    </div>
-  </section>
-  <section class="page-head" id="shortlist-head" hidden>
-    <h1>Your shortlist</h1>
-    <p>Players you have starred, from any source and season, with your notes. It lives in this browser only.</p>
-  </section>
-
-  <!-- ================= which data ================= -->
-  <section class="card databar" id="databar" aria-label="Dataset">
-    <div class="databar-row">
-      <div class="seg" id="srcseg" role="group" aria-label="Choose a data source"></div>
-      <label class="season-pick" for="season"><span>Season</span><select id="season"></select></label>
+  <!-- ================= what you are looking at: data and seasons ================= -->
+  <section class="ctx" id="ctx" aria-label="Data and seasons">
+    <div class="ctx-row">
+      <label class="ctx-field" for="src"><span>Data</span><select id="src"></select></label>
+      <div class="ctx-field" id="ctx-seasons"><span>Seasons</span>
+        <button type="button" class="ctx-btn" id="seasons-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="seasons-pop">
+          <span id="seasons-v">&mdash;</span><svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+      <button type="button" class="ctx-btn" id="filters-btn" aria-expanded="false" aria-controls="filters">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters
+        <span class="count-pill" id="fcount" hidden></span></button>
       <span class="status" id="ds-status" role="status" aria-live="polite"></span>
-      <div class="databar-facts"><span id="hero-eyebrow"></span>
-        <span><b id="f-players">&mdash;</b> players</span><span><b id="f-leagues">&mdash;</b> leagues</span>
-        <span><b id="f-metrics">&mdash;</b> metrics</span><span><b id="f-groups">&mdash;</b> position models</span></div>
+      <button type="button" class="btn-link ctx-more" id="about-data-btn" aria-expanded="false" aria-controls="about-data">About this data</button>
     </div>
-    <p class="ds-fresh" id="ds-fresh"></p>
     <p class="season-note" id="season-note" hidden></p>
     <div class="live" id="live-banner" hidden></div>
-    <details class="lacks" id="ds-lacks" hidden><summary id="ds-lacks-s"></summary><p id="ds-lacks-p"></p></details>
-    <details class="ds-more"><summary>What is in this data?</summary><p id="ds-blurb"></p><p class="fnote" id="fold-note"></p></details>
-  </section>
-
-  <!-- ================= discovery ================= -->
-  <section class="discover" id="discover" aria-labelledby="discover-h">
-    <div class="section-head"><div><h2 id="discover-h">Explore the player universe</h2>
-      <p>Start with a familiar name and see where the numbers take you.</p></div></div>
-    <div class="discover-grid" id="discover-grid"></div>
-  </section>
-
-  <!-- ================= filters ================= -->
-  <div class="card filters-wrap" id="filters-wrap">
-    <details id="filters-box">
-      <summary><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-        Filters <span class="count-pill" id="fcount" hidden></span>
-        <span class="muted">League, side, age, value, height, foot and minutes</span>
-        <svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
-      <div class="filters">
-        <div class="field" id="f-lg"><span class="lbl">Leagues</span>
-          <div class="chips" id="lgchips" role="group" aria-label="Leagues"></div></div>
-        <div class="field"><label for="side">Side of the pitch</label><select id="side">
-          <option value="">Any</option><option>Left</option><option>Right</option><option>Central</option>
-        </select></div>
-        <div class="field" id="f-age">
-          <span class="lbl">Age: <b class="tnum" id="age-v">any</b></span>
-          <div class="two">
-            <input type="range" id="amin" min="16" max="40" value="16" step="1" aria-label="Minimum age">
-            <input type="range" id="amax" min="16" max="40" value="40" step="1" aria-label="Maximum age">
-          </div>
+    <div class="about-data" id="about-data" hidden>
+      <p class="ad-facts"><span id="hero-eyebrow"></span><span><b id="f-players">&mdash;</b> players</span>
+        <span><b id="f-leagues">&mdash;</b> leagues</span><span><b id="f-metrics">&mdash;</b> metrics</span>
+        <span><b id="f-groups">&mdash;</b> position models</span></p>
+      <p id="ds-blurb"></p>
+      <p class="fnote" id="ds-fresh"></p>
+      <details class="lacks" id="ds-lacks" hidden><summary id="ds-lacks-s"></summary><p id="ds-lacks-p"></p></details>
+      <p class="fnote" id="fold-note"></p>
+    </div>
+    <div class="filters" id="filters" hidden>
+      <div class="field" id="f-lg"><span class="lbl">Leagues</span>
+        <div class="chips" id="lgchips" role="group" aria-label="Leagues"></div></div>
+      <div class="field"><label for="side">Side of the pitch</label><select id="side">
+        <option value="">Any</option><option>Left</option><option>Right</option><option>Central</option>
+      </select></div>
+      <div class="field" id="f-age">
+        <span class="lbl">Age: <b class="tnum" id="age-v">any</b></span>
+        <div class="two">
+          <input type="range" id="amin" min="16" max="40" value="16" step="1" aria-label="Minimum age">
+          <input type="range" id="amax" min="16" max="40" value="40" step="1" aria-label="Maximum age">
         </div>
-        <div class="field" id="f-val">
-          <label for="val"><span id="val-l">Max value</span>: <b class="tnum" id="val-v">any</b></label>
-          <input type="range" id="val">
-        </div>
-        <div class="field" id="f-h">
-          <label for="hmin">Min height: <b class="tnum" id="h-v">any</b></label>
-          <input type="range" id="hmin" min="160" max="200" value="160" step="1">
-        </div>
-        <div class="field" id="f-foot"><label for="foot">Preferred foot</label><select id="foot">
-          <option value="">Any</option><option value="left">Left</option><option value="right">Right</option>
-          <option value="both">Both</option></select></div>
-        <div class="field">
-          <label for="mins">Minimum minutes: <b class="tnum" id="mins-v">900</b></label>
-          <input type="range" id="mins" min="900" max="3400" value="900" step="90">
-          <p class="fnote" id="mins-note"></p>
-        </div>
-        <div class="field" id="f-excl"><span class="lbl">Closest matches</span>
-          <label class="chk"><input type="checkbox" id="xclub"> Exclude his own club</label>
-          <label class="chk"><input type="checkbox" id="xleague"> Exclude his own league</label>
-        </div>
-        <div class="filters-foot"><p class="fnote" id="fnote"></p>
-          <button class="btn" id="freset" type="button">Reset filters</button></div>
       </div>
-    </details>
+      <div class="field" id="f-val">
+        <label for="val"><span id="val-l">Max value</span>: <b class="tnum" id="val-v">any</b></label>
+        <input type="range" id="val">
+      </div>
+      <div class="field" id="f-h">
+        <label for="hmin">Min height: <b class="tnum" id="h-v">any</b></label>
+        <input type="range" id="hmin" min="160" max="200" value="160" step="1">
+      </div>
+      <div class="field" id="f-foot"><label for="foot">Preferred foot</label><select id="foot">
+        <option value="">Any</option><option value="left">Left</option><option value="right">Right</option>
+        <option value="both">Both</option></select></div>
+      <div class="field">
+        <label for="mins">Minimum minutes: <b class="tnum" id="mins-v">900</b></label>
+        <input type="range" id="mins" min="900" max="3400" value="900" step="90">
+        <p class="fnote" id="mins-note"></p>
+      </div>
+      <div class="field" id="f-excl"><span class="lbl">Similar players</span>
+        <label class="chk"><input type="checkbox" id="xclub"> Leave out his own club</label>
+        <label class="chk"><input type="checkbox" id="xleague"> Leave out his own league</label>
+      </div>
+      <div class="filters-foot"><p class="fnote" id="fnote"></p>
+        <div class="tools"><button class="btn" id="freset" type="button">Reset filters</button>
+          <button class="btn btn-primary" id="fdone" type="button">Done</button></div></div>
+    </div>
+  </section>
+
+  <!-- the season picker, shared by the bar above and the second player on Compare -->
+  <div class="pop" id="seasons-pop" role="dialog" aria-labelledby="seasons-h" hidden>
+    <div class="pop-head"><h2 id="seasons-h">Seasons</h2>
+      <p id="seasons-for">Pick one season, or several to take together.</p></div>
+    <div class="presets" id="season-presets" role="group" aria-label="Quick choices"></div>
+    <div class="season-list" id="season-list" role="group" aria-label="Seasons"></div>
+    <p class="fnote" id="seasons-rule">Several seasons are added up: each player's numbers over all his minutes in them, ranked
+      against everyone over the same seasons.</p>
+    <div class="pop-foot"><button type="button" class="btn" id="seasons-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="seasons-apply">Show these seasons</button></div>
   </div>
 
   <div class="views">
-    <!-- ================= discover: scouting report ================= -->
-    <div class="stack" id="view-similar" role="tabpanel" aria-labelledby="tab-similar">
-      <div class="split">
-        <section class="card profile subject" id="profile-card" aria-label="Player profile">
-          <div id="subject-line"></div>
-          <div class="profile-section"><div class="section-label">Rating and attributes
-            <span class="info" tabindex="0" data-tip="The rating is his category percentiles against his position this season, weighted by the position's default weights. It is this site's model, not an official rating, and it does not adjust for league strength.">i</span></div>
-            <div class="rating" id="rating"></div></div>
-          <div class="profile-section" id="sw-panel">
-            <div class="section-label">Strengths and weaknesses <span class="muted" id="sw-peers"></span></div>
-            <div class="sw" id="sw"></div>
-            <div class="pct-key" aria-label="What the colours mean"><span>Percentile</span>
-              <span class="chip c5">80-100</span><span class="chip c4">60-80</span><span class="chip c3">40-60</span>
-              <span class="chip c2">20-40</span><span class="chip c1">0-20</span>
-              <span class="info" tabindex="0" data-tip="A percentile is where he ranks in his position this season: 90 means a higher figure than about 90% of them. Where a scout wants a number low (errors, cards) it is flipped, so higher always reads better.">i</span></div>
-            <details class="how"><summary>How to read this</summary>
-            <p class="note">Each number is a percentile against his position this season. Club readings such as
-            goals conceded are left out: they describe his team. <span class="tag">noisy</span> marks a metric
-            that barely repeats from one season to the next, so one season of it says less about him.</p></details>
-          </div>
-        </section>
+    <!-- ================= players: the start ================= -->
+    <div class="page" id="view-home">
+      <section class="home-hero" aria-labelledby="hero-h">
+        <h1 id="hero-h">Who plays like him?</h1>
+        <p class="lede">Search any player from Europe's top leagues and see who has the same numbers - in one season,
+          or several seasons taken together.</p>
+        <div class="search pick" id="search-box">
+          <label for="q" class="sr-only">Search a player, club or position</label>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" id="q" placeholder="Search a player, club or position" autocomplete="off" spellcheck="false"
+            role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="picker">
+          <span class="kbd" aria-hidden="true">/</span>
+          <div id="picker" class="picker" role="listbox" aria-label="Matching players" hidden></div>
+        </div>
+        <div class="try"><span class="try-l">Try</span><div class="quick" id="quick"></div></div>
+      </section>
 
-        <section class="card matches-card" aria-labelledby="matches-h">
-          <div class="card-head">
-            <div><h2 id="matches-h">Closest statistical profiles <span class="info" tabindex="0" data-tip="Players are compared on their numbers per 90 minutes as recorded, against everyone in the same position across all the leagues in this source. Nothing is adjusted for league or team strength: a forward in a side that attacks a lot can look like one who shoots a lot. To compare like with like, filter to one league.">i</span></h2><p class="card-sub" id="hits">&mdash;</p></div>
+      <section class="ways" aria-label="What you can do">
+        <button type="button" class="way" data-way="search"><b>Find similar players</b>
+          <span>Pick a player and see everyone in his position ranked by how close their numbers are.</span></button>
+        <button type="button" class="way" data-way="compare"><b>Compare two players</b>
+          <span>Side by side, from the same season, different seasons, or several seasons added up.</span></button>
+        <button type="button" class="way" data-way="rankings"><b>Browse the rankings</b>
+          <span>The best in a position on any number, filtered by age, price, league or foot.</span></button>
+      </section>
+
+      <section class="discover" id="discover" aria-labelledby="discover-h">
+        <div class="section-head"><h2 id="discover-h">Standouts</h2><p id="discover-sub"></p></div>
+        <div class="discover-grid" id="discover-grid"></div>
+      </section>
+      <p class="hero-facts" id="hero-facts"></p>
+    </div>
+
+    <!-- ================= players: one player ================= -->
+    <div class="page" id="view-similar">
+      <section class="player-band" id="subject-line" aria-label="Player"></section>
+      <div class="ptabs" role="tablist" aria-label="About this player">
+        <button type="button" role="tab" id="pt-similar" data-ptab="similar" aria-selected="true" aria-controls="ptab-similar">Similar players</button>
+        <button type="button" role="tab" id="pt-profile" data-ptab="profile" aria-selected="false" aria-controls="ptab-profile">Profile</button>
+        <button type="button" role="tab" id="pt-seasons" data-ptab="seasons" aria-selected="false" aria-controls="ptab-seasons">Seasons</button>
+      </div>
+
+      <div class="ptab" id="ptab-similar" role="tabpanel" aria-labelledby="pt-similar">
+        <section class="block matches-card" aria-labelledby="matches-h">
+          <div class="block-head">
+            <div><h2 id="matches-h">Players with the closest numbers</h2><p class="sub" id="hits">&mdash;</p></div>
             <div class="tools">
               <button class="mini" id="copycsv" type="button">Copy CSV</button>
               <button class="mini" id="sharebtn" type="button">Copy link</button>
@@ -182,72 +173,117 @@
           </div>
           <div class="matches-tools">
             <div class="seg" id="scope" role="group" aria-label="Which seasons to search">
-              <button type="button" data-scope="season" class="on">This season</button>
-              <button type="button" data-scope="all">Every season</button></div>
-            <div class="seg" id="listsort" role="group" aria-label="Sort matches">
-              <button type="button" data-sort="sim" class="on">Similarity</button><button type="button" data-sort="age">Age</button>
-              <button type="button" data-sort="val">Value</button><button type="button" data-sort="min">Minutes</button>
+              <button type="button" data-scope="season" class="on" id="scope-here">Same seasons</button>
+              <button type="button" data-scope="all">Any single season</button></div>
+            <div class="seg" id="listsort" role="group" aria-label="Sort">
+              <button type="button" data-sort="sim" class="on">Closest</button><button type="button" data-sort="age">Youngest</button>
+              <button type="button" data-sort="val">Cheapest</button><button type="button" data-sort="min">Most minutes</button>
             </div>
-            <label class="chk" id="own-wrap" hidden><input type="checkbox" id="own"> Include his other seasons</label>
+            <label class="chk" id="own-wrap" hidden><input type="checkbox" id="own"> Include his own other seasons</label>
           </div>
+          <p class="hint">Pick a player to compare the two side by side.</p>
           <div class="list" id="matches"></div>
           <details class="tune" id="weights-panel">
             <summary><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
               What matters to you <span class="muted" id="w-state">Default weights</span>
               <svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
             <div class="tune-body">
-              <p class="note" style="padding:0">Slide a category up and it counts for more in every match; slide it to zero and it is ignored.</p>
+              <p class="note">Slide a category up and it counts for more in every match; slide it to zero and it is ignored.</p>
               <div class="weights" id="weights"></div>
               <label class="chk rwrow"><input type="checkbox" id="rw" checked> Count each metric by how well it repeats season to season</label>
-              <p class="note" id="rw-note" style="padding:0"></p>
+              <p class="note" id="rw-note"></p>
               <div><button class="mini" id="wreset" type="button">Reset weights</button></div>
             </div>
           </details>
         </section>
+
+        <section class="block" id="alt-panel" hidden aria-labelledby="alt-h">
+          <div class="block-head"><div><h2 id="alt-h">Like him, for less</h2>
+            <p class="sub">From his closest matches: half his price or less, or three or more years younger.</p></div></div>
+          <div class="alt" id="alt"></div>
+          <details class="how"><summary>How these are picked</summary><p class="note" id="alt-rule"></p></details>
+        </section>
       </div>
 
-      <section class="card" id="alt-panel" hidden aria-labelledby="alt-h">
-        <div class="card-head"><div><h2 id="alt-h">Like him, for less</h2>
-          <p class="card-sub">Picked from his closest matches: cheaper, or younger.</p></div></div>
-        <div class="alt" id="alt"></div>
-        <details class="how"><summary>How these are picked</summary><p class="note" id="alt-rule"></p></details>
+      <div class="ptab" id="ptab-profile" role="tabpanel" aria-labelledby="pt-profile" hidden>
+        <div class="profile-grid">
+          <section class="block" aria-labelledby="rating-h">
+            <div class="block-head"><div><h2 id="rating-h">Rating</h2><p class="sub" id="rating-sub"></p></div>
+              <span class="info" tabindex="0" data-tip="The rating is his category percentiles against his position, weighted by the position's default weights. It is this site's model, not an official rating, and it does not adjust for league strength.">i</span></div>
+            <div class="rating" id="rating"></div>
+          </section>
+          <section class="block" id="sw-panel" aria-labelledby="sw-h">
+            <div class="block-head"><div><h2 id="sw-h">Strengths and weaknesses</h2><p class="sub" id="sw-peers"></p></div></div>
+            <div class="sw" id="sw"></div>
+            <div class="pct-key" aria-label="What the colours mean"><span>Percentile</span>
+              <span class="chip c5">80-100</span><span class="chip c4">60-80</span><span class="chip c3">40-60</span>
+              <span class="chip c2">20-40</span><span class="chip c1">0-20</span>
+              <span class="info" tabindex="0" data-tip="A percentile is where he ranks in his position: 90 means a higher figure than about 90% of them. Where a scout wants a number low (errors, cards) it is flipped, so higher always reads better.">i</span></div>
+            <details class="how"><summary>How to read this</summary>
+            <p class="note">Each number is a percentile against his position over the same seasons. Club readings such as
+            goals conceded are left out: they describe his team. <span class="tag">noisy</span> marks a metric
+            that barely repeats from one season to the next, so one season of it says less about him.</p></details>
+          </section>
+        </div>
+      </div>
+
+      <div class="ptab" id="ptab-seasons" role="tabpanel" aria-labelledby="pt-seasons" hidden>
+        <section class="block" id="career-panel" aria-labelledby="career-title">
+          <div class="block-head"><div><h2 id="career-title">Season by season</h2>
+            <p class="sub">His rating and category scores each season, against that season's players in his position.</p></div></div>
+          <div id="career"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ================= compare ================= -->
+    <div class="page" id="view-compare">
+      <div class="page-head"><h1>Compare two players</h1>
+        <p>Choose both players and the seasons for each. Pick several seasons and they are added up into one profile.</p>
+        <button type="button" class="btn-link back" id="cmp-back" hidden></button></div>
+      <section class="slots" aria-label="The two players">
+        <div class="slot a" id="slot-a">
+          <div class="slot-body" id="slot-a-body"></div>
+          <div class="pick slot-pick">
+            <label for="qa" class="sr-only">Change the first player</label>
+            <input type="search" id="qa" placeholder="Change player A" autocomplete="off" spellcheck="false"
+              role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="pickera">
+            <div id="pickera" class="picker" role="listbox" aria-label="Players" hidden></div>
+          </div>
+        </div>
+        <div class="slot b" id="slot-b">
+          <div class="slot-body" id="slot-b-body"></div>
+          <div class="pick slot-pick">
+            <label for="q2" class="sr-only">Choose the second player</label>
+            <input type="search" id="q2" placeholder="Search the second player" autocomplete="off" spellcheck="false"
+              role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="picker2">
+            <div id="picker2" class="picker" role="listbox" aria-label="Players to compare with" hidden></div>
+          </div>
+        </div>
       </section>
 
-      <!-- ================= head to head ================= -->
       <section class="h2h" id="compare-panel" hidden aria-labelledby="compare-title">
-        <div class="section-head">
-          <div><h2 id="compare-title">Head to head</h2><p id="compare-sub"></p></div>
-          <div class="tools">
-            <div class="pick">
-              <input type="search" id="q2" placeholder="Compare with anyone…" autocomplete="off" spellcheck="false"
-                aria-label="Compare with another player" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="picker2">
-              <div id="picker2" class="picker" role="listbox" aria-label="Players to compare with" hidden></div>
-            </div>
-            <span id="star-match"></span>
-          </div>
-        </div>
-        <div class="card vs" id="vs"></div>
+        <h2 class="sr-only" id="compare-title">Head to head</h2>
+        <p class="sr-only" id="compare-sub"></p>
+        <div class="vs" id="vs"></div>
         <div class="h2h-grid">
-          <div class="card summary-card">
-            <div class="card-head"><h3>What makes them similar?</h3></div>
-            <div class="card-body"><div class="cmp-sum" id="cmp-sum"></div>
-              <p class="calc-note"><svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px"><path d="M4 19h16M7 15l3-4 3 2 4-6"/></svg>
-              Written from the percentiles in the table below - no editorial judgement is added.</p></div>
-          </div>
-          <div class="card radar-card">
-            <div class="card-head"><h3>Profile shape</h3><span class="card-sub" id="peer-note"></span></div>
-            <div class="card-body"><div id="radar"></div><div class="legend" id="radar-legend"></div>
-              <p class="note" id="radar-note" style="padding:10px 0 0"></p></div>
-          </div>
+          <section class="block summary-card" aria-labelledby="sum-h">
+            <div class="block-head"><h3 id="sum-h">What makes them similar</h3><span id="star-match"></span></div>
+            <div class="block-body"><div class="cmp-sum" id="cmp-sum"></div>
+              <p class="calc-note">Written from the percentiles in the table below. No editorial judgement is added.</p></div>
+          </section>
+          <section class="block radar-card" aria-labelledby="radar-h">
+            <div class="block-head"><h3 id="radar-h">Profile shape</h3><span class="sub" id="peer-note"></span></div>
+            <div class="block-body"><div id="radar"></div><div class="legend" id="radar-legend"></div>
+              <p class="note" id="radar-note"></p></div>
+          </section>
         </div>
         <div class="tiles" id="tiles"></div>
-        <div class="view-all"><button type="button" class="btn" id="view-all">View all statistics
-          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
-        <section class="card table-card" id="stats" aria-labelledby="stats-h">
-          <div class="card-head">
-            <div><h3 id="stats-h">Detailed statistical comparison</h3><p class="card-sub" id="stats-sub"></p></div>
+        <section class="block table-card" id="stats" aria-labelledby="stats-h">
+          <div class="block-head">
+            <div><h3 id="stats-h">Every number, side by side</h3><p class="sub" id="stats-sub"></p></div>
             <div class="table-tools">
-              <input type="search" id="mfilter" placeholder="Find a metric…" aria-label="Find a metric">
+              <input type="search" id="mfilter" placeholder="Find a metric" aria-label="Find a metric">
               <div class="seg" id="sortseg" role="group" aria-label="Sort metrics">
                 <button type="button" data-sort="gap" class="on">Biggest gaps</button>
                 <button type="button" data-sort="near">Most alike</button>
@@ -258,60 +294,36 @@
           <div id="compare"></div>
         </section>
       </section>
-
-      <section class="card" id="career-panel" hidden aria-labelledby="career-title">
-        <div class="card-head"><h2 id="career-title">Career</h2>
-          <button class="mini" id="career-close" type="button">Close</button></div>
-        <div id="career"></div>
-      </section>
     </div>
 
-    <!-- ================= explore: profile search ================= -->
-    <div class="stack" id="view-search" role="tabpanel" aria-labelledby="tab-search" hidden>
-      <section class="card">
-        <div class="card-head"><div><h2>Describe the player you want</h2>
-          <p class="card-sub">Every condition is a percentile against his position this season.</p></div></div>
-        <div class="builder">
-          <div class="field" style="max-width:320px"><label for="sgroup">Position</label><select id="sgroup"></select></div>
-          <div id="criteria" class="stack" style="gap:12px"></div>
-          <div class="tools">
-            <button class="btn" id="addcrit" type="button">+ Add a condition</button>
-            <button class="btn btn-ghost" id="clearcrit" type="button">Clear</button>
-          </div>
-        </div>
-      </section>
-      <section class="card">
-        <div class="card-head"><div><h2>Players who fit</h2><p class="card-sub" id="res-hits">&mdash;</p></div>
-          <button class="mini" id="rescsv" type="button">Copy CSV</button></div>
-        <div class="list" id="results"></div>
-        <details class="how"><summary>How this works</summary>
-        <p class="note">Ranked by the average of his percentiles on the conditions above. A player whose season did
-        not measure a metric cannot meet a condition on it, so he is left out rather than assumed to pass.</p></details>
-      </section>
+    <!-- ================= rankings ================= -->
+    <div class="page-head" id="rank-head" hidden>
+      <h1>Rankings</h1>
+      <p>Every number is against players in the same position, so a defender and a forward are never on one scale.
+        Pick a player in any list to see who plays like him.</p>
+      <div class="subnav" role="tablist" aria-label="Rankings">
+        <button type="button" role="tab" id="tab-board" data-mode="board" aria-selected="false" aria-controls="view-board">Leaderboard</button>
+        <button type="button" role="tab" id="tab-explore" data-mode="explore" aria-selected="false" aria-controls="view-explore">Chart</button>
+        <button type="button" role="tab" id="tab-search" data-mode="search" aria-selected="false" aria-controls="view-search">Find by profile</button>
+      </div>
     </div>
 
-    <!-- ================= explore: rankings ================= -->
-    <div class="stack" id="view-board" role="tabpanel" aria-labelledby="tab-board" hidden>
-      <section class="card">
-        <div class="card-head"><div><h2>Rankings</h2><p class="card-sub" id="board-hits">&mdash;</p></div></div>
+    <div class="page" id="view-board" role="tabpanel" aria-labelledby="tab-board" hidden>
+      <section class="block">
         <div class="controls">
           <div class="field"><label for="bgroup">Position</label><select id="bgroup"></select></div>
-          <div class="field"><label for="bmetric">Metric</label><select id="bmetric"></select></div>
+          <div class="field"><label for="bmetric">Ranked by</label><select id="bmetric"></select></div>
           <div class="field"><label for="bdir">Order</label><select id="bdir">
             <option value="desc">Highest first</option><option value="asc">Lowest first</option></select></div>
         </div>
-        <p class="note" id="board-note" style="padding:0 24px 16px"></p>
+        <p class="sub board-hits" id="board-hits">&mdash;</p>
+        <p class="note" id="board-note"></p>
         <div class="list" id="board"></div>
-        <p class="note">Tap a row to see players like him. Percentiles are against his own position, so a defender
-        and a forward are never ranked on the same scale.</p>
       </section>
     </div>
 
-    <!-- ================= explore: charts ================= -->
-    <div class="stack" id="view-explore" role="tabpanel" aria-labelledby="tab-explore" hidden>
-      <section class="card">
-        <div class="card-head"><div><h2>Charts</h2><p class="card-sub" id="ex-hits">&mdash;</p></div>
-          <div id="ex-vfm-wrap"><button class="btn" id="ex-vfm" type="button">Rating against price</button></div></div>
+    <div class="page" id="view-explore" role="tabpanel" aria-labelledby="tab-explore" hidden>
+      <section class="block">
         <div class="controls ex-controls">
           <div class="field"><label for="xgroup">Position</label><select id="xgroup"></select></div>
           <div class="field"><label for="xmetric">Across</label><select id="xmetric"></select></div>
@@ -325,7 +337,9 @@
               <button type="button" data-color="hl" class="on">Highlights</button>
               <button type="button" data-color="age">Age</button>
               <button type="button" data-color="vfm">vs price</button></div></div>
+          <div class="field" id="ex-vfm-wrap"><span class="lbl">Shortcut</span><button class="btn" id="ex-vfm" type="button">Rating against price</button></div>
         </div>
+        <p class="sub" id="ex-hits">&mdash;</p>
         <div class="scatter" id="scatter"></div>
         <div class="legend" id="ex-legend"></div>
         <div id="ex-card"></div>
@@ -333,10 +347,33 @@
       </section>
     </div>
 
-    <!-- ================= explore: clubs ================= -->
-    <div class="stack" id="view-clubs" role="tabpanel" aria-labelledby="tab-clubs" hidden>
-      <section class="card">
-        <div class="card-head"><div><h2>Clubs</h2><p class="card-sub" id="club-hits">&mdash;</p></div></div>
+    <div class="page" id="view-search" role="tabpanel" aria-labelledby="tab-search" hidden>
+      <section class="block">
+        <div class="block-head"><div><h2>Describe the player you want</h2>
+          <p class="sub">Each condition is a percentile against his position.</p></div></div>
+        <div class="builder">
+          <div class="field" style="max-width:320px"><label for="sgroup">Position</label><select id="sgroup"></select></div>
+          <div id="criteria" class="stack" style="gap:12px"></div>
+          <div class="tools">
+            <button class="btn" id="addcrit" type="button">Add a condition</button>
+            <button class="btn btn-ghost" id="clearcrit" type="button">Clear</button>
+          </div>
+        </div>
+      </section>
+      <section class="block">
+        <div class="block-head"><div><h2>Players who fit</h2><p class="sub" id="res-hits">&mdash;</p></div>
+          <button class="mini" id="rescsv" type="button">Copy CSV</button></div>
+        <div class="list" id="results"></div>
+        <details class="how"><summary>How this works</summary>
+        <p class="note">Ranked by the average of his percentiles on the conditions above. A player whose season did
+        not measure a metric cannot meet a condition on it, so he is left out rather than assumed to pass.</p></details>
+      </section>
+    </div>
+
+    <!-- ================= clubs ================= -->
+    <div class="page" id="view-clubs" hidden>
+      <div class="page-head"><h1>Clubs</h1><p id="club-hits">&mdash;</p></div>
+      <section class="block">
         <div class="controls">
           <div class="field"><label for="cleague">League</label><select id="cleague"></select></div>
           <div class="field"><label for="cclub">Club</label><select id="cclub"></select></div>
@@ -352,28 +389,29 @@
     </div>
 
     <!-- ================= shortlist ================= -->
-    <div class="stack" id="view-shortlist" role="tabpanel" aria-labelledby="tab-shortlist" hidden>
-      <section class="card shared" id="shared-panel" hidden>
-        <div class="card-head"><h2 id="shared-title">A shared shortlist</h2>
+    <div class="page" id="view-shortlist" hidden>
+      <div class="page-head"><h1>Your shortlist</h1>
+        <p>Players you have saved, from any data and season, with your notes. It lives in this browser only.</p></div>
+      <section class="block shared" id="shared-panel" hidden>
+        <div class="block-head"><h2 id="shared-title">A shared shortlist</h2>
           <div class="tools"><button class="mini primary" id="shared-keep" type="button">Add to my shortlist</button>
             <button class="mini" id="shared-close" type="button">Dismiss</button></div></div>
         <div id="shared-list"></div>
       </section>
-      <section class="card">
-        <div class="card-head"><div><h2>Saved players</h2><p class="card-sub" id="sl-hits">&mdash;</p></div>
+      <section class="block">
+        <div class="block-head"><div><h2>Saved players</h2><p class="sub" id="sl-hits">&mdash;</p></div>
           <div class="tools">
             <button class="mini" id="slcsv" type="button">Copy CSV</button>
             <button class="mini" id="slshare" type="button">Copy share link</button>
             <button class="mini" id="slclear" type="button">Clear</button>
           </div></div>
         <div id="shortlist"></div>
-        <p class="note" id="sl-note">Star a player anywhere on the page to keep him here, with a note of your own.
+        <p class="note" id="sl-note">Save a player anywhere on the site to keep him here, with a note of your own.
         Nothing is sent anywhere, and <b>Copy share link</b> hands someone a link that opens the same players.</p>
       </section>
     </div>
   </div>
 </main>
-
 <footer class="site-footer">
   <div class="container">
     <div class="foot-grid">
@@ -386,15 +424,15 @@
         with an asterisk is the fantasy game's price, a popularity signal rather than a valuation.</p></div>
       <div><h4>What is never guessed</h4>
         <p>A season that did not measure something shows a dash, not a zero or an average: no invented ages,
-        heights or tackles. Each season says what it does not measure, under the data picker.</p></div>
+        heights or tackles. Each season says what it does not measure, under About this data.</p></div>
       <div><h4>Sharing a view</h4>
         <p>The address bar tracks the dataset, the player, the comparison and the page, so <b>Copy link</b> hands
         someone exactly what you are looking at. Your shortlist and notes stay in this browser.</p></div>
     </div>
     <div class="foot-base">
-      <span>Open source on <a href="https://github.com/fahdr1428/footballscout" target="_blank" rel="noopener">GitHub</a> ·
-        data from Understat, FBref, Transfermarkt (CC0 transfermarkt-datasets) and the Fantasy Premier League API ·
-        <a href="#" id="about-link">Methodology and sources</a></span>
+      <span>Open source on <a href="https://github.com/fahdr1428/footballscout" target="_blank" rel="noopener">GitHub</a>.
+        Data from Understat, FBref, StatsBomb Open Data, Transfermarkt (CC0 transfermarkt-datasets) and the Fantasy Premier League API.
+        <a href="#" id="about-link">How it works and sources</a></span>
       <span>A static extract of a larger Streamlit platform.</span>
     </div>
   </div>
@@ -424,6 +462,13 @@
       it. A category the source does not measure at all is left out and the rest re-weighted; a gap
       in one player's record counts as average (50). It ranks him against his peers <em>in that
       league pool and season</em>; it does not adjust for league strength.</li>
+      <li><b>Several seasons together</b> - pick more than one season and each player's numbers are added
+      up over all his minutes in them: a per-90 figure is his total divided by his total minutes (the
+      minutes-weighted mean of his season figures), a percentage is weighted by its attempts where the
+      data has them, and minutes add up. Percentiles, category scores and the rating are then worked out
+      again against everyone over the same seasons with 900 or more minutes in total. His similarity
+      profile is the minutes-weighted mean of his season profiles, each measured against that season's
+      peers, and his club, age and price are from the latest of the seasons.</li>
       <li><b>Price</b> - Transfermarkt's market value, an estimate rather than a fee anyone paid:
       for each season, the valuation in force on 1 July as it closed; "now" is his latest
       valuation and its date.</li>
@@ -468,8 +513,8 @@
     </ul>
     <h3>Keeping it current</h3>
     <p>A scheduled job on GitHub re-fetches Understat's season tables and the Transfermarkt dataset
-    every day and rebuilds this page; the date each source was last refreshed is shown under the
-    data picker. Corrections and suggestions:
+    every day and rebuilds this page; the date each source was last refreshed is under About this
+    data, at the top of each page. Corrections and suggestions:
     <a href="https://github.com/fahdr1428/footballscout/issues" target="_blank" rel="noopener">open an issue</a>.</p>
   </div>
 </dialog>
@@ -502,18 +547,18 @@ const named = d => { if (!d.named){ d.players.forEach(p => { if (POS_NAME[p.p]) 
 
 // ---- state ---------------------------------------------------------------
 let D, P, M, G, PCT, LOWER, byGroup, byId, dsKey;
-let mode = "similar", loadToken = 0;
+let mode = "home", loadToken = 0, ptab = "similar";
 let subject = 0, match = null, sortMode = "gap", listSort = "sim";
 let listLimit = 25, resLimit = 25, boardLimit = 25;
 const F = {lgs: new Set(), side: "", amin: 16, amax: 40, val: null, hmin: 160, foot: "",
            mins: 900, minsSet: false, xclub: false, xleague: false};
 let W = {};                  // category name -> weight multiplier
 let criteria = [];           // [{metric, min}]
-let searchGroup = null, careerOpen = false, searchCleared = false;
+let searchGroup = null, searchCleared = false, chosen = false;   // chosen: a player has been picked this visit
 let RW = true;               // count each metric by its season-to-season repeatability
 let exGroup = null, exX = null, exY = null, exScale = "v", exSel = null, exPts = [], exColor = "hl";
 let SL = [], SHARED = null, slStored = true;   // the shortlist, and a shared one being viewed
-const MODES = ["similar", "search", "board", "explore", "clubs", "shortlist"];
+const MODES = ["home", "similar", "compare", "search", "board", "explore", "clubs", "shortlist"];
 let clubLeague = null, clubName = null;
 
 // ---- formatting ----------------------------------------------------------
@@ -541,25 +586,185 @@ const seasonLabel = s => s.replace("-", "/");
 // ---- catalogue & loading ---------------------------------------------------
 const sourceOf = key => key.split(":")[0];
 const seasonOf = key => key.split(":")[1];
+// A key names one season ("understat_big6:2025-26") or several taken together
+// ("understat_big6:2023-24+2024-25+2025-26").
+const seasonsIn = key => (seasonOf(key) || "").split("+").filter(Boolean);
+const isCombined = key => seasonsIn(key).length > 1;
+const keyFor = (src, seasons) => src + ":" + seasons.slice().sort().join("+");
 function entryFor(key){
   const src = BUNDLE.catalog.find(c => c.key === sourceOf(key));
-  const e = src && src.seasons.find(s => s.season === seasonOf(key));
-  return e ? {src, e} : null;
+  if (!src) return null;
+  const list = seasonsIn(key);
+  const es = list.map(s => src.seasons.find(x => x.season === s));
+  if (!list.length || es.some(e => !e)) return null;
+  return {src, e: list.length === 1 ? es[0] : {season: list.join("+"), combined: true, parts: es}};
 }
+// "2025/26", "2023/24 to 2025/26" for a run of seasons, "2019/20, 2021/22 and 2025/26" otherwise.
+function periodLabel(seasons, src){
+  const list = seasons.slice().sort();
+  if (list.length === 1) return seasonLabel(list[0]);
+  const cat = BUNDLE.catalog.find(c => c.key === src);
+  const all = cat ? cat.seasons.map(s => s.season) : list;
+  const at = list.map(s => all.indexOf(s));
+  const run = at.every((x, k) => k === 0 || x === at[k - 1] + 1);
+  return run ? `${seasonLabel(list[0])} to ${seasonLabel(list[list.length - 1])}` : listing(list.map(seasonLabel));
+}
+const periodOf = key => periodLabel(seasonsIn(key), sourceOf(key));
 async function getDataset(key){
   if (CACHE[key]) return named(CACHE[key]);
   const hit = entryFor(key);
   if (!hit) throw new Error("unknown dataset " + key);
+  if (hit.e.combined) return (CACHE[key] = await combine(key));
   const res = await fetch(hit.e.file);
   if (!res.ok) throw new Error("HTTP " + res.status);
   return named(CACHE[key] = await res.json());
+}
+
+// ---- several seasons as one --------------------------------------------------------
+// Seasons taken together become one season-shaped dataset, so every view works
+// on it unchanged. A per-90 figure is his total over all his minutes - exactly
+// the minutes-weighted mean of his season figures; a percentage or per-shot
+// figure is weighted by its attempts where the seasons carry them (pass
+// completion by passes, xG per shot by shots), by minutes where they do not;
+// minutes add up. Percentiles, category scores and the rating are then worked
+// out again against everyone over the same seasons, and his similarity vector
+// is the minutes-weighted mean of his season vectors, each standardised against
+// that season's peers. He is counted in the position he played most minutes in.
+const COMBINED_MIN = 900, COMBINED_SQUAD = 450;
+const WEIGHT_BY = {npxg_per_shot: "shots_per90", shot_accuracy_pct: "shots_per90", pass_pct: "passes_attempted_per90",
+  long_pass_pct: "long_passes_attempted_per90", dribble_success_pct: "dribbles_attempted_per90",
+  aerial_win_pct: "aerials_contested_per90", tackle_win_pct: "tackles_per90", gk_launch_pct: "gk_launches_attempted_per90",
+  pressure_success_pct: "pressures_per90", pressured_pass_share: "passes_attempted_per90"};
+const TOTALS = new Set(["minutes"]);
+const meanOf = xs => xs.reduce((t, x) => t + x, 0) / xs.length;
+async function combine(key){
+  const src = sourceOf(key), seasons = seasonsIn(key).slice().sort();
+  const parts = await Promise.all(seasons.map(s => getDataset(src + ":" + s)));
+  const metas = parts.map(d => d.meta), last = metas[metas.length - 1];
+
+  // Each position's model over the span: the metrics every season measured.
+  const groups = {};
+  for (const g of new Set(metas.flatMap(m => Object.keys(m.groups)))){
+    const specs = metas.map(m => m.groups[g]).filter(Boolean), top = specs[specs.length - 1];
+    const f = top.f.filter(k => specs.every(s => s.f.includes(k)));
+    const d = top.d.filter(k => specs.every(s => s.d.includes(k)));
+    const usable = f.length >= Math.max(3, Math.ceil(top.f.length * MIN_SHARED));
+    const fs = usable ? f : [];
+    groups[g] = {f: fs, d, c: top.c, rw: top.rw,
+      w: fs.map(k => top.w[top.f.indexOf(k)]),
+      dw: top.dw ? d.map(k => top.dw[top.d.indexOf(k)]) : null,
+      r: fs.map(k => meanOf(specs.map(s => s.r ? s.r[s.f.indexOf(k)] : 1))),
+      rr: fs.map(k => { const v = specs.map(s => s.rr ? s.rr[s.f.indexOf(k)] : null).filter(x => x != null);
+        return v.length ? meanOf(v) : null; })};
+  }
+
+  // Every player-season, gathered by player.
+  const by = new Map();
+  parts.forEach((d, si) => d.players.forEach(p => {
+    if (!by.has(p.id)) by.set(p.id, []);
+    by.get(p.id).push({p, si, spec: d.meta.groups[p.g]});
+  }));
+  const val = (r, k) => { if (!r.spec) return null; const j = r.spec.d.indexOf(k); return j < 0 || !r.p.d[j] ? null : r.p.d[j][0]; };
+  const players = [];
+  for (const [id, recs] of by){
+    const mins = {};
+    recs.forEach(r => { mins[r.p.g] = (mins[r.p.g] || 0) + r.p.m; });
+    const g = Object.keys(mins).sort((a, b) => mins[b] - mins[a])[0];
+    const rs = recs.filter(r => r.p.g === g);
+    const m = rs.reduce((t, r) => t + r.p.m, 0);
+    if (m < COMBINED_SQUAD) continue;
+    const latest = rs[rs.length - 1].p, most = rs.slice().sort((a, b) => b.p.m - a.p.m)[0].p, spec = groups[g];
+    const dv = spec ? spec.d.map(k => {
+      if (TOTALS.has(k)){ const v = rs.map(r => val(r, k)).filter(x => x != null); return v.length ? v.reduce((t, x) => t + x, 0) : null; }
+      const weighted = den => {
+        let num = 0, wt = 0;
+        for (const r of rs){
+          const v = val(r, k); if (v == null) continue;
+          let w = r.p.m;
+          if (den){ const a = val(r, den); if (a == null) continue; w *= a; }
+          num += v * w; wt += w;
+        }
+        return wt > 0 ? num / wt : null;
+      };
+      const den = WEIGHT_BY[k] && spec.d.includes(WEIGHT_BY[k]) ? WEIGHT_BY[k] : null;
+      // No attempts recorded at all (a striker who never tried a long pass): fall back to minutes.
+      return (den ? weighted(den) : null) ?? weighted(null);
+    }) : [];
+    let z = [];
+    if (spec && spec.f.length){
+      const acc = spec.f.map(() => 0); let wt = 0;
+      for (const r of rs){
+        if (!r.spec || !r.p.z.length) continue;
+        spec.f.forEach((k, i) => { acc[i] += (r.p.z[r.spec.f.indexOf(k)] ?? 0) * r.p.m; });
+        wt += r.p.m;
+      }
+      if (wt) z = acc.map(x => Math.round(x / wt * 1000) / 1000);
+    }
+    const clubs = [...new Set(rs.map(r => r.p.t))];
+    const fold = k => { for (let i = rs.length - 1; i >= 0; i--) if (rs[i].p[k] != null) return rs[i].p[k]; return null; };
+    players.push({id, n: latest.n, t: latest.t, l: latest.l, p: most.p, g, m,
+      fl: fold("fl"), fs: fold("fs"), ft: fold("ft"), h: fold("h"), a: latest.a,
+      v: latest.v, pr: latest.pr, lv: fold("lv"), ld: fold("ld"), ar: most.ar,
+      tc: clubs.length > 1 ? clubs : null, ss: rs.map(r => seasons[r.si]),
+      z, d: dv.map(v => [v == null ? null : Math.round(v * 100) / 100, null]), cv: [], os: [],
+      ...(m < COMBINED_MIN ? {sq: 1} : {})});
+  }
+
+  // Percentiles against everyone over the same seasons: average rank among the
+  // regulars in his position, flipped where lower is better - the export's own
+  // rule. A squad player is placed among them without moving them.
+  const lower = new Set(metas.flatMap(m => m.lower));
+  const counts = {};
+  for (const [g, spec] of Object.entries(groups)){
+    const mine = players.filter(p => p.g === g), regs = mine.filter(p => !p.sq);
+    counts[g] = regs.length;
+    spec.d.forEach((k, j) => {
+      const ref = regs.map(p => p.d[j][0]).filter(v => v != null).sort((a, b) => a - b);
+      if (!ref.length) return;
+      const below = v => { let lo = 0, hi = ref.length; while (lo < hi){ const mid = (lo + hi) >> 1; ref[mid] < v ? lo = mid + 1 : hi = mid; } return lo; };
+      const upto = v => { let lo = 0, hi = ref.length; while (lo < hi){ const mid = (lo + hi) >> 1; ref[mid] <= v ? lo = mid + 1 : hi = mid; } return lo; };
+      for (const p of mine){
+        const v = p.d[j][0]; if (v == null) continue;
+        const lt = below(v), ties = upto(v) - lt;
+        let pct = p.sq ? (lt + ties / 2 + 1) / (ref.length + 1) * 100 : (lt + (ties + 1) / 2) / ref.length * 100;
+        if (lower.has(k)) pct = 100 - pct;
+        p.d[j][1] = pct;
+      }
+    });
+    // Category scores: the mean percentile of each category's metrics.
+    for (const p of mine){
+      p.cv = spec.c.map((c, ci) => {
+        const xs = spec.dw ? spec.d.map((k, j) => spec.dw[j].includes(ci) ? p.d[j][1] : null).filter(x => x != null) : [];
+        return xs.length ? Math.round(meanOf(xs) * 10) / 10 : null;
+      });
+      p.d.forEach(x => { if (x[1] != null) x[1] = Math.round(x[1]); });
+    }
+  }
+  const unmodelled = {};
+  players.forEach(p => { if (!groups[p.g] || !groups[p.g].f.length) unmodelled[p.g] = (unmodelled[p.g] || 0) + 1; });
+  const has = {};
+  metas.forEach(m => Object.entries(m.has || {}).forEach(([k, v]) => { has[k] = has[k] || v; }));
+  const cat = BUNDLE.catalog.find(c => c.key === src);
+  players.sort((a, b) => b.m - a.m);
+  return {named: true, players, meta: {
+    key, source: src, season: seasons.join("+"), seasons, combined: true,
+    label: `${cat ? cat.name : src} ${periodLabel(seasons, src)}`,
+    partial: metas.some(m => m.inProgress), minMinutes: COMBINED_MIN, squadMinutes: COMBINED_SQUAD,
+    squadPlayers: players.filter(p => p.sq).length,
+    leagues: [...new Set(metas.flatMap(m => m.leagues))].sort(),
+    groupNames: Object.assign({}, ...metas.map(m => m.groupNames)), groups,
+    labels: Object.assign({}, ...metas.map(m => m.labels)),
+    pct: [...new Set(metas.flatMap(m => m.pct))], lower: [...lower],
+    club: [...new Set(metas.flatMap(m => m.club || []))], collapsed: last.collapsed || {},
+    counts, unmodelled, lacks: [], valuesAsOf: last.valuesAsOf, has, attribution: last.attribution,
+  }};
 }
 function status(text, err){ $("ds-status").textContent = text || ""; $("ds-status").classList.toggle("err", !!err); }
 
 async function loadDataset(key, opts = {}){
   const token = ++loadToken;
   const hit = entryFor(key);
-  status(CACHE[key] ? "" : `Loading ${hit ? hit.src.name + " " + seasonLabel(hit.e.season) : key}…`);
+  status(CACHE[key] ? "" : `Loading ${hit ? hit.src.name + " " + periodOf(key) : key}…`);
   if (!CACHE[key]) document.body.classList.add("is-loading");
   let payload;
   try { payload = await getDataset(key); }
@@ -583,7 +788,14 @@ async function loadDataset(key, opts = {}){
   if (s < 0) s = findByName("Lamine Yamal");
   if (s < 0) s = findByName("Declan Rice");
   if (s < 0) s = defaultSubject();
-  selectSubject(s, {keepMatch: false, matchName: opts.match});
+  // On Compare, changing player A's seasons leaves player B where he was.
+  const keepB = opts.keepB;
+  if (keepB){ match = null; xm = null; }
+  selectSubject(s, {keepMatch: !!keepB, matchName: opts.match});
+  if (keepB){
+    if (keepB.key === dsKey){ match = byId.has(keepB.id) && byId.get(keepB.id) !== subject ? byId.get(keepB.id) : null; drawAll(); }
+    else await setCrossMatch(keepB.key, keepB.id);
+  }
   status("");
 }
 
@@ -600,64 +812,69 @@ function setData(key, payload){
   criteria = criteria.filter(c => searchGroup && (c.metric === RATING_KEY || c.metric === VFM_KEY || G[searchGroup].d.includes(c.metric)));
 }
 
+// The bar at the top of every page: which data, which seasons, and - one click
+// away - what that data is and what it leaves out.
+const rangeOf = c => c.seasons.length === 1 ? seasonLabel(c.seasons[0].season)
+  : `${seasonLabel(c.seasons[0].season)} to ${seasonLabel(c.seasons[c.seasons.length - 1].season)}`;
 function renderDatasetBar(){
-  const src = sourceOf(dsKey || BUNDLE.default), season = seasonOf(dsKey || BUNDLE.default);
-  $("srcseg").innerHTML = BUNDLE.catalog.map(c =>
-    `<button type="button" data-src="${c.key}" class="${c.key === src ? "on" : ""}"
-      aria-pressed="${c.key === src}">${esc(c.name)}<span class="via">${esc(c.via)}</span></button>`).join("");
+  const key = dsKey || BUNDLE.default, src = sourceOf(key);
   const cat = BUNDLE.catalog.find(c => c.key === src);
-  $("season").innerHTML = cat.seasons.slice().reverse().map(s =>
-    `<option value="${s.season}"${s.season === season ? " selected" : ""}>${seasonLabel(s.season)}${
-      s.inProgress ? " (in progress)" : ""}</option>`).join("");
+  $("src").innerHTML = BUNDLE.catalog.map(c =>
+    `<option value="${c.key}"${c.key === src ? " selected" : ""}>${esc(c.name)}, ${esc(rangeOf(c))}</option>`).join("");
+  $("seasons-v").textContent = periodOf(key) + (isCombined(key) ? ` (${seasonsIn(key).length} seasons)` : "")
+    + (entryFor(key) && entryFor(key).e.inProgress ? " so far" : "");
   if (!M) return;
-  $("hero-eyebrow").textContent = M.label + (M.inProgress ? " · in progress" : "");
+  $("hero-eyebrow").textContent = M.label + (M.inProgress ? " so far" : "");
   $("ds-blurb").textContent = cat.blurb;
   const day = d => d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB",
     {day: "numeric", month: "short", year: "numeric", timeZone: "UTC"}) : null;
   const fresh = [];
-  if (cat.updated) fresh.push(cat.updated);
-  if (M.valuesAsOf) fresh.push(`Transfermarkt values to ${day(M.valuesAsOf)}`);
-  $("ds-fresh").textContent = fresh.join(" · ");
-  // Which season this is against the newest there is: an older one says its
-  // clubs and prices are as they were then, and offers the newest one.
+  if (cat.updated) fresh.push(cat.updated + ".");
+  if (M.valuesAsOf) fresh.push(`Transfermarkt values to ${day(M.valuesAsOf)}.`);
+  $("ds-fresh").textContent = fresh.join(" ");
+  // Where this selection sits against the newest data there is: an older season
+  // says its clubs and prices are as they were then, and offers the newest one.
   const done = c => c.seasons.filter(x => !x.inProgress), year = x => +x.season.slice(0, 4);
   const latest = done(cat).slice(-1)[0], live = cat.seasons.find(x => x.inProgress);
   const newest = BUNDLE.catalog.map(c => [c, done(c).slice(-1)[0]]).filter(([, x]) => x)
     .sort((a, b) => year(b[1]) - year(a[1]))[0];
-  const goTo = (key, label) => `<button type="button" class="btn-link" data-goseason="${esc(key)}">${esc(label)} &rarr;</button>`;
+  const goTo = (k, text) => `<button type="button" class="btn-link" data-goseason="${esc(k)}">${esc(text)}</button>`;
+  const picked = seasonsIn(key), lastPicked = picked.slice().sort().pop();
   let note = "";
-  if (!M.inProgress && latest && season !== latest.season)
-    note = `<b>You are looking at ${seasonLabel(season)}.</b> Clubs, ages, positions and prices are as they were that season.
-      ${goTo(src + ":" + latest.season, "Latest complete season, " + seasonLabel(latest.season))}`;
+  if (M.combined)
+    note = `<b>${picked.length} seasons taken together.</b> Each player's numbers are added up over all his minutes in them, and he is
+      ranked against everyone over the same seasons. Club, age and price are from the latest of them.`;
+  else if (!M.inProgress && latest && lastPicked !== latest.season)
+    note = `<b>You are looking at ${seasonLabel(lastPicked)}.</b> Clubs, ages, positions and prices are as they were that season.
+      ${goTo(src + ":" + latest.season, "Go to " + seasonLabel(latest.season))}`;
   else if (!M.inProgress && newest && year(newest[1]) > year(latest))
-    note = `<b>${esc(cat.name)} stops at ${seasonLabel(latest.season)}</b> - ${esc(cat.stops || "its public mirror is no longer updated")}.
-      ${goTo(newest[0].key + ":" + newest[1].season, `${newest[0].name}, ${seasonLabel(newest[1].season)}`)}`;
+    note = `<b>${esc(cat.name)} stops at ${seasonLabel(latest.season)}</b>: ${esc(cat.stops || "its public mirror is no longer updated")}.
+      ${goTo(newest[0].key + ":" + newest[1].season, `See ${newest[0].name}, ${seasonLabel(newest[1].season)}`)}`;
   else if (!M.inProgress && live)
-    note = `<b>${seasonLabel(season)} is the last complete season</b>, so clubs are as they finished it.
-      ${goTo(src + ":" + live.season, seasonLabel(live.season) + " so far")}`;
-  $("season-note").hidden = !note;
+    note = `<b>${seasonLabel(lastPicked)} is the last complete season</b>, so clubs are as they finished it.
+      ${goTo(src + ":" + live.season, "See " + seasonLabel(live.season) + " so far")}`;
+  $("season-note").hidden = !note || ["home", "compare", "shortlist"].includes(mode);
   $("season-note").innerHTML = note;
-  $("live-banner").hidden = !M.inProgress;
+  $("live-banner").hidden = !M.inProgress || mode === "compare";
   if (M.inProgress){
     const rounds = Object.values(M.rounds || {});
     const span = rounds.length ? (Math.min(...rounds) === Math.max(...rounds) ? Math.min(...rounds)
       : `${Math.min(...rounds)} to ${Math.max(...rounds)}`) : "a few";
-    $("live-banner").innerHTML = `<b>${seasonLabel(M.season)} is being played.</b> ${span} rounds in, as of
-      ${esc(day(M.asOf) || "the last refresh")}. Each league's pool is its regular starters so far - at least half
-      its busiest player's minutes (${Object.entries(M.floors || {}).map(([l, f]) => `${esc(l)} ${f}`).join(", ")}).
-      Rates over a handful of games swing hard: read this as form, not a profile, and check his complete
-      seasons before deciding anything.`;
+    $("live-banner").innerHTML = `<b>${seasonLabel(M.season)} is being played: ${span} rounds in, as of
+      ${esc(day(M.asOf) || "the last refresh")}.</b> Rates over a handful of games swing hard, so read this as form rather than a
+      profile. Each league counts its regular starters so far (${Object.entries(M.floors || {}).map(([l, f]) => `${esc(l)} ${f}`).join(", ")}
+      minutes or more).`;
   }
   const lacks = M.lacks || [];
   $("ds-lacks").hidden = !lacks.length;
   if (lacks.length){
     $("ds-lacks-s").textContent = `This season does not measure ${lacks.length} metric${lacks.length > 1 ? "s" : ""} the source has elsewhere`;
-    $("ds-lacks-p").textContent = lacks.join(" · ") + ". They are left out of this season's models and "
+    $("ds-lacks-p").textContent = listing(lacks) + ". They are left out of this season's models and "
       + "shown as dashes - never as zeros or averages.";
   }
   $("f-players").textContent = P.length.toLocaleString();
   $("f-leagues").textContent = M.leagues.length;
-  $("f-groups").textContent = Object.keys(G).length;
+  $("f-groups").textContent = Object.values(G).filter(g => g.f.length).length;
   $("f-metrics").textContent = Math.max(0, ...Object.values(G).map(g => g.d.length));
   const notes = [];
   const folded = Object.entries(M.collapsed || {});
@@ -665,11 +882,63 @@ function renderDatasetBar(){
     `too few ${esc(gname(g).toLowerCase())}s to rank against each other, so they are compared with ${
       esc(gname(parent).toLowerCase())}s`).join("; ") + ".");
   const unmod = Object.entries(M.unmodelled || {});
-  if (unmod.length) notes.push("<b>Not modelled this season:</b> " + unmod.map(([g, n]) =>
+  if (unmod.length) notes.push("<b>Not modelled:</b> " + unmod.map(([g, n]) =>
     `${n} ${esc(gname(g).toLowerCase())}${n > 1 ? "s" : ""}`).join(", ") +
-    " - too few players or measured metrics to compare them on. They are listed but not ranked.");
+    ", with too few players or measured metrics to compare them on. They are listed but not ranked.");
   notes.push("<b>Source.</b> " + esc(M.attribution || ""));
   $("fold-note").innerHTML = notes.join(" ");
+}
+
+// ---- the season picker ------------------------------------------------------------------
+// One season, or any set of them. Quick choices cover the common spans; ticking
+// boxes covers the rest. Opened for the main selection, or for the second
+// player on Compare, who can be looked at over different seasons.
+let seasonsFor = "a";
+function openSeasons(forWho, anchor){
+  seasonsFor = forWho;
+  const key = forWho === "b" && matchRef() ? matchRef().key : dsKey;
+  const cat = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey));
+  const chosen = new Set(seasonsIn(key));
+  const list = cat.seasons.slice().reverse();
+  $("seasons-for").textContent = forWho === "b" && matchRef()
+    ? `Seasons for ${matchRef().p.n}. Pick one, or several to take together.` : "Pick one season, or several to take together.";
+  $("season-list").innerHTML = list.map(s => `<label class="chk sl-row"><input type="checkbox" value="${s.season}"${
+    chosen.has(s.season) ? " checked" : ""}> <span>${seasonLabel(s.season)}</span>${s.inProgress ? '<span class="muted">so far</span>' : ""}</label>`).join("");
+  const done = cat.seasons.filter(s => !s.inProgress).map(s => s.season);
+  const presets = [["Latest", done.slice(-1)], ["Last 3 seasons", done.slice(-3)], ["Last 5 seasons", done.slice(-5)],
+    [`All ${cat.seasons.length}`, cat.seasons.map(s => s.season)]];
+  const live = cat.seasons.find(s => s.inProgress);
+  if (live) presets.splice(1, 0, ["This season so far", [live.season]]);
+  $("season-presets").innerHTML = presets.filter(([, xs], k, all) => xs.length && all.findIndex(([, ys]) => ys.join() === xs.join()) === k)
+    .map(([text, xs]) => `<button type="button" class="chip-btn" data-preset="${xs.join("+")}">${esc(text)}</button>`).join("");
+  const pop = $("seasons-pop");
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect(), w = Math.min(360, innerWidth - 24);
+  pop.style.width = w + "px";
+  pop.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left)) + "px";
+  pop.style.top = (r.bottom + window.scrollY + 8) + "px";
+  document.querySelectorAll("[aria-controls='seasons-pop']").forEach(b => b.setAttribute("aria-expanded", b === anchor));
+  syncSeasonsApply();
+  const first = pop.querySelector("input:checked") || pop.querySelector("input");
+  if (first) first.focus({preventScroll: true});
+}
+function closeSeasons(){
+  $("seasons-pop").hidden = true;
+  document.querySelectorAll("[aria-controls='seasons-pop']").forEach(b => b.setAttribute("aria-expanded", "false"));
+}
+function pickedSeasons(){ return [...$("season-list").querySelectorAll("input:checked")].map(i => i.value).sort(); }
+function syncSeasonsApply(){
+  const n = pickedSeasons().length;
+  $("seasons-apply").disabled = !n;
+  $("seasons-apply").textContent = !n ? "Pick a season" : n === 1 ? "Show this season" : `Take these ${n} together`;
+}
+function applySeasons(){
+  const list = pickedSeasons(); if (!list.length) return;
+  const key = keyFor(sourceOf(dsKey), list);
+  closeSeasons();
+  const ref = matchRef();
+  if (seasonsFor === "b" && ref) setCrossMatch(key, ref.p.id);
+  else loadDataset(key, mode === "compare" && ref ? {keepB: {key: ref.key, id: ref.p.id}} : {});
 }
 
 // ---- filters ---------------------------------------------------------------
@@ -895,7 +1164,7 @@ const MIN_SHARED = 0.6;
 function rankedAll(){
   const A = ALL[sourceOf(dsKey)], s = P[subject];
   if (!A || !s || !G[s.g] || !s.z.length) return [];
-  const spec = G[s.g], scale = weightScale(s.g), cur = A.seasons.indexOf(M.season);
+  const spec = G[s.g], scale = weightScale(s.g), mine = new Set(seasonsIn(dsKey).map(x => A.seasons.indexOf(x)));
   const maps = A.seasons.map(season => {
     const sp = (A.groups[season] || {})[s.g];
     if (!sp) return null;
@@ -905,7 +1174,7 @@ function rankedAll(){
   const out = [];
   for (const r of A.players){            // [id, n, t, l, si, g, a, m, v, z, h, ft, fl]
     if (r[5] !== s.g || !maps[r[4]]) continue;
-    if (r[0] === s.id && (r[4] === cur || !showOwn)) continue;
+    if (r[0] === s.id && (mine.has(r[4]) || !showOwn)) continue;
     const o = {id: r[0], n: r[1], t: r[2], l: r[3], a: r[6], m: r[7], v: r[8], h: r[10], ft: r[11], fl: r[12]};
     if (!passes(o, true)) continue;
     out.push({r, o, si: r[4], pos: maps[r[4]].pos, sim: alignedSim(s.z, r[9], maps[r[4]].pos, scale),
@@ -930,20 +1199,25 @@ function compareSim(a, ref){
   if (al.shared < Math.max(3, Math.ceil(spec.f.length * MIN_SHARED))) return null;
   return {sim: alignedSim(a.z, ref.p.z, al.pos, weightScale(a.g)), al};
 }
+// Player B from any seasons of this source - the same as A's, others, or several together.
 async function setCrossMatch(key, id){
-  if (key === dsKey){ xm = null; match = byId.has(id) ? byId.get(id) : null; drawMatches(); drawRadar(); drawCompare(); writeHash(); return; }
-  status("Loading " + seasonLabel(seasonOf(key)) + "…");
-  try {
-    const d = await getDataset(key);
-    const i = d.players.findIndex(p => p.id === id);
-    status("");
-    if (i < 0) return;
-    xm = {key, i}; match = null;
-    drawMatches(); drawRadar(); drawCompare(); writeHash();
-    $("compare-panel").scrollIntoView({block: "nearest", behavior: "smooth"});
-  } catch (e) { status("Could not load that season (" + e.message + ").", true); }
+  const name = (matchRef() || {}).p ? matchRef().p.n : "He";
+  if (key === dsKey){
+    if (!byId.has(id)){ status(`${name} has too few minutes in ${periodOf(key)} to compare.`, true); return; }
+    xm = null; match = byId.get(id);
+  } else {
+    status("Loading " + periodOf(key) + "…");
+    try {
+      const d = await getDataset(key);
+      const i = d.players.findIndex(p => p.id === id);
+      if (i < 0){ status(`${name} has too few minutes in ${periodOf(key)} to compare.`, true); return; }
+      status("");
+      xm = {key, i}; match = null;
+    } catch (e) { status("Could not load those seasons (" + e.message + ").", true); return; }
+  }
+  if (mode !== "compare") setMode("compare"); else drawAll();
 }
-const seasonTag = key => `<span class="ssn mono">${esc(seasonLabel(seasonOf(key)))}</span>`;
+const seasonTag = key => `<span class="ssn">${esc(periodOf(key))}</span>`;
 
 // ---- subject ---------------------------------------------------------------
 // Accents optional, as in the search: a link naming "David Raya Martin" opens him.
@@ -983,7 +1257,6 @@ function selectSubject(i, {keepMatch = false, matchName = null} = {}){
   if (!searchGroup || !G[searchGroup]) searchGroup = G[P[subject].g] ? P[subject].g : Object.keys(G)[0];
   if (G[P[subject].g] && P[subject].g !== exGroup){ exGroup = P[subject].g; exX = exY = null; }
   exSel = null;
-  careerOpen = false; $("career-panel").hidden = true;
   drawQuick();
   drawAll();
 }
@@ -1000,47 +1273,54 @@ const initials = n => { const w = n.split(/\s+/).filter(x => /^\p{L}/u.test(x));
 // A squad player - short of the regulars' minutes, scored against them - is
 // tagged wherever he is listed, so a rate over five games is never read like
 // one over thirty.
-const SMALL_TIP = "Fewer minutes than this season's regulars. His numbers are placed among theirs - the same scale, the same percentiles - but a rate over a few games swings more than one over a season.";
+const SMALL_TIP = "Fewer minutes than the regulars in this selection. His numbers are placed among theirs - the same scale, the same percentiles - but a rate over a few games swings more than one over a season.";
 const smallTag = o => o && o.sq ? `<span class="tag small" tabindex="0" data-tip="${SMALL_TIP}">small sample</span>` : "";
 const avatar = (o, size = "") => `<span class="avatar ${size}" style="--h:${HUE[o.g] ?? 214}" aria-hidden="true">${esc(initials(o.n))}</span>`;
+// "this season", or the seasons taken together - for every sentence that names the pool.
+const here = () => M && M.combined ? "over these seasons" : "this season";
+// Where he played: "Barcelona, La Liga", or every club over seasons taken together.
+const clubLine = o => o.tc && o.tc.length > 1 ? `${o.tc.join(", then ")}` : `${o.t}, ${o.l}`;
 function drawSubject(){
-  const p = P[subject], has = M.has || {};
-  const others = (p.os || []), r = ratingOf(p);
-  const ring = r == null ? "" : `<div class="ring b${band(r)}" role="img" aria-label="Rating ${Math.round(r)} out of 100"
-      data-tip="His overall rating, ${Math.round(r)} out of 100: his category percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s this season, weighted by the position's defaults. The breakdown is just below.">
-      <svg viewBox="0 0 48 48" aria-hidden="true"><circle class="rb" cx="24" cy="24" r="20"/>
-        <circle class="rf" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="${Math.round(r)} 100"/></svg>
-      <span class="rv">${Math.round(r)}</span><span class="rl">rating</span></div>`;
+  const p = P[subject], has = M.has || {}, r = ratingOf(p);
   const month = d => d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", {month: "short", year: "numeric", timeZone: "UTC"}) : "";
-  const fact = (k, v, tipText = "") => `<div${tipText ? ` data-tip="${esc(tipText)}"` : ""}><div class="fact-k">${k}</div><div class="fact-v">${v}</div></div>`;
-  const value = p.v != null ? eur(p.v) + (p.lv != null && p.lv !== p.v ? ` <span class="muted">· ${eur(p.lv)} ${esc(month(p.ld))}</span>` : "")
+  const fact = (k, v, tipText = "") => `<div${tipText ? ` data-tip="${esc(tipText)}"` : ""}><dt>${k}</dt><dd>${v}</dd></div>`;
+  const value = p.v != null ? eur(p.v) + (p.lv != null && p.lv !== p.v ? ` <span class="muted">now ${eur(p.lv)}, ${esc(month(p.ld))}</span>` : "")
     : p.pr != null ? `£${p.pr.toFixed(1)}m <span class="muted">FPL price</span>` : "—";
+  const period = periodOf(dsKey) + (M.inProgress ? " so far" : "");
+  const rating = r == null ? `<div class="pb-rating none"><span class="pb-rv">—</span><span class="pb-rl">No rating for ${esc(gname(p.g).toLowerCase())}s in this data</span></div>`
+    : `<div class="pb-rating b${band(r)}" data-tip="His overall rating, ${Math.round(r)} out of 100: his category percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s ${here()}, weighted by the position's defaults. The breakdown is on the Profile tab.">
+        <span class="pb-rv">${Math.round(r)}</span><span class="pb-rl">rating out of 100</span>
+        <span class="pb-rbar" aria-hidden="true"><span style="width:${Math.round(r)}%"></span></span></div>`;
+  const seasonsPlayed = M.combined ? (p.ss || []).length : 0;
   $("subject-line").innerHTML = `
-    <div class="id-band">
-      <div class="id-top">${avatar(p, "lg")}
-        <div class="id-main"><div class="id-kicker">${esc(gname(p.g))} · ${esc(seasonLabel(M.season))}${M.inProgress ? " so far" : ""}</div>
-          <h2 class="id-name">${esc(p.n)}</h2>
-          <div class="id-sub">${esc(p.p)} · ${esc(p.t)} · ${esc(p.l)}</div></div>
-        ${ring}</div>
-      <div class="id-actions">${G[p.g] && p.z.length ? `<button type="button" class="mini" id="cardbtn">Share card</button>` : ""}${starBtn(subject)}
-        ${others.length ? `<button type="button" class="mini" id="career-btn">Career · ${others.length + 1} seasons</button>` : ""}</div>
+    <div class="pb">
+      <div class="pb-main">
+        <p class="pb-pos">${esc(p.p || gname(p.g))}<span class="pb-period">${esc(period)}</span></p>
+        <h1 class="pb-name">${esc(p.n)}</h1>
+        <p class="pb-club">${esc(clubLine(p))}</p>
+      </div>
+      ${rating}
     </div>
-    <div class="facts-grid">
-      ${fact("Age", p.a != null ? p.a.toFixed(1) : "—")}
-      ${fact("Minutes", p.m.toLocaleString(), "League minutes this season - the sample every per-90 figure rests on.")}
+    <dl class="pb-facts">
+      ${fact("Age", p.a != null ? p.a.toFixed(1) : "—", M.combined ? "His age in the latest of these seasons." : "")}
+      ${fact("Minutes", p.m.toLocaleString() + (M.combined ? ` <span class="muted">in ${seasonsPlayed} of ${M.seasons.length} seasons</span>` : ""),
+        M.combined ? "League minutes over these seasons - the sample every per-90 figure rests on." : "League minutes this season - the sample every per-90 figure rests on.")}
       ${has.value || has.price ? fact(M.inProgress ? "Market value now" : "Market value", value,
         p.pr != null && p.v == null ? "The fantasy game's price - a popularity signal set by its operator, not a valuation."
           : "Transfermarkt's estimate as the season closed, and his latest value with its date where it has moved - an estimate, not a fee.") : ""}
       ${has.height ? fact("Height", p.h ? p.h + " cm" : "—") : ""}
-      ${has.foot ? fact("Foot", p.ft ? cap(p.ft) + (p.fs ? ` <span class="muted">· ${esc(p.fs.toLowerCase())}</span>` : "") : "—",
+      ${has.foot ? fact("Foot", p.ft ? cap(p.ft) + (p.fs ? ` <span class="muted">${esc(p.fs.toLowerCase())}</span>` : "") : "—",
         p.fs ? `${p.fs}: a wide player whose stronger foot is ${p.fs === "Inverted" ? "on the opposite side to his flank, so he tends to cut inside" : "on the same side as his flank"}.` : "") : ""}
       ${fact("Playing style", p.ar ? esc(p.ar) : "—", p.ar ? "A style found by clustering this position's statistical profiles - a label from the data, not an official role." : "")}
+    </dl>
+    <div class="pb-actions">
+      <button type="button" class="btn btn-primary" id="cmp-btn">Compare with another player</button>
+      ${starBtn(subject)}
+      ${G[p.g] && p.z.length ? `<button type="button" class="btn" id="cardbtn">Share card</button>` : ""}
     </div>
     ${p.sq ? `<p class="small-note"><b>Small sample: ${p.m.toLocaleString()} minutes.</b> Short of the ${M.minMinutes.toLocaleString()}
-      this season's regulars have, so he is scored against them - his percentiles and rating are where his numbers would rank among
-      ${(M.counts[p.g] || 0).toLocaleString()} regular ${esc(gname(p.g).toLowerCase())}s - and his matches are regulars. A rate over a few games swings more than one over a season.</p>` : ""}
-    ${others.length ? `<div class="seasons-line"><span class="lbl">Also in</span>${others.map(x =>
-      `<button type="button" class="chip-btn" data-goseason="${x}">${seasonLabel(x)}</button>`).join("")}</div>` : ""}`;
+      the regulars ${M.combined ? "have over these seasons" : "have this season"}, so he is placed among them: his percentiles and rating are where his numbers would rank among
+      ${(M.counts[p.g] || 0).toLocaleString()} regular ${esc(gname(p.g).toLowerCase())}s, and his matches are regulars. A rate over a few games swings more than one over a season.</p>` : ""}`;
 }
 
 // ---- plain English ------------------------------------------------------------
@@ -1083,6 +1363,7 @@ function repeatOf(spec, key){
 }
 function drawRating(){
   const p = P[subject], r = ratingParts(p);
+  $("rating-sub").textContent = `Against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s ${here()}`;
   if (!r){ $("rating").innerHTML = `<p class="fnote">No rating: this source has no model for ${esc(gname(p.g).toLowerCase())}s.</p>`; return; }
   $("rating").innerHTML = r.parts.slice().sort((x, y) => y.share - x.share).map(x =>
     `<div class="attr" data-tip="${esc(x.c)}: ${x.v == null ? "not recorded for him, so counted as average (50)" : "the " + ord(x.v) + " percentile"} against his position. It carries ${Math.round(x.share * 100)}% of his rating.">
@@ -1090,7 +1371,7 @@ function drawRating(){
       <div class="attr-bar"><span style="width:${Math.max(2, x.used)}%;background:var(--s${band(x.used)})"></span></div>
       <div class="attr-v">${x.v == null ? "50*" : Math.round(x.v)}</div></div>`).join("")
     + `<p class="rt-note">Overall <b>${Math.round(r.score)}</b>/100 - the weighted average of these category percentiles against
-      ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s this season. A model rating from this site, not an
+      ${(M.counts[p.g] || 0).toLocaleString()} ${esc(gname(p.g).toLowerCase())}s ${here()}. A model rating from this site, not an
       official one, and not adjusted for league strength.${r.parts.some(x => x.v == null) ? " * Not recorded for him, counted as average." : ""}</p>`;
 }
 function drawSW(){
@@ -1104,12 +1385,12 @@ function drawSW(){
     .filter(r => r.pct != null && !club.has(r.k)) : [];
   panel.hidden = !rows.length;
   if (!rows.length){ $("sw").innerHTML = ""; return; }
-  $("sw-peers").textContent = `percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s`;
+  $("sw-peers").textContent = `Percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s ${here()}`;
   const item = r => {
     const q = repeatOf(spec, r.k), noisy = q != null && q < 0.3;
     return `<div class="swr"><span>${termed(r.k, true)}${noisy
       ? `<span class="tag" data-tip="Repeats at only ${q.toFixed(2)} from one season to the next, so one season of it says less about him.">noisy</span>` : ""}</span>
-      <span class="v mono">${fmt(r.k, r.v)}</span>${chip(r.pct)}</div>`;
+      <span class="v tnum">${fmt(r.k, r.v)}</span>${chip(r.pct)}</div>`;
   };
   const top = rows.filter(r => r.pct >= 70).sort((a, b) => b.pct - a.pct).slice(0, 6);
   const low = rows.filter(r => r.pct <= 30).sort((a, b) => a.pct - b.pct).slice(0, 6);
@@ -1158,7 +1439,7 @@ function radar(names, series){
 }
 function drawRadar(){
   const p = P[subject], spec = G[p.g];
-  if (!spec){ $("radar").innerHTML = `<div class="empty">No model for ${esc(gname(p.g).toLowerCase())}s this season.</div>`;
+  if (!spec){ $("radar").innerHTML = `<div class="empty">No model for ${esc(gname(p.g).toLowerCase())}s ${here()}.</div>`;
     $("radar-legend").innerHTML = ""; $("radar-note").textContent = ""; $("peer-note").textContent = ""; return; }
   // Only the categories this source measures for the position - a spoke nobody
   // has would read as a zero.
@@ -1174,7 +1455,7 @@ function drawRadar(){
     (same ? `<span><i style="background:var(--mark-b)"></i>${esc(o.n)}${ref.other ? " " + seasonTag(ref.key) : ""}</span>` : "");
   $("peer-note").textContent = `percentiles against ${(M.counts[p.g] || 0).toLocaleString()} ${gname(p.g).toLowerCase()}s`;
   $("radar-note").textContent = `Each spoke is the mean percentile of a basket of per-90 metrics, against `
-    + `${gname(p.g).toLowerCase()}s ${ref && ref.other ? "in each player's own season" : "this season"}. `
+    + `${gname(p.g).toLowerCase()}s ${ref && ref.other ? "over each player's own seasons" : here()}. `
     + `Similarity is computed on ${spec.f.length} individual metrics, not on these averages.`;
 }
 
@@ -1259,7 +1540,7 @@ function drawMatches(){
     $("matches").innerHTML = `<div class="empty nomodel"><b>${esc(gname(s.g))}s can't be compared in ${esc(src.name)}</b>${
       s.g === "GK" && src.key === "understat_big6" ? `Understat, its source, records shots, passes and expected goals but nothing a
         goalkeeper does - no saves, no claims - so there is nothing fair to compare ${esc(s.n)} on here.`
-      : `This season measures too little about ${esc(gname(s.g).toLowerCase())}s, or has too few of them, to compare ${esc(s.n)} fairly.`}
+      : `${M.combined ? "These seasons measure" : "This season measures"} too little about ${esc(gname(s.g).toLowerCase())}s, or has too few of them, to compare ${esc(s.n)} fairly.`}
       <div class="elsewhere" id="elsewhere"><span class="muted">Looking for him in the other sources…</span></div></div>`;
     const asked = subject;
     findElsewhere(s).then(found => {
@@ -1294,10 +1575,10 @@ function drawMatches(){
       const key = sourceOf(dsKey) + ":" + A.seasons[x.si], o = x.o;
       const here = key === dsKey;
       const on = here ? (match != null && P[match].id === o.id) : (curKey === key && curId === o.id);
-      return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-xm="${esc(key)}|${esc(o.id)}" aria-current="${on}">
+      return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-xm="${esc(key)}|${esc(o.id)}">
         <span class="rk">${n+1}</span>${avatar({n: o.n, g: x.r[5]}, "sm")}
-        <span><span class="nm">${esc(o.n)} ${seasonTag(key)}${smallTag({sq: x.r[13]})}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}${
-          x.shared < specNow.f.length ? ` · ${x.shared} shared metrics` : ""}</span>${whyTag(closestOn(s, x.r[9], specNow, x.pos, scaleNow))}</span>
+        <span><span class="nm">${esc(o.n)} ${seasonTag(key)}${smallTag({sq: x.r[13]})}</span><span class="mt">${esc(o.t)}, ${esc(o.l)}${
+          x.shared < specNow.f.length ? `, ${x.shared} shared metrics` : ""}</span>${whyTag(closestOn(s, x.r[9], specNow, x.pos, scaleNow))}</span>
         ${meta(o)}${bar(sc)}</button>`;
     }).join("") + (rows.length > listLimit
       ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
@@ -1308,9 +1589,9 @@ function drawMatches(){
   if (!rows.length){ $("matches").innerHTML = `<div class="empty"><b>No matches with these filters</b>No ${esc(gname(s.g).toLowerCase())} clears them. Loosen one, or reset the filters.</div>`; return; }
   $("matches").innerHTML = rows.slice(0, listLimit).map(([i, sc], n) => {
     const o = P[i];
-    return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-m="${i}" aria-current="${i === match && !xm}">
+    return `<button type="button" class="row${n === 0 && listSort === "sim" ? " top" : ""}" data-m="${i}">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}</span>${whyTag(closestOn(s, o.z, specNow, null, scaleNow))}</span>
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)}, ${esc(clubLine(o))}</span>${whyTag(closestOn(s, o.z, specNow, null, scaleNow))}</span>
       ${meta(o)}${bar(sc)}</button>`;
   }).join("") + (rows.length > listLimit
     ? `<button type="button" class="more" data-more="list">Show ${Math.min(25, rows.length - listLimit)} more of ${rows.length.toLocaleString()}</button>` : "");
@@ -1355,33 +1636,35 @@ const DICON = {
   positions: '<svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M3 9h3v6H3M21 9h-3v6h3"/></svg>',
 };
 function drawDiscover(){
-  if (mode !== "similar") return;
+  if (mode !== "home") return;
+  $("discover-h").textContent = M.combined ? `Standouts, ${periodOf(dsKey)}` : `Standouts in ${periodOf(dsKey)}${M.inProgress ? " so far" : ""}`;
+  $("discover-sub").textContent = `Picked from ${M.label}${M.combined ? ", every player's numbers added up over those seasons" : ""}. Pick a name to see who plays like him.`;
   const has = M.has || {};
   const rated = P.map((o, i) => ({o, i, r: ratingOf(o)})).filter(x => x.r != null && !x.o.sq);
   const best = (xs, f, n = 3) => xs.slice().sort((a, b) => f(b) - f(a)).slice(0, n);
   const row = (x, val, sub) => `<button type="button" class="drow" data-s="${x.i}"><span><span class="nm">${esc(x.o.n)}</span>
-    <span class="mt">${esc(sub || `${x.o.p} · ${x.o.t}`)}</span></span><span class="v">${val}</span></button>`;
+    <span class="mt">${esc(sub || `${x.o.p}, ${x.o.t}`)}</span></span><span class="v">${val}</span></button>`;
   const card = (icon, title, def, rows, go, more) => `<article class="card dcard"><div class="dcard-head"><span class="dicon">${DICON[icon]}</span>
     <div><h3>${title}</h3><p class="def">${def}</p></div></div><div class="dlist">${rows.join("")}</div>
-    ${go ? `<button type="button" class="btn-link" data-godisc="${go}">${more} →</button>` : ""}</article>`;
+    ${go ? `<button type="button" class="btn-link" data-godisc="${go}">${more}</button>` : ""}</article>`;
   const cards = [];
   const young = rated.filter(x => x.o.a != null && x.o.a < 22);
-  if (has.age && young.length >= 3) cards.push(card("young", "Emerging talents", "The highest-rated players aged 21 or under this season, each rated against his own position.",
-    best(young, x => x.r).map(x => row(x, Math.round(x.r), `${x.o.p} · ${x.o.t} · age ${x.o.a.toFixed(0)}`)), "young", "All players aged 21 or under"));
+  if (has.age && young.length >= 3) cards.push(card("young", "Emerging talents", `The highest-rated players aged 21 or under ${here()}, each against his own position.`,
+    best(young, x => x.r).map(x => row(x, Math.round(x.r), `${x.o.p}, ${x.o.t}, age ${x.o.a.toFixed(0)}`)), "young", "All players aged 21 or under"));
   const priced = has.value ? rated.map(x => ({...x, f: cellOf(x.o, VFM_KEY)[0]})).filter(x => x.f != null) : [];
   if (priced.length >= 3) cards.push(card("value", "Rated above their price", "The furthest above the rating that players at their Transfermarkt value usually reach.",
-    best(priced, x => x.f).map(x => row(x, "+" + x.f.toFixed(0), `${x.o.p} · ${eur(x.o.v)}`)), "vfm", "The value-for-money ranking"));
+    best(priced, x => x.f).map(x => row(x, "+" + x.f.toFixed(0), `${x.o.p}, ${eur(x.o.v)}`)), "vfm", "The value-for-money ranking"));
   const cKey = ["xa_per90", "key_passes_per90", "creativity_per90"].find(k => Object.values(G).some(sp => sp.d.includes(k)));
   if (cKey){
     const xs = P.map((o, i) => ({o, i, v: cellOf(o, cKey)[0]})).filter(x => x.v != null && x.o.g !== "GK" && !x.o.sq);
-    if (xs.length >= 3) cards.push(card("create", "Chance creators", `The highest ${esc(label(cKey))} this season, across every outfield position.`,
+    if (xs.length >= 3) cards.push(card("create", "Chance creators", `The highest ${esc(label(cKey))} ${here()}, across every outfield position.`,
       best(xs, x => x.v).map(x => row(x, fmt(cKey, x.v))), "metric:" + cKey, "The full ranking"));
   }
   if (M.leagues.length > 1){
     const tops = M.leagues.map(l => best(rated.filter(x => x.o.l === l), x => x.r, 1)[0]).filter(Boolean)
       .sort((a, b) => b.r - a.r).slice(0, 4);
-    cards.push(card("leagues", "Across the leagues", "The highest-rated player in each league this season.",
-      tops.map(x => row(x, Math.round(x.r), `${x.o.l} · ${x.o.p}`)), "", ""));
+    cards.push(card("leagues", "Across the leagues", `The highest-rated player in each league ${here()}.`,
+      tops.map(x => row(x, Math.round(x.r), `${x.o.l}, ${x.o.p}`)), "", ""));
   }
   const groups = Object.keys(G).sort((a, b) => (byGroup[b] || []).length - (byGroup[a] || []).length);
   cards.push(`<article class="card dcard wide"><div class="dcard-head"><span class="dicon">${DICON.positions}</span>
@@ -1423,7 +1706,7 @@ function drawAlternatives(){
   const row = ([[i, sc], rank]) => { const o = P[i];
     return `<button type="button" class="row" data-m="${i}">
       <span class="rk">${rank}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.t)} · ${esc(o.l)}</span></span>
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(clubLine(o))}</span></span>
       <span class="meta">${o.a != null ? "Age " + o.a.toFixed(1) : "—"}<br>${worth(o)}</span>
       <span class="score"><span class="pc">${sc.toFixed(1)}%</span>
         <span class="tr"><span class="fl" style="width:${sc}%"></span></span></span></button>`; };
@@ -1436,7 +1719,7 @@ function drawAlternatives(){
   $("alt").classList.toggle("one", full.length < 2);
   $("alt").innerHTML = (full.length ? full.map(col).join("") : "")
     + (empty.length ? `<div class="alt-none">${empty.map(c => `<p><b>${c[1]}:</b> ${c[3].replace(/^None/, "none")}</p>`).join("")}</div>` : "");
-  $("alt-rule").textContent = `Both lists come from his ${rows.length} closest matches this season, after the filters on the left: `
+  $("alt-rule").textContent = `Both lists come from his ${rows.length} closest matches ${here()}, after the filters you have set: `
     + `priced at half his market value or less, and three or more years younger, in order of similarity. The number beside `
     + `each is his rank among all the matches. Price is Transfermarkt's estimate, not a fee.`;
 }
@@ -1459,7 +1742,7 @@ const simTip = () => "Similarity is 100 × the cosine between the two players' s
   + (flatWeights() ? "every metric counting the same (one season, so repeatability cannot be measured). "
                    : "each metric weighted by how well it repeats from season to season. ") + "It says how alike their numbers are - not ability, quality, potential or "
   + "tactical role - and it is not a probability, nor adjusted for league or team strength. Labels: 95+ near-identical, 90+ very similar, 80+ similar, 70+ partly similar.";
-const unitOf = key => key === RATING_KEY ? "out of 100" : /_per90$/.test(key) ? "per 90 minutes" : PCT.has(key) ? "percentage" : key === "minutes" ? "minutes this season" : "";
+const unitOf = key => key === RATING_KEY ? "out of 100" : /_per90$/.test(key) ? "per 90 minutes" : PCT.has(key) ? "percentage" : key === "minutes" ? "minutes played" : "";
 const bareLabel = key => shortLabel(key).replace(/ per 90$/, "");
 // Headline metrics for the tiles: familiar ones for the position first, then the
 // model's most repeatable metrics, and only ones both players have.
@@ -1479,6 +1762,25 @@ function tileKeys(rows, spec, g){
   for (const r of byRepeat) if (out.length < 4) out.push(r.key);
   return out;
 }
+// ---- compare: the two players and their seasons ---------------------------------------
+const seasonsBtn = (who, key) => `<div class="slot-seasons"><span class="lbl">Seasons</span>
+  <button type="button" class="ctx-btn" data-seasons="${who}" aria-haspopup="dialog" aria-controls="seasons-pop" aria-expanded="false">${
+    esc(periodOf(key))}${isCombined(key) ? ` <span class="muted">${seasonsIn(key).length} together</span>` : ""}<svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>`;
+const slotCard = (o, who) => `<div class="slot-card">${avatar(o, "lg")}<div class="slot-who">
+  <span class="slot-tag"><i style="background:var(--mark-${who})"></i>Player ${who === "a" ? "A" : "B"}</span>
+  <b class="slot-name">${esc(o.n)}</b><span class="slot-meta">${esc(o.p || gname(o.g))}, ${esc(clubLine(o))}</span></div></div>`;
+function drawSlots(){
+  const a = P[subject], ref = matchRef();
+  $("cmp-back").hidden = false;
+  $("cmp-back").textContent = `Back to ${a.n}'s page`;
+  $("slot-a-body").innerHTML = slotCard(a, "a") + seasonsBtn("a", dsKey);
+  const near = G[a.g] && a.z.length ? ranked().slice(0, 4) : [];
+  $("slot-b-body").innerHTML = ref ? slotCard(ref.p, "b") + seasonsBtn("b", ref.key)
+    : `<div class="slot-empty"><b>Who should ${esc(a.n)} be compared with?</b>
+        <span>Search below${near.length ? ", or pick one of his closest matches" : ""}.</span>
+        ${near.length ? `<div class="chips">${near.map(([i]) => `<button type="button" class="chip-btn" data-m="${i}">${esc(P[i].n)}</button>`).join("")}</div>` : ""}</div>`;
+  $("q2").placeholder = ref ? "Change player B" : "Search the second player";
+}
 function drawCompare(){
   const panel = $("compare-panel"), ref = matchRef();
   if (!ref){ panel.hidden = true; return; }
@@ -1487,11 +1789,11 @@ function drawCompare(){
   const cmp = compareSim(a, ref), same = !!cmp;
   const scale = same ? weightScale(a.g) : null;
   const sim = same ? cmp.sim : null;
-  const sA = seasonLabel(M.season), sB = seasonLabel(ref.meta.season);
+  const sA = periodOf(dsKey), sB = periodOf(ref.key);
   const tagA = ref.other ? " (" + sA + ")" : "", tagB = ref.other ? " (" + sB + ")" : "";
   $("compare-title").textContent = `${a.n}${tagA} vs ${b.n}${tagB}`;
   $("compare-sub").textContent = same
-    ? `${sim.toFixed(1)}% statistical similarity · ${gname(a.g).toLowerCase()}s · ${ref.other ? sA + " against " + sB : sA}`
+    ? `${sim.toFixed(1)}% statistical similarity between two ${gname(a.g).toLowerCase()}s, ${ref.other ? sA + " against " + sB : sA}`
     : "No similarity score for this pair - see below why.";
   $("star-match").innerHTML = ref.other ? starBtnFor(ref.key, b) : starBtn(match);
 
@@ -1511,22 +1813,15 @@ function drawCompare(){
     k: zgap[key] ? zgap[key].k : null, modelled: key in zgap,
   })).filter(r => r.av != null || r.bv != null);
 
-  // ---- the versus card
-  const side = (o, cls, season, mark, who) => `<div class="vs-side ${cls}">${avatar(o, "lg")}<div class="who">
-      <span class="tagline"><i style="background:var(${mark})"></i>${who}</span>
-      <div class="vs-name">${esc(o.n)}</div>
-      <div class="vs-meta">${esc(o.p || gname(o.g))} · ${esc(o.t)}<br>${esc(o.l)} · ${esc(season)}${o.a != null ? " · age " + o.a.toFixed(1) : ""}${smallTag(o)}</div></div></div>`;
-  const C = 2 * Math.PI * 64;
-  $("vs").innerHTML = side(a, "a", sA, "--mark-a", "Player A") + `<div class="vs-mid">${same
-    ? `<div class="sim-ring" role="img" aria-label="${sim.toFixed(1)} per cent statistical similarity">
-        <svg viewBox="0 0 148 148" aria-hidden="true"><circle class="rb" cx="74" cy="74" r="64"/>
-          <circle class="rf" cx="74" cy="74" r="64" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/></svg>
-        <div class="sim-val"><b>${sim.toFixed(1)}%</b><span>similarity</span></div></div>
-      <div class="sim-label">${simLabel(sim)} <span class="info" tabindex="0" data-tip="${esc(simTip())}">i</span></div>`
-    : `<div class="sim-label">Not comparable <span class="info" tabindex="0" data-tip="${esc(simTip())}">i</span></div>`}</div>`
-    + side(b, "b", sB, "--mark-b", "Player B");
-  const ring = $("vs").querySelector(".rf");
-  if (ring) requestAnimationFrame(() => requestAnimationFrame(() => { ring.style.strokeDashoffset = (C * (1 - sim / 100)).toFixed(1); }));
+  // ---- the verdict: one number and what it means
+  const who = (o, season, mark) => `<span class="vd-who"><i style="background:var(${mark})"></i><b>${esc(o.n)}</b> <span class="muted">${esc(season)}</span>${smallTag(o)}</span>`;
+  $("vs").innerHTML = same
+    ? `<div class="vd-num" role="img" aria-label="${sim.toFixed(1)} per cent statistical similarity"><b>${sim.toFixed(1)}</b><span>% similar</span></div>
+       <div class="vd-text"><p class="vd-label">${simLabel(sim)} <span class="info" tabindex="0" data-tip="${esc(simTip())}">i</span></p>
+         <p class="vd-pair">${who(a, sA, "--mark-a")}${who(b, sB, "--mark-b")}</p>
+         <span class="vd-bar" aria-hidden="true"><span style="width:${sim.toFixed(1)}%"></span></span></div>`
+    : `<div class="vd-text"><p class="vd-label">Not comparable <span class="info" tabindex="0" data-tip="${esc(simTip())}">i</span></p>
+         <p class="vd-pair">${who(a, sA, "--mark-a")}${who(b, sB, "--mark-b")}</p></div>`;
 
   // ---- what makes them similar
   $("cmp-sum").innerHTML = same ? compareSummary(a, b, rows, spec, ref)
@@ -1550,9 +1845,8 @@ function drawCompare(){
       <div class="tile-h"><div class="t">${esc(bareLabel(key))}<span class="u">${unitOf(key)}</span></div>
         ${e ? `<span class="info" tabindex="0" data-tip="${esc(e)}">i</span>` : ""}</div>
       ${line(esc(a.n), r.av, r.ap, "--mark-a")}${line(esc(b.n), r.bv, r.bp, "--mark-b")}
-      <div class="tile-foot">${lead}${r.ap != null && r.bp != null ? ` · percentiles ${chip(r.ap)} ${chip(r.bp)}` : ""}</div></div>`;
+      <div class="tile-foot"><span>${lead}</span>${r.ap != null && r.bp != null ? `<span>Percentiles ${chip(r.ap)} ${chip(r.bp)}</span>` : ""}</div></div>`;
   }).join("");
-  $("view-all").hidden = !rows.length;
 
   // ---- the full table, grouped by the position's categories
   const groupOf = {};
@@ -1571,7 +1865,8 @@ function drawCompare(){
     const shown = PCT.has(r.key) ? (d > 0 ? "+" : "") + d.toFixed(1) + " pts" : (d > 0 ? "+" : d < 0 ? "−" : "") + fmt(r.key, Math.abs(d));
     return `<td class="num diff"><span class="arr" aria-hidden="true">${near ? "" : d > 0 ? "▲" : "▼"}</span>${near ? "0" : shown}</td>`;
   };
-  const head = `<thead><tr><th>Metric</th><th class="num">${lastA}${esc(tagA)}</th><th class="num">${lastB}${esc(tagB)}</th>
+  const period = (who, t) => `${who}${ref.other ? `<span class="th-s">${esc(t)}</span>` : ""}`;
+  const head = `<thead><tr><th>Metric</th><th class="num">${period(lastA, sA)}</th><th class="num">${period(lastB, sB)}</th>
     <th class="num"><span data-tip="${lastA} minus ${lastB}, in the metric's own units. A neutral difference, not a judgement: for some metrics lower is better.">Difference</span></th>
     <th><span data-tip="How far apart they are on this metric, in standard deviations, scaled by how much the metric counts in the similarity.">Gap in this match</span></th></tr></thead>`;
   const body = order.filter(g => grouped[g]).map(g => `<tbody>${same ? `<tr class="grp"><td colspan="5">${esc(g)}</td></tr>` : ""}${
@@ -1583,8 +1878,8 @@ function drawCompare(){
   $("compare").innerHTML = `<div class="tablewrap"><table class="cmp-table">${head}${body}</table></div>
     <div class="legend-row"><span>Percentile</span><span class="chip c5">80-100</span><span class="chip c4">60-80</span>
       <span class="chip c3">40-60</span><span class="chip c2">20-40</span><span class="chip c1">0-20</span>
-      <span>· against ${ref.other ? "each player's own season" : (M.counts[a.g] || 0).toLocaleString() + " " + esc(gname(a.g).toLowerCase()) + "s this season"}${
-        same ? ` · <span class="tag">context</span> measured but not part of the similarity` : ""}</span></div>`;
+      <span>Against ${ref.other ? "each player's own seasons" : (M.counts[a.g] || 0).toLocaleString() + " " + esc(gname(a.g).toLowerCase()) + "s " + here()}${
+        same ? `. <span class="tag">context</span> is measured but not part of the similarity.` : "."}</span></div>`;
   $("stats-sub").textContent = `Every metric either player has. Per-90 figures are per 90 minutes played; percentiles are against `
     + (ref.other ? "each player's own season." : `${(M.counts[a.g] || 0).toLocaleString()} ${gname(a.g).toLowerCase()}s in ${sA}.`)
     + (same ? ` Grouped by the position's categories and sorted by ${sortMode === "gap" ? "the biggest gaps first" : sortMode === "near" ? "the closest metrics first" : "percentile"}.` : "");
@@ -1634,11 +1929,18 @@ function compareSummary(a, b, rows, spec, ref){
 
 // ---- career ------------------------------------------------------------------
 async function drawCareer(){
-  const p = P[subject], src = sourceOf(dsKey);
-  const seasons = [M.season, ...(p.os || [])].sort();
-  $("career-panel").hidden = false;
-  $("career-title").textContent = `${p.n} — ${seasons.length} seasons`;
-  $("career").innerHTML = `<div class="empty">Loading ${seasons.length} seasons…</div>`;
+  const p = P[subject], src = sourceOf(dsKey), picked = new Set(seasonsIn(dsKey));
+  $("career-title").textContent = `${p.n}, season by season`;
+  $("career").innerHTML = `<div class="empty">Finding his seasons…</div>`;
+  // Every season he has in this source, from the all-seasons index.
+  let seasons = [...new Set([...seasonsIn(dsKey).filter(x => !M.combined || (p.ss || []).includes(x)), ...(p.os || [])])];
+  try {
+    const A = await getAll(src);
+    seasons = [...new Set([...seasons, ...A.players.filter(r => r[0] === p.id).map(r => A.seasons[r[4]])])];
+  } catch {}
+  seasons.sort();
+  if (P[subject] !== p || mode !== "similar" || ptab !== "seasons") return;
+  $("career").innerHTML = `<div class="empty">Loading ${seasons.length} season${seasons.length > 1 ? "s" : ""}…</div>`;
   const rows = [];
   for (const season of seasons){
     try {
@@ -1647,44 +1949,50 @@ async function drawCareer(){
       if (q) rows.push({season, d, q});
     } catch (e) { rows.push({season, err: true}); }
   }
-  if (P[subject] !== p) return;
+  if (P[subject] !== p || mode !== "similar" || ptab !== "seasons") return;
   const cats = [];
-  rows.forEach(r => { if (r.q){ (r.d.meta.groups[r.q.g] || {c: []}).c.forEach(c => { if (!cats.includes(c)) cats.push(c); }); } });
+  rows.forEach(r => { if (r.q){ const sp = r.d.meta.groups[r.q.g] || {c: []};
+    // Only categories with a score in some season: a column of dashes says nothing.
+    sp.c.forEach((c, i) => { if (!cats.includes(c) && r.q.cv[i] != null) cats.push(c); }); } });
   const bar = v => v == null ? '<span class="muted">—</span>'
-    : `<span class="spark"><span style="width:${v}%;background:var(--s${band(v)})"></span></span><span class="mono">${Math.round(v)}</span>`;
+    : `<span class="spark"><span style="width:${v}%;background:var(--s${band(v)})"></span></span><span class="tnum">${Math.round(v)}</span>`;
   const provider = src === "fbref_big5" && rows.some(r => r.season < "2022-23") && rows.some(r => r.season >= "2022-23");
   rows.forEach(r => { if (r.q) r.rt = ratingOf(r.q, r.d.meta, r.d.players); });
-  const trend = careerTrend(rows.filter(r => r.q && r.rt != null));
+  const trend = careerTrend(rows.filter(r => r.q && r.rt != null), picked);
+  const many = rows.filter(r => r.q).length > 1;
   $("career").innerHTML = trend + `<div class="tablewrap"><table>
-    <thead><tr><th>Season</th><th>Club</th><th>Position</th><th class="num">Min</th><th class="num">Age</th><th>Rating</th>
+    <thead><tr><th>Season</th><th>Club</th><th>Position</th><th class="num">Minutes</th><th class="num">Age</th><th>Rating</th>
       ${cats.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead>
     <tbody>${rows.map(r => r.err ? `<tr><td>${seasonLabel(r.season)}</td><td colspan="${4 + cats.length}" class="muted">could not load</td></tr>` : (() => {
       const spec = r.d.meta.groups[r.q.g] || {c: []};
       const val = c => { const i = spec.c.indexOf(c); return i < 0 ? null : r.q.cv[i]; };
-      return `<tr class="${r.season === M.season ? "here" : ""}"><td class="mono">${seasonLabel(r.season)}${smallTag(r.q)}</td>
+      const open = isCombined(dsKey) || r.season !== seasonOf(dsKey);
+      return `<tr class="${picked.has(r.season) ? "here" : ""}"><td class="tnum">${open
+          ? `<button type="button" class="btn-link" data-goseason="${esc(src + ":" + r.season)}" data-goid="${esc(p.id)}">${seasonLabel(r.season)}</button>`
+          : `<b>${seasonLabel(r.season)}</b>`}${smallTag(r.q)}</td>
         <td>${esc(r.q.t)}</td><td>${esc(r.q.p)}</td><td class="num">${r.q.m.toLocaleString()}</td>
         <td class="num">${r.q.a != null ? r.q.a.toFixed(1) : "—"}</td><td>${r.rt != null ? chip(Math.round(r.rt)) : "—"}</td>${cats.map(c => `<td style="white-space:nowrap">${bar(val(c))}</td>`).join("")}</tr>`;
     })()).join("")}</tbody></table></div>
-    <p class="note" style="border-top:1px solid var(--line)">Each cell is his category percentile against his
-    position <em>that season</em>, so a move up or down is relative to that year's peers. A dash is a
-    category that season did not measure.${provider ? " FBref changed data provider in 2022/23 and defines some "
+    <p class="note">Each cell is his category percentile against his position <em>that season</em>, so a move up or down is
+    relative to that year's peers. A dash is a category that season did not measure.${many ? ` Pick a season to open it, or use
+    the Seasons button at the top to take several together.` : ""}${provider ? " FBref changed data provider in 2022/23 and defines some "
     + "metrics differently either side of it, so read the two eras as separate runs." : ""}</p>`;
 }
 
 // His rating season by season as one line: each point is against that season's
 // position, so the line shows where he stood among his peers year to year.
-function careerTrend(pts){
+function careerTrend(pts, picked = new Set(seasonsIn(dsKey))){
   if (pts.length < 2) return "";
-  const Wd = Math.round(Math.max(300, Math.min(640, $("view-similar").clientWidth - 48 || 640))), Ht = 150, m = {l: 34, r: 16, t: 18, b: 28};
+  const Wd = Math.round(Math.max(300, Math.min(640, $("career").clientWidth - 8 || 640))), Ht = 150, m = {l: 34, r: 16, t: 18, b: 28};
   const sx = k => m.l + k / (pts.length - 1) * (Wd - m.l - m.r), sy = v => m.t + (100 - v) / 100 * (Ht - m.t - m.b);
   const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${m.l}" x2="${Wd - m.r}" y1="${sy(v)}" y2="${sy(v)}" class="cg"/>
     <text x="${m.l - 6}" y="${sy(v) + 4}" text-anchor="end" class="tk">${v}</text>`).join("");
   const line = pts.map((r, k) => `${k ? "L" : "M"}${sx(k).toFixed(1)} ${sy(r.rt).toFixed(1)}`).join(" ");
   const best = pts.reduce((a, b) => (b.rt > a.rt ? b : a));
-  const dots = pts.map((r, k) => `<circle cx="${sx(k)}" cy="${sy(r.rt)}" r="${r.season === M.season ? 6 : 4.5}"
-      class="cd${r.season === M.season ? " here" : ""}"><title>${esc(seasonLabel(r.season))}: rated ${Math.round(r.rt)} at ${esc(r.q.t)}</title></circle>`
+  const dots = pts.map((r, k) => `<circle cx="${sx(k)}" cy="${sy(r.rt)}" r="${picked.has(r.season) ? 6 : 4.5}"
+      class="cd${picked.has(r.season) ? " here" : ""}"><title>${esc(seasonLabel(r.season))}: rated ${Math.round(r.rt)} at ${esc(r.q.t)}</title></circle>`
     + `<text x="${sx(k)}" y="${Ht - 8}" text-anchor="middle" class="tk">${esc(seasonLabel(r.season).replace(/^20/, "").replace("/", "/"))}</text>`
-    + (r === best || r.season === M.season ? `<text x="${sx(k)}" y="${sy(r.rt) - 10}" text-anchor="middle" class="cl">${Math.round(r.rt)}</text>` : "")).join("");
+    + (r === best || picked.has(r.season) ? `<text x="${sx(k)}" y="${sy(r.rt) - 10}" text-anchor="middle" class="cl">${Math.round(r.rt)}</text>` : "")).join("");
   return `<div class="trend-wrap"><svg viewBox="0 0 ${Wd} ${Ht}" role="img" aria-label="Rating by season">${grid}
     <path d="${line}" class="cline"/>${dots}</svg></div>`;
 }
@@ -1758,8 +2066,8 @@ function drawResults(){
     const o = P[i];
     return `<button type="button" class="row res" data-s="${i}">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
-        o.a != null ? " · age " + o.a.toFixed(1) : ""}</span></span>
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)}, ${esc(clubLine(o))}${
+        o.a != null ? ", age " + o.a.toFixed(1) : ""}</span></span>
       <span class="cells" title="${esc(criteria.map(c => label(c.metric)).join(" · "))}">${got.map(chip).join("")}</span>
       <span class="bval">${avg.toFixed(0)}</span></button>`;
   }).join("") + (rows.length > resLimit
@@ -1787,7 +2095,7 @@ function drawBoard(){
   $("board-hits").textContent = rows.length.toLocaleString() + " ranked";
   const f = metric === VFM_KEY ? vfmFit(group) : null;
   $("board-note").innerHTML = f ? `<b>Value for money</b> is his rating minus the rating his price predicts: across all
-    ${f.n.toLocaleString()} priced ${esc(gname(group).toLowerCase())}s this season, rating = ${f.a.toFixed(1)} ${f.b < 0 ? "−" : "+"}
+    ${f.n.toLocaleString()} priced ${esc(gname(group).toLowerCase())}s ${here()}, rating = ${f.a.toFixed(1)} ${f.b < 0 ? "−" : "+"}
     ${Math.abs(f.b).toFixed(1)} × log<sub>10</sub>(value in €), fitted by least squares (r² = ${f.r2.toFixed(2)}). +10 means ten
     points more than players at his price usually rate. Transfermarkt's values already price in age and reputation, so
     a high number reads "the market rates him below his output", not "cheap" - and veterans rise to the top because
@@ -1799,8 +2107,8 @@ function drawBoard(){
     const o = P[i], r = metric === VFM_KEY ? ratingOf(o) : null;
     return `<button type="button" class="row brd" data-s="${i}" data-tosim="1">
       <span class="rk">${n+1}</span>${avatar(o, "sm")}
-      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
-        o.a != null ? " · age " + o.a.toFixed(1) : ""} · ${r != null ? `rated ${Math.round(r)} at ${eur(o.v)}` : o.m.toLocaleString() + " min"}</span></span>
+      <span><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)}, ${esc(clubLine(o))}${
+        o.a != null ? ", age " + o.a.toFixed(1) : ""}, ${r != null ? `rated ${Math.round(r)} at ${eur(o.v)}` : o.m.toLocaleString() + " min"}</span></span>
       ${metric === RATING_KEY ? `<span></span><span>${chip(Math.round(v))}</span>`   // the rating, banded like the clubs table
         : `<span class="bval">${fmt(metric, v)}</span><span>${pct == null ? "" : chip(pct)}</span>`}</button>`;
   }).join("") + (rows.length > boardLimit
@@ -1830,7 +2138,7 @@ function exDefaults(group){
 function drawExplore(){
   exGroup = groupOptions($("xgroup"), exGroup || (P[subject] ? P[subject].g : null));
   const spec = G[exGroup];
-  if (!spec){ $("scatter").innerHTML = `<div class="empty">No position to plot this season.</div>`; return; }
+  if (!spec){ $("scatter").innerHTML = `<div class="empty">No position to plot ${here()}.</div>`; return; }
   const has = M.has || {};
   const known = k => k === RATING_KEY ? !!spec.rw : k === VALUE_KEY ? !!has.value : k === AGE_KEY ? !!has.age
     : k === VFM_KEY ? !!vfmFit(exGroup) : spec.d.includes(k);
@@ -1955,7 +2263,7 @@ function drawScatter(){
   const close = new Set(mine ? ranked().slice(0, 8).map(r => r[0]) : []);
   const starred = new Set(shown.filter(p => slIndex(dsKey, P[p[0]].id) >= 0).map(p => p[0]));
   const kind = i => i === subject ? "subj" : starred.has(i) ? "star" : close.has(i) ? "close" : "";
-  const tip = i => `${P[i].n} · ${P[i].t} — ${label(exX)} ${fmt(exX, raw(P[i], exX))}, ${label(exY)} ${fmt(exY, raw(P[i], exY))}`;
+  const tip = i => `${P[i].n}, ${P[i].t}: ${label(exX)} ${fmt(exX, raw(P[i], exX))}, ${label(exY)} ${fmt(exY, raw(P[i], exY))}`;
   const order = shown.slice().sort((a, b) => (kind(a[0]) ? 1 : 0) - (kind(b[0]) ? 1 : 0) || (a[0] === subject) - (b[0] === subject));
   let dots = "", labels = "";
   // Labels are placed in priority order (him, the selected dot, the shortlist,
@@ -2006,7 +2314,7 @@ function drawScatter(){
     + (trend ? `<span><i class="trend-key"></i>Rating his price predicts</span>` : "");
   const r = pearson(shown);
   $("ex-note").innerHTML = `Each dot is one ${esc(gname(exGroup).toLowerCase())} with ${F.mins.toLocaleString()}+ minutes`
-    + ` this season${activeFilterCount() ? " who clears the filters" : ""}; the dashed lines are the medians of all `
+    + ` ${here()}${activeFilterCount() ? " who clears the filters" : ""}; the dashed lines are the medians of all `
     + `${regs.length.toLocaleString()} regulars in the position. ${r != null ? `Across the dots shown the two ${logAxis(xi) || logAxis(yi) ? "axes" : "metrics"} correlate at r = ${r.toFixed(2)}. ` : ""}`
     + (trend ? `The solid line is the rating each price predicts, fitted over all ${fit.n.toLocaleString()} priced ${esc(gname(exGroup).toLowerCase())}s
       (r² = ${fit.r2.toFixed(2)}): a dot above it rates higher than players at his price usually do. The Rankings tab's
@@ -2024,8 +2332,8 @@ function drawExCard(){
   const sim = s && s.g === o.g && exSel !== subject && s.z.length && o.z.length ? pctSim(s.z, o.z, weightScale(o.g)) : null;
   const priced = (M.has || {}).value || (M.has || {}).price;
   $("ex-card").innerHTML = `<div class="excard">
-    <div><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)} · ${esc(o.t)} · ${esc(o.l)}${
-      o.a != null ? " · age " + o.a.toFixed(1) : ""} · ${o.m.toLocaleString()} min${priced ? " · " + worth(o) : ""}</span></div>
+    <div><span class="nm">${esc(o.n)}${smallTag(o)}</span><span class="mt">${esc(o.p)}, ${esc(clubLine(o))}${
+      o.a != null ? ", age " + o.a.toFixed(1) : ""}, ${o.m.toLocaleString()} min${priced ? ", " + worth(o) : ""}</span></div>
     <div class="exvals">${[exX, exY].map(k => `<span>${esc(label(k))} <b class="mono">${fmt(k, cell(k)[0])}</b> ${cell(k)[1] == null ? "" : chip(cell(k)[1])}</span>`).join("")}
       ${sim != null ? `<span><b class="mono">${sim.toFixed(1)}%</b> like ${esc(s.n)}</span>` : ""}</div>
     <div class="tools">${exSel !== subject ? `<button class="mini primary" type="button" data-s="${exSel}">Players like him</button>` : ""}
@@ -2085,7 +2393,7 @@ function drawClub(){
     <thead><tr><th>Player</th><th class="num">Age</th><th class="num">Min</th><th>Rating</th>
       ${priced ? `<th class="num">Value</th><th class="num" title="Rating minus the rating his price predicts">vs price</th>` : ""}<th></th></tr></thead>
     <tbody>${body}</tbody></table></div>` : `<div class="empty">Nobody from ${esc(clubName || "this club")} clears the season's minutes floor.</div>`;
-  $("club-note").innerHTML = `The pool is everyone with ${M.minMinutes.toLocaleString()}+ minutes this season${M.inProgress ? " so far" : ""}, so
+  $("club-note").innerHTML = `The pool is everyone with ${M.minMinutes.toLocaleString()}+ minutes ${here()}${M.inProgress ? " so far" : ""}, so
     squad players below that are not listed. <b>Rating</b> is against every player in his position across the source's leagues,
     not just this club. ${has.value ? `<b>vs price</b> is the Rankings tab's value for money: his rating minus what players at his
     price usually rate. ` : ""}A player who moved mid-season is listed at the club he played most for. Click a name for players like him.`;
@@ -2151,7 +2459,7 @@ function slTable(list, own){
   return `<div class="tablewrap"><table class="sltable"><thead><tr><th>Player</th><th>Season</th><th>Club</th>
     <th>Position</th><th class="num">Age</th><th class="num">Value</th><th class="num">Min</th>${own ? "<th>Note</th><th></th>" : ""}</tr></thead>
     <tbody>${list.map((e, n) => `<tr><td><button type="button" class="linkbtn" data-open="${own ? "o" : "s"}${n}">${esc(e.n)}</button></td>
-      <td style="white-space:nowrap">${esc(sourceName(e.k))}</td><td>${esc(e.t)} <span class="muted">· ${esc(e.l)}</span></td>
+      <td style="white-space:nowrap">${esc(sourceName(e.k))}</td><td>${esc(e.t)} <span class="muted">${esc(e.l)}</span></td>
       <td>${esc(e.p)}</td><td class="num">${e.a != null ? e.a.toFixed(1) : "—"}</td><td class="num">${worth(e)}</td>
       <td class="num">${(e.m || 0).toLocaleString()}</td>${own ? `<td><input type="text" class="slnote" data-note="${n}"
         value="${esc(e.note || "")}" placeholder="Add a note" maxlength="240" aria-label="Note on ${esc(e.n)}"></td>
@@ -2204,32 +2512,49 @@ async function openEntry(tag){
   window.scrollTo({top: 0, behavior: "smooth"});
 }
 
-// ---- modes, drawing, sharing ------------------------------------------------------
-// Four places to be: Discover (search, a player and his matches, the head to
-// head), Explore (rankings, charts, clubs, profile search), the Shortlist - and
-// Compare, which is the head to head inside Discover.
-const EXPLORE = ["board", "explore", "clubs", "search"];
-let lastExplore = "board";
+// ---- pages, drawing, sharing ------------------------------------------------------
+// Five places, one job each: Players (search, then one player's page), Compare
+// (two players, each over his own seasons), Rankings (leaderboard, chart, find
+// by profile), Clubs and the Shortlist.
+const RANKINGS = ["board", "explore", "search"];
+let lastRankings = "board";
+const NAV_OF = {home: "players", similar: "players", compare: "compare", board: "rankings", explore: "rankings",
+  search: "rankings", clubs: "clubs", shortlist: "shortlist"};
+const FILTERED = new Set(["similar", "board", "explore", "search"]);
 function setMode(m){
   const changed = mode !== m;
   mode = m;
-  if (EXPLORE.includes(m)) lastExplore = m;
-  const navOn = m === "similar" ? "tab-similar" : m === "shortlist" ? "tab-shortlist" : "nav-explore";
-  document.querySelectorAll(".nav-link").forEach(b => b.id === navOn ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  if (RANKINGS.includes(m)) lastRankings = m;
+  document.querySelectorAll(".nav-link[data-nav]").forEach(b => b.dataset.nav === NAV_OF[m]
+    ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   document.querySelectorAll(".subnav [data-mode]").forEach(b => b.setAttribute("aria-selected", b.dataset.mode === m));
   MODES.forEach(v => { $("view-" + v).hidden = v !== m; });
-  $("hero").hidden = $("discover").hidden = m !== "similar";
-  $("explore-head").hidden = !EXPLORE.includes(m);
-  $("shortlist-head").hidden = m !== "shortlist";
-  // The shortlist spans every source and season, so the season and its filters do not apply to it.
-  $("databar").hidden = m === "shortlist";
-  $("filters-wrap").hidden = m === "shortlist" || m === "clubs";
+  $("rank-head").hidden = !RANKINGS.includes(m);
+  // The shortlist spans every source and season, so the bar does not apply to it;
+  // on Compare each player carries his own seasons.
+  $("ctx").hidden = m === "shortlist";
+  $("ctx-seasons").hidden = m === "compare";
+  $("filters-btn").hidden = !FILTERED.has(m);
+  if (!FILTERED.has(m)) showFilters(false);
+  closeSeasons();
+  renderDatasetBar();
   if (changed){ const v = $("view-" + m); v.classList.remove("view-enter"); void v.offsetWidth; v.classList.add("view-enter"); }
   syncFilterInputs(); drawMode(); writeHash();
 }
+function setTab(t){
+  ptab = ["similar", "profile", "seasons"].includes(t) ? t : "similar";
+  document.querySelectorAll(".ptabs [data-ptab]").forEach(b => b.setAttribute("aria-selected", b.dataset.ptab === ptab));
+  ["similar", "profile", "seasons"].forEach(k => { $("ptab-" + k).hidden = k !== ptab; });
+}
 function drawMode(){
-  if (mode === "similar"){ drawSubject(); drawSW(); drawRadar(); drawWeights(); drawMatches(); drawCompare(); drawDiscover();
-    if (careerOpen) drawCareer(); }
+  if (mode === "home"){ drawQuick(); drawDiscover(); }
+  else if (mode === "similar"){
+    setTab(ptab); drawSubject();
+    if (ptab === "similar"){ drawWeights(); drawMatches(); }
+    else if (ptab === "profile") drawSW();
+    else drawCareer();
+  }
+  else if (mode === "compare"){ drawSlots(); drawRadar(); drawCompare(); }
   else if (mode === "search") drawSearch();
   else if (mode === "board"){ drawBoardControls(); drawBoard(); }
   else if (mode === "explore") drawExplore();
@@ -2241,18 +2566,27 @@ function refilter(){
   syncFilterInputs();
   listLimit = resLimit = boardLimit = 25;
   // An explicit comparison stays open even if the filters would now hide him.
-  if (mode === "similar") drawMatches(); else if (mode === "search") drawResults();
+  if (mode === "similar" && ptab === "similar") drawMatches(); else if (mode === "search") drawResults();
   else if (mode === "board") drawBoard(); else if (mode === "explore") drawScatter();
   writeHash();
+}
+function showFilters(open){
+  $("filters").hidden = !open;
+  $("filters-btn").setAttribute("aria-expanded", open);
+  if (open){ $("about-data").hidden = true; $("about-data-btn").setAttribute("aria-expanded", "false"); }
 }
 
 function writeHash(){
   if (!P) return;
   const p = P[subject], ref = matchRef();
-  const parts = ["d=" + encodeURIComponent(dsKey), "p=" + encodeURIComponent(p.n)];
-  if (ref) parts.push("m=" + encodeURIComponent(ref.p.n));
-  if (ref && ref.other) parts.push("ms=" + encodeURIComponent(seasonOf(ref.key)));
-  if (scope === "all") parts.push("sc=all");
+  const parts = ["d=" + encodeURIComponent(dsKey)];
+  if (mode !== "home") parts.push("p=" + encodeURIComponent(p.n));
+  if (mode === "compare" && ref){
+    parts.push("m=" + encodeURIComponent(ref.p.n));
+    if (ref.other) parts.push("ms=" + encodeURIComponent(seasonOf(ref.key)));
+  }
+  if (mode === "similar" && ptab !== "similar") parts.push("t=" + ptab);
+  if (scope === "all" && mode === "similar") parts.push("sc=all");
   if (mode !== "similar") parts.push("v=" + mode);
   if (!RW) parts.push("rw=0");
   if (mode === "explore" && exGroup) parts.push("ex=" + encodeURIComponent([exGroup, exX, exY, exScale, exColor].join("~")));
@@ -2339,18 +2673,19 @@ function otherSeasonHits(q, skipIds, limit){
     .map(r => ({r, key: sourceOf(dsKey) + ":" + A.seasons[r[4]], seasons: count.get(r[0])}));
 }
 function goCompare(){
-  if (mode !== "similar") setMode("similar");
-  requestAnimationFrame(() => ($("compare-panel").hidden ? $("matches") : $("compare-panel")).scrollIntoView({behavior: "smooth", block: "start"}));
+  setMode("compare");
+  window.scrollTo({top: 0, behavior: "smooth"});
+  if (!matchRef()) setTimeout(() => $("q2").focus({preventScroll: true}), 180);
 }
 function focusSearch(){
-  if (mode !== "similar") setMode("similar");
+  if (mode !== "home") setMode("home");
   window.scrollTo({top: 0, behavior: "smooth"});
   setTimeout(() => $("q").focus({preventScroll: true}), 180);
 }
-// After choosing a player, bring his panel into view - the search sits above it.
+// After choosing a player, open his page at the top.
 function showSubject(){
   if (mode !== "similar") setMode("similar");
-  requestAnimationFrame(() => document.querySelector("#view-similar .subject").scrollIntoView({behavior: "smooth", block: "start"}));
+  window.scrollTo({top: 0, behavior: "smooth"});
 }
 $("quick").addEventListener("click", e => {
   const b = e.target.closest("[data-quick]");
@@ -2373,34 +2708,42 @@ function listKeys(e, input, box, st){
   if (e.key === "Escape"){ box.hidden = true; input.setAttribute("aria-expanded", "false"); }
 }
 const pick1 = {active: -1}, pick2 = {active: -1};
-function drawPicker(){
-  const q = $("q").value.trim().toLowerCase();
-  pick1.active = -1; $("q").removeAttribute("aria-activedescendant");
-  if (q.length < 2){ $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false"); return; }
+// The player search: the main box on Players, and player A's on Compare. Same
+// results; picking one opens his page from the first and swaps player A in the second.
+const pickA = {active: -1};
+function drawPicker(inp = "q", box = "picker", st = pick1, tag = "s"){
+  const q = $(inp).value.trim().toLowerCase();
+  st.active = -1; $(inp).removeAttribute("aria-activedescendant");
+  if (q.length < 2){ $(box).hidden = true; $(inp).setAttribute("aria-expanded", "false"); return; }
   const hits = pickerHits(q, -1, 40);
-  const opt = (k, attrs, o, side) => pickRow(`opt-${k}`, attrs, o, side);
+  const opt = (k, attrs, o, side) => pickRow(`${box}-${k}`, attrs, o, side);
   const here = hits.map((i, k) => { const p = P[i];
-    return opt(k, `data-s="${i}"`, {n: p.n, g: p.g, sub: `${p.p} · ${p.t} · ${p.l}${p.sq ? ` · ${p.m.toLocaleString()} min, small sample` : ""}`}, worth(p) === "—" ? "" : worth(p)); }).join("");
-  // Few or no hits this season: look through every other season of the source too.
+    return opt(k, `data-${tag}="${i}"`, {n: p.n, g: p.g, sub: `${p.p}, ${clubLine(p)}${p.sq ? `, ${p.m.toLocaleString()} min (small sample)` : ""}`}, worth(p) === "—" ? "" : worth(p)); }).join("");
+  // Few or no hits in this selection: look through every other season of the source too.
   let there = "", waiting = false;
   if (hits.length < 8){
     const more = otherSeasonHits(q, new Set(hits.map(i => P[i].id)), 12);
     if (more === null){
       waiting = true;
-      getAll(sourceOf(dsKey)).then(() => { if ($("q").value.trim().toLowerCase() === q) drawPicker(); }).catch(() => {});
+      getAll(sourceOf(dsKey)).then(() => { if ($(inp).value.trim().toLowerCase() === q) drawPicker(inp, box, st, tag); }).catch(() => {});
     } else if (more.length){
       there = `<div class="psep">Other seasons</div>` + more.map(({r, key, seasons}, k) =>
-        opt(hits.length + k, `data-openseason="${esc(key)}|${esc(r[0])}"`, {n: r[1], g: r[5], sub: `${r[2]} · ${r[3]}${seasons > 1 ? ` · ${seasons} seasons here` : ""}`},
+        opt(hits.length + k, `data-${tag}season="${esc(key)}|${esc(r[0])}"`, {n: r[1], g: r[5], sub: `${r[2]}, ${r[3]}${seasons > 1 ? `, ${seasons} seasons here` : ""}`},
           seasonTag(key))).join("");
     }
   }
-  $("picker").hidden = false; $("q").setAttribute("aria-expanded", "true");
-  $("picker").innerHTML = (here ? `<div class="psep">${esc(seasonLabel(M.season))}</div>` + here : "") + there
-    || `<div class="empty">${waiting ? "Searching every season…" : `<b>No players match “${esc($("q").value.trim())}”</b>
-      Check the spelling, or try a club or a position - this searches ${esc(BUNDLE.catalog.find(c => c.key === sourceOf(dsKey)).name)}, every season.`}</div>`;
+  $(box).hidden = false; $(inp).setAttribute("aria-expanded", "true");
+  $(box).innerHTML = (here ? `<div class="psep">${esc(periodOf(dsKey))}</div>` + here : "") + there
+    || `<div class="empty">${waiting ? "Searching every season…" : `<b>No players match “${esc($(inp).value.trim())}”</b>
+      Check the spelling, or try a club or a position. This searches every season of ${esc(BUNDLE.catalog.find(c => c.key === sourceOf(dsKey)).name)}.`}</div>`;
 }
-let pickTimer;
-$("q").addEventListener("input", () => { clearTimeout(pickTimer); pickTimer = setTimeout(drawPicker, 90); });
+let pickTimer, pickATimer;
+$("qa").addEventListener("input", () => { clearTimeout(pickATimer); pickATimer = setTimeout(() => drawPicker("qa", "pickera", pickA, "sa"), 90); });
+$("qa").addEventListener("keydown", e => {
+  if (e.key === "Enter"){ clearTimeout(pickATimer); if ($("pickera").hidden) drawPicker("qa", "pickera", pickA, "sa"); }
+  listKeys(e, $("qa"), $("pickera"), pickA);
+});
+$("q").addEventListener("input", () => { clearTimeout(pickTimer); pickTimer = setTimeout(() => drawPicker(), 90); });
 // "/" jumps to the search box from anywhere on the page, as on most search-led sites.
 addEventListener("keydown", e => {
   if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -2441,19 +2784,19 @@ function drawPicker2(){
   pick2.active = -1; $("q2").removeAttribute("aria-activedescendant");
   if (q.length < 2){ $("picker2").hidden = true; $("q2").setAttribute("aria-expanded", "false"); return; }
   const s = P[subject], src = sourceOf(dsKey), A = ALL[src];
-  const other = g => g === s.g ? "" : " · other position";
+  const other = g => g === s.g ? "" : ", another position";
   let k = 0;
   const here = pickerHits(q, subject, 15).map(i => { const o = P[i];
     const sim = o.g === s.g && s.z.length && o.z.length ? pctSim(s.z, o.z, weightScale(o.g)).toFixed(1) + "%" : "";
-    return pickRow(`opt2-${k++}`, `data-m2="${i}"`, {n: o.n, g: o.g, sub: `${o.p} · ${o.t}${other(o.g)}`},
+    return pickRow(`opt2-${k++}`, `data-m2="${i}"`, {n: o.n, g: o.g, sub: `${o.p}, ${clubLine(o)}${other(o.g)}`},
       sim ? `<b class="psim">${sim}</b><span class="mt">similar</span>` : ""); }).join("");
   // Every other season of this source, once its index has loaded.
   const hits = indexHits(q);
   const there = (hits || []).map(h => h[1]).filter(r => src + ":" + A.seasons[r[4]] !== dsKey).slice(0, 25)
     .map(r => { const key = src + ":" + A.seasons[r[4]];
-      return pickRow(`opt2-${k++}`, `data-xm="${esc(key)}|${esc(r[0])}"`, {n: r[1], g: r[5], sub: `${r[2]} · ${r[3]}${other(r[5])}`}, seasonTag(key)); }).join("");
+      return pickRow(`opt2-${k++}`, `data-xm="${esc(key)}|${esc(r[0])}"`, {n: r[1], g: r[5], sub: `${r[2]}, ${r[3]}${other(r[5])}`}, seasonTag(key)); }).join("");
   $("picker2").hidden = false; $("q2").setAttribute("aria-expanded", "true");
-  $("picker2").innerHTML = (here ? `<div class="psep">${esc(seasonLabel(M.season))}</div>` + here : "")
+  $("picker2").innerHTML = (here ? `<div class="psep">${esc(periodOf(dsKey))}</div>` + here : "")
     + (there ? `<div class="psep">Other seasons</div>` + there : "")
     || `<div class="empty">${hits === null ? "Searching every season…" : `<b>No players match “${esc(q)}”</b>Check the spelling, or try a club.`}</div>`;
 }
@@ -2471,40 +2814,65 @@ $("q2").addEventListener("keydown", e => {
 // ---- events ------------------------------------------------------------------------
 document.addEventListener("click", e => {
   const t = e.target;
-  const src = t.closest("[data-src]");
-  if (src){
-    const cat = BUNDLE.catalog.find(c => c.key === src.dataset.src);
-    const want = cat.seasons.find(s => s.season === seasonOf(dsKey)) || cat.seasons[cat.seasons.length - 1];
-    loadDataset(cat.key + ":" + want.season); return;
-  }
-  const tab = t.closest(".nav-link[data-mode], .subnav [data-mode]");
-  if (tab){ setMode(tab.dataset.mode); if (tab.classList.contains("nav-link")) window.scrollTo({top: 0, behavior: "smooth"}); return; }
-  if (t.closest("#nav-explore")){ setMode(lastExplore); window.scrollTo({top: 0, behavior: "smooth"}); return; }
-  if (t.closest("#nav-compare")){ goCompare(); return; }
+  // ---- getting around
+  const nav = t.closest(".nav-link[data-nav]");
+  if (nav){ const n = nav.dataset.nav;
+    if (n === "players") setMode(chosen ? "similar" : "home");
+    else if (n === "rankings") setMode(lastRankings);
+    else setMode(n);
+    window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  const tab = t.closest(".subnav [data-mode]");
+  if (tab){ setMode(tab.dataset.mode); return; }
+  const pt = t.closest(".ptabs [data-ptab]");
+  if (pt){ setTab(pt.dataset.ptab); drawMode(); writeHash(); return; }
+  const way = t.closest("[data-way]");
+  if (way){ const w = way.dataset.way;
+    if (w === "search"){ $("q").focus(); return; }
+    setMode(w === "compare" ? "compare" : lastRankings); window.scrollTo({top: 0, behavior: "smooth"}); return; }
   if (t.closest("#nav-search")){ focusSearch(); return; }
-  if (t.closest("#brand")){ e.preventDefault(); setMode("similar"); window.scrollTo({top: 0, behavior: "smooth"}); return; }
-  if (t.closest("#view-all")){ $("stats").scrollIntoView({behavior: "smooth", block: "start"}); return; }
+  if (t.closest("#brand")){ e.preventDefault(); setMode("home"); window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  if (t.closest("#cmp-btn")){ goCompare(); return; }
+  if (t.closest("#cmp-back")){ setMode("similar"); window.scrollTo({top: 0, behavior: "smooth"}); return; }
+  // ---- the bar: seasons, filters, about this data
+  if (t.closest("#seasons-btn")){ $("seasons-pop").hidden ? openSeasons("a", t.closest("#seasons-btn")) : closeSeasons(); return; }
+  const sb = t.closest("[data-seasons]");
+  if (sb){ $("seasons-pop").hidden || seasonsFor !== sb.dataset.seasons ? openSeasons(sb.dataset.seasons, sb) : closeSeasons(); return; }
+  const pre = t.closest("[data-preset]");
+  if (pre){ const want = new Set(pre.dataset.preset.split("+"));
+    $("season-list").querySelectorAll("input").forEach(i => { i.checked = want.has(i.value); }); syncSeasonsApply(); return; }
+  if (t.closest("#seasons-apply")){ applySeasons(); return; }
+  if (t.closest("#seasons-cancel")){ closeSeasons(); return; }
+  if (!$("seasons-pop").hidden && !t.closest("#seasons-pop")) closeSeasons();
+  if (t.closest("#filters-btn")){ showFilters($("filters").hidden); return; }
+  if (t.closest("#fdone")){ showFilters(false); return; }
+  if (t.closest("#about-data-btn")){ const open = $("about-data").hidden; $("about-data").hidden = !open;
+    $("about-data-btn").setAttribute("aria-expanded", open); if (open) showFilters(false); return; }
+  // ---- jumping to data
   const jump = t.closest("[data-jump]");
   if (jump){ e.preventDefault(); $("mfilter").value = ""; filterMetrics(); const row = $("m-" + jump.dataset.jump);
     if (row){ row.scrollIntoView({behavior: "smooth", block: "center"}); row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
     return; }
   const gs = t.closest("[data-goseason]");
-  if (gs){ loadDataset(gs.dataset.goseason); return; }
+  if (gs){ loadDataset(gs.dataset.goseason, gs.dataset.goid ? {id: gs.dataset.goid} : {}); return; }
   const gd = t.closest("[data-godisc]");
   if (gd){ openDiscovery(gd.dataset.godisc); return; }
-  const os = t.closest("[data-openseason]");
-  if (os){ const [key, id] = os.dataset.openseason.split("|"); $("q").value = ""; $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false");
-    if (mode !== "similar") setMode("similar");
+  const os = t.closest("[data-sseason]") || t.closest("[data-openseason]");
+  if (os){ const [key, id] = (os.dataset.sseason || os.dataset.openseason).split("|");
+    $("q").value = ""; $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false");
+    chosen = true; if (mode !== "similar") setMode("similar");
     loadDataset(key, {id}).then(showSubject); return; }
+  const oa = t.closest("[data-saseason]");
+  if (oa){ const [key, id] = oa.dataset.saseason.split("|"), ref = matchRef();
+    $("qa").value = ""; $("pickera").hidden = true;
+    loadDataset(key, {id, keepB: ref ? {key: ref.key, id: ref.p.id} : null}); return; }
+  const sa = t.closest("[data-sa]");
+  if (sa){ $("qa").value = ""; $("pickera").hidden = true;
+    selectSubject(+sa.dataset.sa, {keepMatch: true});
+    if (match === subject){ match = null; drawAll(); }
+    return; }
   if (t.closest("#cardbtn")){ openCard(); return; }
-  if (t.closest("#hc-all")){ if (mode !== "similar") setMode("similar");
-    $("matches").closest("section").scrollIntoView({behavior: "smooth", block: "start"}); return; }
   const lg = t.closest("[data-lg]");
   if (lg){ const l = lg.dataset.lg; F.lgs.has(l) ? F.lgs.delete(l) : F.lgs.add(l); refilter(); return; }
-  const go = t.closest("[data-goseason]");
-  if (go){ loadDataset(sourceOf(dsKey) + ":" + go.dataset.goseason, {id: P[subject].id}); return; }
-  if (t.closest("#career-btn")){ careerOpen = true; drawCareer().then(() => $("career-panel").scrollIntoView({block: "nearest", behavior: "smooth"})); return; }
-  if (t.closest("#career-close")){ careerOpen = false; $("career-panel").hidden = true; return; }
   const more = t.closest("[data-more]");
   if (more){ const k = more.dataset.more;
     if (k === "list"){ listLimit += 25; drawMatches(); } else if (k === "res"){ resLimit += 25; drawResults(); }
@@ -2512,8 +2880,7 @@ document.addEventListener("click", e => {
   const star = t.closest("[data-star]");
   if (star){ toggleStar(+star.dataset.star); return; }
   const cmp = t.closest("[data-cmp]");
-  if (cmp){ match = +cmp.dataset.cmp; setMode("similar");
-    requestAnimationFrame(() => $("compare-panel").scrollIntoView({block: "start", behavior: "smooth"})); return; }
+  if (cmp){ match = +cmp.dataset.cmp; xm = null; setMode("compare"); window.scrollTo({top: 0, behavior: "smooth"}); return; }
   const open = t.closest("[data-open]");
   if (open){ openEntry(open.dataset.open); return; }
   const sld = t.closest("[data-sldel]");
@@ -2526,25 +2893,24 @@ document.addEventListener("click", e => {
   if (xs){ exScale = xs.dataset.scale;
     document.querySelectorAll("#xscale button").forEach(b => b.classList.toggle("on", b === xs));
     drawScatter(); writeHash(); return; }
+  // ---- picking players
   const pick = t.closest("[data-s]");
   if (pick){ const i = +pick.dataset.s;
+    chosen = true;
     if (mode !== "similar") setMode("similar");
     selectSubject(i); showSubject(); return; }
   const xrow = t.closest("[data-xm]");
   if (xrow){ const [key, id] = xrow.dataset.xm.split("|"); $("q2").value = ""; $("picker2").hidden = true;
-    setCrossMatch(key, id); return; }
+    setCrossMatch(key, id).then(() => window.scrollTo({top: 0, behavior: "smooth"})); return; }
   const xstar = t.closest("[data-xstar]");
   if (xstar){ const [key, id] = xstar.dataset.xstar.split("|"), d = CACHE[key], q = d && d.players.find(x => x.id === id);
     if (q) toggleStarFor(key, q); return; }
   const sc = t.closest("#scope [data-scope]");
   if (sc){ scope = sc.dataset.scope; listLimit = 25; drawMatches(); writeHash(); return; }
   const m2 = t.closest("[data-m2]");
-  if (m2){ match = +m2.dataset.m2; xm = null; $("q2").value = ""; $("picker2").hidden = true;
-    drawMatches(); drawRadar(); drawCompare(); writeHash(); return; }
+  if (m2){ match = +m2.dataset.m2; xm = null; $("q2").value = ""; $("picker2").hidden = true; drawAll(); return; }
   const m = t.closest("[data-m]");
-  if (m){ match = +m.dataset.m; xm = null; if (mode !== "similar") setMode("similar");
-    drawMatches(); drawRadar(); drawCompare(); writeHash();
-    $("compare-panel").scrollIntoView({block: "nearest", behavior: "smooth"}); return; }
+  if (m){ match = +m.dataset.m; xm = null; setMode("compare"); window.scrollTo({top: 0, behavior: "smooth"}); return; }
   const ls = t.closest("#listsort [data-sort]");
   if (ls){ listSort = ls.dataset.sort; listLimit = 25;
     document.querySelectorAll("#listsort button").forEach(b => b.classList.toggle("on", b === ls));
@@ -2555,10 +2921,18 @@ document.addEventListener("click", e => {
     drawCompare(); return; }
   const del = t.closest("[data-critdel]");
   if (del){ criteria.splice(+del.dataset.critdel, 1); drawSearch(); return; }
-  if (!t.closest(".pick")){ $("picker").hidden = true; $("picker2").hidden = true; }
+  if (!t.closest(".pick")){ $("picker").hidden = true; $("picker2").hidden = true; $("pickera").hidden = true; }
 });
-
-$("season").addEventListener("change", e => loadDataset(sourceOf(dsKey) + ":" + e.target.value));
+$("season-list").addEventListener("change", syncSeasonsApply);
+$("seasons-pop").addEventListener("keydown", e => { if (e.key === "Escape"){ closeSeasons(); $("seasons-btn").focus(); } });
+$("src").addEventListener("change", e => {
+  const cat = BUNDLE.catalog.find(c => c.key === e.target.value);
+  // Keep the same seasons where the new source has them, else its latest complete one.
+  const have = seasonsIn(dsKey).filter(x => cat.seasons.some(s => s.season === x));
+  const done = cat.seasons.filter(s => !s.inProgress);
+  const want = have.length ? have : [(done[done.length - 1] || cat.seasons[cat.seasons.length - 1]).season];
+  loadDataset(keyFor(cat.key, want));
+});
 $("side").addEventListener("change", e => { F.side = e.target.value; refilter(); });
 $("foot").addEventListener("change", e => { F.foot = e.target.value; refilter(); });
 $("amin").addEventListener("input", e => { F.amin = Math.min(+e.target.value, F.amax); refilter(); });
@@ -2619,8 +2993,8 @@ $("copycsv").addEventListener("click", e => {
   const all = scope === "all" && ALL[sourceOf(dsKey)];
   const list = all ? sortedMatches(rankedAll().map(x => [x, x.sim])) : sortedMatches(ranked());
   const rows = list.slice(0, listLimit).map(([r, sc], n) => {
-    const o = all ? r.o : P[r], season = all ? ALL[sourceOf(dsKey)].seasons[r.si] : M.season;
-    return [n + 1, o.n, seasonLabel(season), o.p ?? "", o.t, o.l, o.a ?? "", o.v ?? o.pr ?? "", o.m, sc.toFixed(1)]; });
+    const o = all ? r.o : P[r], season = all ? ALL[sourceOf(dsKey)].seasons[r.si] : seasonsIn(dsKey).join("+");
+    return [n + 1, o.n, periodLabel(season.split("+"), sourceOf(dsKey)), o.p ?? "", o.t, o.l, o.a ?? "", o.v ?? o.pr ?? "", o.m, sc.toFixed(1)]; });
   copyText(csv([["rank","player","season","position","club","league","age","value","minutes","similarity_pct"], ...rows]),
     e.target, `Copied ${rows.length} rows`);
 });
@@ -2707,7 +3081,7 @@ async function drawCard(){
   x.beginPath(); x.arc(600, 315, 92, 0, Math.PI * 2); x.stroke();
   // Left: who he is, his rating, his price.
   spaced(true); x.fillStyle = ACC; x.font = SANS(600, 16);
-  x.fillText(`WHO PLAYS LIKE HIM · ${seasonLabel(M.season)}${M.inProgress ? " SO FAR" : ""}`, 64, 80); spaced(false);
+  x.fillText(`WHO PLAYS LIKE HIM, ${periodOf(dsKey).toUpperCase()}${M.inProgress ? " SO FAR" : ""}`, 64, 80); spaced(false);
   let size = fitText(x, p.n, n => SAIRA(700, n), 84, 540, 44);
   x.fillStyle = INK; x.font = SAIRA(700, size); x.fillText(p.n, 64, 80 + size * 1.02);
   let y = 80 + size * 1.02 + 44;
@@ -2754,10 +3128,10 @@ async function openCard(){
   const c = await drawCard();
   const blob = await new Promise(res => c.toBlob(res, "image/png"));
   const slug = p.n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase();
-  const name = `who-plays-like-${slug}-${M.season}.png`;
+  const name = `who-plays-like-${slug}-${seasonsIn(dsKey).join("_")}.png`;
   if ($("card-img").src.startsWith("blob:")) URL.revokeObjectURL($("card-img").src);
   const url = URL.createObjectURL(blob);
-  $("card-img").src = url; $("card-img").alt = `${p.n}: rating and closest statistical matches, ${seasonLabel(M.season)}`;
+  $("card-img").src = url; $("card-img").alt = `${p.n}: rating and closest statistical matches, ${periodOf(dsKey)}`;
   $("card-dl").href = url; $("card-dl").download = name;
   cardFile = new File([blob], name, {type: "image/png"});
   $("card-share").hidden = !(navigator.canShare && navigator.canShare({files: [cardFile]}));
@@ -2824,22 +3198,24 @@ $("theme").addEventListener("click", () => {
 let savedTheme = null;
 try { savedTheme = localStorage.getItem("scout-theme"); } catch {}
 applyTheme(savedTheme);
-if (matchMedia("(max-width: 980px)").matches) $("filters-box").open = false;
 
 // ---- first visit ----------------------------------------------------------------------------
 (() => {
   if (matchMedia("(max-width: 600px)").matches) $("q").placeholder = "Player, club or position…";
   const seasons = BUNDLE.catalog.reduce((t, c) => t + c.seasons.length, 0);
   const total = BUNDLE.catalog.reduce((t, c) => t + c.seasons.reduce((u, x) => u + x.players, 0), 0);
-  $("hero-facts").innerHTML = `<b>${total.toLocaleString()}</b> player-seasons · <b>${seasons}</b> seasons from ${BUNDLE.catalog.length} sources · `
-    + `free, no sign-in · refreshed daily`;
+  $("hero-facts").innerHTML = `<b>${total.toLocaleString()}</b> player-seasons in <b>${seasons}</b> seasons from ${BUNDLE.catalog.length} sources. `
+    + `Free, no sign-in, refreshed daily.`;
 })();
 
 // ---- start ------------------------------------------------------------------------------
 // A link opens the view it describes - on first load, and when one is pasted
 // into a tab that is already open (the page's own replaceState fires no event).
 async function applyHash(asked){
-  mode = asked.v && MODES.includes(asked.v) ? asked.v : "similar";
+  // A link with a player and no page is an older shared link: it opens his page.
+  mode = asked.v && MODES.includes(asked.v) ? asked.v : asked.p ? "similar" : "home";
+  if (asked.p) chosen = true;
+  ptab = ["profile", "seasons"].includes(asked.t) ? asked.t : "similar";
   RW = asked.rw !== "0";
   if (asked.sl){ const items = parseShared(asked.sl); if (items.length){ SHARED = {items, resolved: null}; mode = "shortlist"; } }
   const key = asked.d && entryFor(asked.d) ? asked.d : (dsKey || BUNDLE.default);
@@ -2848,10 +3224,10 @@ async function applyHash(asked){
   await loadDataset(key, {name: asked.p, match: otherSeason ? null : asked.m});
   if (!P){ await loadDataset(BUNDLE.default); }
   if (otherSeason && asked.m){
-    // A comparison across seasons: load his season and find him by name there.
+    // Player B over other seasons: load them and find him by name there.
     try {
       const k2 = sourceOf(dsKey) + ":" + asked.ms, d = await getDataset(k2);
-      const i = d.players.findIndex(x => x.n.toLowerCase() === asked.m.toLowerCase());
+      const i = d.players.findIndex(x => plain(x.n) === plain(asked.m));
       if (i >= 0){ xm = {key: k2, i}; match = null; }
     } catch {}
   }

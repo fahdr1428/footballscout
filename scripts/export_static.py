@@ -261,6 +261,10 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
         default = DEFAULT_WEIGHTS.get(group, {})
         groups[group] = {
             "f": list(model.features), "d": display, "c": names, "w": membership,
+            # The same for every displayed metric: a category score is the mean
+            # percentile of the displayed metrics in its basket, so a page that
+            # combines seasons and re-ranks them can rebuild it exactly.
+            "dw": [[i for i, c in enumerate(names) if metric in basket[c]] for metric in display],
             "rw": [int(default.get(c, 0)) for c in names],
             "r": [round(float(w), 3) for w in weights],
             "rr": [model.reliability.get(f) for f in model.features],
@@ -371,6 +375,8 @@ def _prune_empty_metrics(groups: dict, players: list) -> None:
         if len(keep) == len(spec["d"]):
             continue
         spec["d"] = [spec["d"][i] for i in keep]
+        # The category membership of each displayed metric goes with it.
+        spec["dw"] = [spec["dw"][i] for i in keep]
         for player in members:
             player["d"] = [player["d"][i] for i in keep if i < len(player["d"])]
 

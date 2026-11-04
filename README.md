@@ -48,7 +48,9 @@ seasons you are looking at:
     each row with **the category he is closest on**, **reweighted by the categories you care
     about**, over the same seasons or against any single season; and **Like him, for less**, his
     closest matches at half his price or less and three or more years younger.
-  - **Profile** — his rating with its breakdown, and where he stands out and falls short.
+  - **Profile** — his facts (nationality, appearances and starts, contract on the newest season,
+    how young he is for his position), his rating with its breakdown, where he stands out and falls
+    short, and his **stat sheet** (below).
   - **Seasons** — his rating and category scores season by season, each against that season's
     players, with any season one click away.
 - **Compare** — two players side by side, **each over his own seasons**: one season, a different
@@ -74,6 +76,30 @@ rating are worked out again against everyone over the same seasons with 900+ min
 browser check confirms it on every build — minutes equal the sum of the seasons, per-90 figures the
 weighted mean, percentiles the average rank — and an independent re-implementation agreed on all
 46,113 values for 2023/24 to 2025/26.
+
+**The stat sheet.** Every number the source records for a player, in plain categories —
+attacking, playmaking, passing and possession, dribbling and carrying, defending, goalkeeping,
+distribution, physical and availability, discipline — **ordered for his position**: a keeper's
+sheet opens on goalkeeping (goals prevented and save percentage first) and distribution and never
+shows a tackle; a centre-back's on defending; a winger's on dribbling; a striker's on attacking.
+Four headline numbers for the position sit above it. Each row is a rate or percentage worked out
+from the source's own counts, with a line on what it tells a scout and his **percentile against
+every regular in his position, or only those in his own league** (one click; both ranked in the
+export at full precision by the same average-rank rule, flipped where lower is better). A
+category's percentile is the plain average of the percentiles listed under it, with team readings —
+goals conceded, shots a keeper faces — shown, tagged and left out. Big five, in depth carries up to
+78 metrics a position (70 from 2022/23, when the pressure and shot-creation columns stop, and 33 in
+2024/25, which has no defending or dribbling columns), including progressive passes, carries and
+receptions, passes into the final third and box, switches, through balls, pass accuracy by length,
+tackles by third, dribblers stopped, ball recoveries, errors, possession-adjusted tackles and
+interceptions, and keepers' PSxG, crosses claimed, sweeping and launches. Seasons taken together
+show what every one of them records, and the page names any season that leaves a category out. What no open dataset records is said on the page rather
+than estimated: top speed, distance covered, sprints and accelerations (tracking data), big chances
+missed and off-ball runs; a source that records less (Top leagues has shots and chances, not
+tackles) names the categories it lacks and links the same player where more of his game is
+recorded. Compare groups every metric by the same categories, and the Rankings metric list does too.
+
+![A keeper's stat sheet: goals prevented, save percentage and distribution first](assets/screenshot-stat-sheet.png)
 
 Jargon has a plain-English explanation on hover, focus or tap and a glossary under **How it
 works**, and every calculation has a "how is this worked out?" note one tap away rather than in the way.
@@ -971,6 +997,8 @@ That means:
   with the standardised gap on each metric;
 - read each player's **rating** with its breakdown, his price as each season closed and his latest
   one, and rank, search or plot on the rating like any metric;
+- read his **stat sheet**: every recorded metric in categories ordered for his position, each with
+  its percentile against his position or against his position in his own league;
 - follow a player across every season he appears in, with his category percentiles season by season;
 - search by profile, rank a position on any metric, or plot it on any two;
 - keep a shortlist with notes across sources and seasons, in the browser's own storage, and share

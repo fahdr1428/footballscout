@@ -94,6 +94,33 @@ COMBINED = """async name => {
 }"""
 
 
+# The stat sheet: the position's categories in its own order, every figure on
+# it the player's own, each category's number the average of the percentiles
+# listed under it, and - against his league - a higher figure never ranked
+# below a lower one.
+SHEET = """() => {
+  const p = P[subject], spec = G[p.g], out = [];
+  if (!spec || !spec.s) return ['no stat sheet'];
+  const cats = [...document.querySelectorAll('#sheet .sheet-cat h3')].map(h => h.textContent);
+  if (cats.join('|') !== spec.s.map(x => x[0]).join('|')) out.push(`categories ${cats.join(', ')}`);
+  for (const sec of document.querySelectorAll('#sheet .sheet-cat')){
+    const nums = [...sec.querySelectorAll('.sr')].filter(r => !r.querySelector('.tag[data-tip^="Reads his team"]'))
+      .map(r => r.querySelector('.sr-p').textContent).filter(t => t !== '—').map(Number);
+    const fig = sec.querySelector('.sc-pct b').textContent;
+    if (nums.length && Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) !== Number(fig))
+      out.push(`${sec.querySelector('h3').textContent}: ${fig} is not the average of ${nums.join(', ')}`);
+  }
+  const league = sheetPeers === 'league', peers = P.filter(o => o.g === p.g && !o.sq && (!league || o.l === p.l));
+  for (const k of spec.s.flatMap(x => x[1])){
+    const j = spec.d.indexOf(k), at = league ? 2 : 1;
+    const xs = peers.map(o => o.d[j]).filter(x => x && x[0] != null && x[at] != null).sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < xs.length; i++) if (xs[i][0] > xs[i - 1][0] && (LOWER.has(k) ? xs[i][at] > xs[i - 1][at] : xs[i][at] < xs[i - 1][at])){
+      out.push(`${k}: a higher figure ranks lower`); break; }
+  }
+  return out;
+}"""
+
+
 def main() -> int:
     from playwright.sync_api import sync_playwright
 
@@ -189,6 +216,36 @@ def main() -> int:
         check(page.locator("#alt .row").count() > 0, "cheaper and younger alternatives")
         page.click("#pt-profile"); page.wait_for_timeout(300)
         check(page.locator("#rating .attr").count() > 0 and page.locator("#sw .swr").count() > 0, "profile: rating and strengths")
+        # the stat sheet, for a winger, a centre-back and a keeper, against all of them and his league
+        fbref = [s for k, s in catalog if k == "fbref_big5"]
+        if fbref:
+            season = "2023-24" if "2023-24" in fbref[0] else fbref[0][-1]
+            for who, first in (("Bukayo Saka", "Dribbling and carrying"), ("William Saliba", "Defending"),
+                               ("David Raya", "Goalkeeping")):
+                open_(f"#d=fbref_big5:{season}&t=profile&p={who}")
+                if page.evaluate("P[subject].n") != who:
+                    check(False, f"stat sheet: {who} not in Big five {season}")
+                    continue
+                heads = page.locator("#sheet .sheet-cat h3")
+                check(heads.count() >= 4 and heads.first.inner_text() == first,
+                      f"stat sheet: {who} opens on {heads.first.inner_text() if heads.count() else 'nothing'}")
+                check(page.locator("#sheet-key .sk").count() >= 3, f"stat sheet: {who}'s headline numbers")
+                wrong = page.evaluate(SHEET)
+                check(not wrong, f"stat sheet: {who} against all: " + ("consistent" if not wrong else "; ".join(wrong[:3])))
+                before = page.locator("#sheet .sr-p").all_inner_texts()
+                page.click('#sheet-peers [data-peers="league"]'); page.wait_for_timeout(200)
+                wrong = page.evaluate(SHEET)
+                league = page.evaluate("P[subject].l")
+                check(league in page.locator("#sheet-sub").inner_text() and before != page.locator("#sheet .sr-p").all_inner_texts()
+                      and not wrong, f"stat sheet: {who} against his league: " + ("consistent" if not wrong else "; ".join(wrong[:3])))
+                page.click('#sheet-peers [data-peers="all"]'); page.wait_for_timeout(100)
+            # keepers lead on goals prevented and save percentage
+            check(page.locator("#sheet-key .sk-n").first.inner_text().startswith("Goals prevented"), "stat sheet: a keeper's first number is goals prevented")
+        go("board")
+        # the rankings list follows the same categories
+        groups = page.locator("#bmetric optgroup")
+        check(groups.count() >= 3, f"rankings: metrics grouped by category ({groups.count()} groups)")
+        open_("#v=similar")
         page.click("#pt-similar"); page.wait_for_timeout(200)
         # a match opens Compare, with the player and him side by side
         page.locator("#matches .row[data-m]").first.click(); page.wait_for_timeout(600)

@@ -208,6 +208,10 @@ def load_profiles(cache: Path, progress=print) -> pd.DataFrame:
             "nationality": d.get("country_of_citizenship"),
             "tm_bucket": d.get("position"),
             "tm_detail": d.get("sub_position"),
+            # The contract Transfermarkt lists today - a fact about now, not
+            # about any past season, and labelled that way wherever it is shown.
+            "contract_expiry": pd.to_datetime(d.get("contract_expiration_date"), errors="coerce").dt.strftime("%Y-%m-%d")
+            if "contract_expiration_date" in d.columns else None,
         }))
     try:
         s = pd.read_csv(_download(SALIMT_PROFILES, cache, "tm_player_profiles.csv"),
@@ -231,7 +235,7 @@ def load_profiles(cache: Path, progress=print) -> pd.DataFrame:
         progress(f"  salimt profiles unavailable: {error}")
     if not frames:
         return pd.DataFrame(columns=["tm_id", "tm_name", "date_of_birth", "height_cm",
-                                     "foot", "nationality", "tm_bucket", "tm_detail"])
+                                     "foot", "nationality", "tm_bucket", "tm_detail", "contract_expiry"])
     profiles = pd.concat(frames, ignore_index=True).dropna(subset=["tm_id"])
     profiles["tm_id"] = profiles["tm_id"].astype("int64")
     profiles["foot"] = profiles["foot"].astype(str).str.lower().replace(

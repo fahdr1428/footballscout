@@ -164,6 +164,17 @@ def add_derived_metrics(df: pd.DataFrame) -> pd.DataFrame:
         df["goal_involvements_per90"] = (df["goals_per90"] + df["assists_per90"]).round(3)
     if {"xg_per90", "xa_per90"}.issubset(df.columns):
         df["xgi_per90"] = (df["xg_per90"] + df["xa_per90"]).round(3)
+    # Open-play output, and how far it runs above what the chances were worth:
+    # non-penalty goals plus assists, against non-penalty xG plus xA.
+    if {"np_goals", "assists"}.issubset(df.columns):
+        df["np_goal_contributions_per90"] = ((df["np_goals"] + df["assists"]) / exposure).round(3)
+        if {"npxg", "xa"}.issubset(df.columns):
+            df["contributions_above_expected_per90"] = (
+                (df["np_goals"] + df["assists"] - df["npxg"] - df["xa"]) / exposure).round(3)
+    # Ball security: every time he loses it on his own - a heavy touch or a tackle.
+    if {"miscontrols", "dispossessed"}.issubset(df.columns):
+        df["possession_lost_per90"] = (
+            df[["miscontrols", "dispossessed"]].sum(axis=1, min_count=2) / exposure).round(3)
 
     # Positional signature. A player's zone shares say where he plays, which is
     # what separates two centre-backs with identical tackle counts - one winning
@@ -261,6 +272,9 @@ def metrics_for_percentiles(position_group: str, available: list[str]) -> list[s
         "ball_recoveries_per90", "interceptions_per90", "tackles_per90",
     ]
     wanted.update(extra)
+    # Everything the stat sheet shows for the position, so each has a percentile.
+    from .stat_sheet import metrics_for
+    wanted.update(metrics_for(position_group))
     return sorted(w for w in wanted if w in set(available))
 
 
@@ -279,14 +293,14 @@ def compute_percentiles(
     so that 99 always means "one of the best in this position".
     """
     metrics = [m for m in metrics if m in pool.columns]
-    out = pd.DataFrame(index=pool.index)
+    columns: dict[str, pd.Series] = {}
     grouped = pool.groupby(group_col, observed=True)
     for metric in metrics:
         ranks = grouped[metric].rank(pct=True, na_option="keep") * 100
         if metric in LOWER_IS_BETTER:
             ranks = 100 - ranks
-        out[f"pct_{metric}"] = ranks.round(1)
-    return out
+        columns[f"pct_{metric}"] = ranks.round(1)
+    return pd.DataFrame(columns, index=pool.index)
 
 
 def category_scores(

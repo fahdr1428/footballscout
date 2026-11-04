@@ -338,6 +338,7 @@ LOWER_IS_BETTER = {
     "pens_taken_per90",
     "offsides_per90",
     "pens_conceded_per90",
+    "possession_lost_per90",
 }
 
 # Counting stats that should never be turned into a per-90 rate.
@@ -356,6 +357,20 @@ for _stat, _label in COUNTING_STATS.items():
 for _key, (_n, _d, _m, _label) in RATIO_METRICS.items():
     METRIC_LABELS[_key] = _label
 METRIC_LABELS.update(DERIVED_METRICS)
+METRIC_LABELS.update({
+    "np_goal_contributions_per90": "Non-penalty goals + assists per 90",
+    "contributions_above_expected_per90": "Goals + assists above expected per 90",
+    "possession_lost_per90": "Possession lost (miscontrols + dispossessed) per 90",
+    "padj_tackles_per90": "Possession-adjusted tackles per 90",
+    "padj_interceptions_per90": "Possession-adjusted interceptions per 90",
+    "padj_blocks_per90": "Possession-adjusted blocks per 90",
+    "padj_clearances_per90": "Possession-adjusted clearances per 90",
+    "padj_ball_recoveries_per90": "Possession-adjusted ball recoveries per 90",
+    "padj_pressures_per90": "Possession-adjusted pressures per 90",
+    "padj_defensive_actions_per90": "Possession-adjusted defensive actions per 90",
+    "goals_conceded_per90": "Goals conceded (team, while on pitch) per 90",
+    "minutes": "Minutes played",
+})
 METRIC_LABELS.update(
     {
         "minutes": "Minutes played",

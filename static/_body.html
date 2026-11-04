@@ -206,6 +206,10 @@
       </div>
 
       <div class="ptab" id="ptab-profile" role="tabpanel" aria-labelledby="pt-profile" hidden>
+        <section class="block" id="info-panel" aria-labelledby="info-h">
+          <div class="block-head"><div><h2 id="info-h">Player information</h2><p class="sub" id="info-sub"></p></div></div>
+          <dl class="info-grid" id="info"></dl>
+        </section>
         <div class="profile-grid">
           <section class="block" aria-labelledby="rating-h">
             <div class="block-head"><div><h2 id="rating-h">Rating</h2><p class="sub" id="rating-sub"></p></div>
@@ -225,6 +229,18 @@
             that barely repeats from one season to the next, so one season of it says less about him.</p></details>
           </section>
         </div>
+        <section class="block sheet-panel" id="sheet-panel" aria-labelledby="sheet-h">
+          <div class="block-head">
+            <div><h2 id="sheet-h">Stat sheet</h2><p class="sub" id="sheet-sub"></p></div>
+            <div class="seg" id="sheet-peers" role="group" aria-label="Rank against"></div>
+          </div>
+          <div class="sheet-key" id="sheet-key"></div>
+          <nav class="sheet-jump" id="sheet-jump" aria-label="Stat sheet categories"></nav>
+          <div class="sheet" id="sheet"></div>
+          <div class="sheet-foot" id="sheet-foot"></div>
+          <details class="how"><summary>How the stat sheet works</summary>
+            <p class="note" id="sheet-how"></p></details>
+        </section>
       </div>
 
       <div class="ptab" id="ptab-seasons" role="tabpanel" aria-labelledby="pt-seasons" hidden>
@@ -634,7 +650,8 @@ const COMBINED_MIN = 900, COMBINED_SQUAD = 450;
 const WEIGHT_BY = {npxg_per_shot: "shots_per90", shot_accuracy_pct: "shots_per90", pass_pct: "passes_attempted_per90",
   long_pass_pct: "long_passes_attempted_per90", dribble_success_pct: "dribbles_attempted_per90",
   aerial_win_pct: "aerials_contested_per90", tackle_win_pct: "tackles_per90", gk_launch_pct: "gk_launches_attempted_per90",
-  pressure_success_pct: "pressures_per90", pressured_pass_share: "passes_attempted_per90"};
+  pressure_success_pct: "pressures_per90", pressured_pass_share: "passes_attempted_per90",
+  gk_save_pct: "gk_shots_on_target_against_per90", pass_pct_under_pressure: "passes_under_pressure_per90"};
 const TOTALS = new Set(["minutes"]);
 const meanOf = xs => xs.reduce((t, x) => t + x, 0) / xs.length;
 async function combine(key){
@@ -650,7 +667,10 @@ async function combine(key){
     const d = top.d.filter(k => specs.every(s => s.d.includes(k)));
     const usable = f.length >= Math.max(3, Math.ceil(top.f.length * MIN_SHARED));
     const fs = usable ? f : [];
-    groups[g] = {f: fs, d, c: top.c, rw: top.rw,
+    const inD = new Set(d);
+    groups[g] = {f: fs, d, c: top.c, rw: top.rw, so: top.so,
+      s: (top.s || []).map(([c, ks]) => [c, ks.filter(k => inD.has(k))]).filter(x => x[1].length),
+      k: (top.k || []).filter(k => inD.has(k)),
       w: fs.map(k => top.w[top.f.indexOf(k)]),
       dw: top.dw ? d.map(k => top.dw[top.d.indexOf(k)]) : null,
       r: fs.map(k => meanOf(specs.map(s => s.r ? s.r[s.f.indexOf(k)] : 1))),
@@ -674,7 +694,11 @@ async function combine(key){
     const m = rs.reduce((t, r) => t + r.p.m, 0);
     if (m < COMBINED_SQUAD) continue;
     const latest = rs[rs.length - 1].p, most = rs.slice().sort((a, b) => b.p.m - a.p.m)[0].p, spec = groups[g];
+    const sumOf = f => rs.every(r => r.p[f] != null) ? rs.reduce((t, r) => t + r.p[f], 0) : null;
+    const ap = sumOf("ap"), st = sumOf("st");
     const dv = spec ? spec.d.map(k => {
+      // Starts as a share of appearances: total starts over total appearances, exactly.
+      if (k === "starts_share" && ap) return st / ap * 100;
       if (TOTALS.has(k)){ const v = rs.map(r => val(r, k)).filter(x => x != null); return v.length ? v.reduce((t, x) => t + x, 0) : null; }
       const weighted = den => {
         let num = 0, wt = 0;
@@ -704,6 +728,7 @@ async function combine(key){
     const fold = k => { for (let i = rs.length - 1; i >= 0; i--) if (rs[i].p[k] != null) return rs[i].p[k]; return null; };
     players.push({id, n: latest.n, t: latest.t, l: latest.l, p: most.p, g, m,
       fl: fold("fl"), fs: fold("fs"), ft: fold("ft"), h: fold("h"), a: latest.a,
+      nt: fold("nt"), ce: fold("ce"), ap, st,
       v: latest.v, pr: latest.pr, lv: fold("lv"), ld: fold("ld"), ar: most.ar,
       tc: clubs.length > 1 ? clubs : null, ss: rs.map(r => seasons[r.si]),
       z, d: dv.map(v => [v == null ? null : Math.round(v * 100) / 100, null]), cv: [], os: [],
@@ -756,6 +781,8 @@ async function combine(key){
     labels: Object.assign({}, ...metas.map(m => m.labels)),
     pct: [...new Set(metas.flatMap(m => m.pct))], lower: [...lower],
     club: [...new Set(metas.flatMap(m => m.club || []))], collapsed: last.collapsed || {},
+    team: [...new Set(metas.flatMap(m => m.team || []))], notRecorded: last.notRecorded || {},
+    desc: Object.assign({}, ...metas.map(m => m.desc || {})),
     counts, unmodelled, lacks: [], valuesAsOf: last.valuesAsOf, has, attribution: last.attribution,
   }};
 }
@@ -1400,6 +1427,178 @@ function drawSW(){
       : '<p class="fnote">Nothing at the 30th percentile or below.</p>'}</div>`;
 }
 
+// ---- player information ------------------------------------------------------
+// The facts a scout reads before any number: where he is from, what he has
+// played, how long his contract runs, how old he is for his position here.
+function seasonIsLatest(){
+  const cat = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey));
+  if (!cat) return false;
+  const newest = cat.seasons.map(x => x.season).sort().pop();
+  return seasonsIn(dsKey).includes(newest);
+}
+function drawInfo(){
+  const p = P[subject], gn = gname(p.g).toLowerCase(), facts = [];
+  const fact = (k, v, tip = "") => facts.push(`<div${tip ? ` data-tip="${esc(tip)}"` : ""}><dt>${k}</dt><dd>${v}</dd></div>`);
+  if (p.nt) fact("Nationality", esc(p.nt));
+  if (p.p) fact("Position", esc(p.p) + (p.p.toLowerCase() !== gn ? ` <span class="muted">ranked among ${esc(gn)}s</span>` : ""),
+    "The position his source lists for him, and the group he is ranked in.");
+  if (p.ap != null) fact("Appearances", p.ap.toLocaleString() + (p.st != null ? ` <span class="muted">${p.st.toLocaleString()} as a starter</span>` : ""),
+    M.combined ? "League appearances over these seasons." : "League appearances this season.");
+  fact("Minutes", p.m.toLocaleString() + (p.ap ? ` <span class="muted">${Math.round(p.m / p.ap)} a game</span>` : ""));
+  // Contract dates are Transfermarkt's today, so they are only shown on the newest season.
+  if (p.ce && seasonIsLatest()){
+    const d = new Date(p.ce + "T00:00:00Z");
+    fact("Contract until", d.toLocaleDateString("en-GB", {month: "short", year: "numeric", timeZone: "UTC"})
+      + ` <span class="muted">Transfermarkt, today</span>`, "The contract end date Transfermarkt lists today.");
+  }
+  if (p.a != null){
+    const ages = P.filter(o => o.g === p.g && !o.sq && o.a != null && o.id !== p.id).map(o => o.a);
+    if (ages.length >= 10){
+      const older = ages.filter(a => a > p.a).length;
+      fact(`Age among ${esc(gn)}s`, `Younger than ${Math.round(100 * older / ages.length)}%`,
+        `${p.a.toFixed(1)}: ${older.toLocaleString()} of the ${ages.length.toLocaleString()} other regular ${gn}s ${here()} are older.`);
+    }
+  }
+  $("info").innerHTML = facts.join("");
+  $("info-sub").textContent = `${p.t}, ${p.l}, ${periodOf(dsKey)}${M.inProgress ? " so far" : ""}`;
+}
+
+// ---- the stat sheet ----------------------------------------------------------
+// Every metric the source records for his position, in plain categories and
+// in the order a scout reads that position: a keeper's sheet opens on
+// goalkeeping and distribution, a centre-back's on defending, a winger's on
+// dribbling. Each percentile is his rank among the chosen peers - every
+// regular in his position here, or only those in his league - by the export's
+// own rule (average rank, flipped where lower is better; a squad player placed
+// among the regulars without joining them). A category's figure is the plain
+// average of the percentiles listed under it, team readings left out. Nothing
+// here is a model output.
+let sheetPeers = "all";
+const RANKS = new Map();
+const article = l => /^(La |Serie |Ligue |Liga )/.test(l) ? l : "the " + l;
+function rankPct(ref, v, sq){
+  let lo = 0, hi = ref.length;
+  while (lo < hi){ const mid = (lo + hi) >> 1; ref[mid] < v ? lo = mid + 1 : hi = mid; }
+  const lt = lo; hi = ref.length;
+  while (lo < hi){ const mid = (lo + hi) >> 1; ref[mid] <= v ? lo = mid + 1 : hi = mid; }
+  const ties = lo - lt;
+  return sq ? (lt + ties / 2 + 1) / (ref.length + 1) * 100 : (lt + (ties + 1) / 2) / ref.length * 100;
+}
+const leaguePeers = p => P.filter(o => o.g === p.g && !o.sq && o.l === p.l);
+function sheetPct(p, key, scope){
+  const spec = G[p.g], j = spec.d.indexOf(key);
+  if (j < 0 || !p.d[j] || p.d[j][0] == null) return null;
+  if (scope !== "league") return p.d[j][1];
+  // A single season ships his league percentile, ranked at full precision; seasons
+  // taken together rank it here, on the combined figures, by the same rule.
+  if (p.d[j].length > 2) return p.d[j][2];
+  const ck = `${dsKey}|${p.g}|${p.l}|${key}`;
+  let ref = RANKS.get(ck);
+  if (!ref){
+    ref = leaguePeers(p).map(o => o.d[j] ? o.d[j][0] : null).filter(v => v != null).sort((a, b) => a - b);
+    RANKS.set(ck, ref);
+  }
+  if (!ref.length) return null;
+  const pct = rankPct(ref, p.d[j][0], !!p.sq);
+  return Math.round(LOWER.has(key) ? 100 - pct : pct);
+}
+function sheetRows(p, scope){
+  const spec = G[p.g], team = new Set(M.team || M.club || []);
+  return (spec && spec.s ? spec.s : []).map(([c, keys]) => {
+    const rows = keys.map(k => { const j = spec.d.indexOf(k);
+      return {k, v: p.d[j] ? p.d[j][0] : null, pct: sheetPct(p, k, scope), team: team.has(k)}; });
+    const counted = rows.filter(r => r.pct != null && !r.team);
+    return {c, rows, n: counted.length, teamN: rows.filter(r => r.team && r.pct != null).length,
+            avg: counted.length ? meanOf(counted.map(r => r.pct)) : null};
+  });
+}
+// What a metric tells a scout - unless that only repeats its name.
+function describe(k){
+  const d = (M.desc || {})[k] || "", bare = x => plain(x).replace(/per 90|\(.*?\)|[^a-z]/g, "");
+  return d && !bare(label(k)).includes(bare(d)) ? d : "";
+}
+function drawSheet(){
+  const p = P[subject], spec = G[p.g], panel = $("sheet-panel");
+  panel.hidden = !spec || !spec.s || !spec.s.length;
+  if (panel.hidden) return;
+  const gn = gname(p.g).toLowerCase(), src = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey));
+  const nLeague = leaguePeers(p).length, multi = (M.leagues || []).length > 1, canLeague = multi && nLeague >= 10;
+  const scope = canLeague ? sheetPeers : "all";
+  const n = scope === "league" ? nLeague : (M.counts[p.g] || 0);
+  $("sheet-peers").hidden = !multi;
+  $("sheet-peers").innerHTML = multi ? `<button type="button" data-peers="all"${scope === "all" ? ' class="on"' : ""}>All ${esc(gn)}s</button>`
+    + `<button type="button" data-peers="league"${scope === "league" ? ' class="on"' : ""}${canLeague ? ""
+      : ` aria-disabled="true" data-tip="Only ${nLeague} regular ${esc(gn)}s in ${esc(article(p.l))} here: too few to rank against."`}>${esc(cap(gn))}s in ${esc(article(p.l))}</button>` : "";
+  const peersTxt = `${n.toLocaleString()} ${gn}s${scope === "league" ? " in " + article(p.l) : ""} ${here()}`;
+  $("sheet-sub").textContent = `Every number ${src ? src.name : "this source"} records for a ${gn}, in the order that matters for the position. Percentiles against ${peersTxt}.`;
+  const cats = sheetRows(p, scope);
+  const pctTxt = v => v == null ? "—" : ord(v);
+  // The position's headline numbers, large.
+  const keyRows = (spec.k || []).map(k => cats.flatMap(c => c.rows).find(r => r.k === k)).filter(r => r && r.v != null);
+  $("sheet-key").innerHTML = keyRows.map(r => `<div class="sk">
+      <div class="sk-n">${termed(r.k, true)}</div>
+      <div class="sk-v tnum">${fmt(r.k, r.v)}</div>
+      <div class="sk-bar" aria-hidden="true"><span style="width:${Math.max(2, r.pct ?? 0)}%;background:var(--s${band(r.pct)})"></span></div>
+      <div class="sk-p">${r.pct == null ? "Not ranked" : pctTxt(r.pct) + " percentile"}</div></div>`).join("");
+  $("sheet-jump").innerHTML = cats.map((c, i) => `<button type="button" class="sj" data-jump="sheet-cat-${i}">
+      <span>${esc(c.c)}</span><span class="chip c${band(c.avg)}">${c.avg == null ? "—" : Math.round(c.avg)}</span></button>`).join("");
+  const notes = M.notRecorded || {};
+  $("sheet").innerHTML = cats.map((c, i) => `<section class="sheet-cat" id="sheet-cat-${i}" aria-labelledby="sheet-cat-${i}-h">
+      <header class="sc-head">
+        <h3 id="sheet-cat-${i}-h">${esc(c.c)}</h3>
+        <div class="sc-pct b${band(c.avg)}" data-tip="The plain average of the ${c.n} percentiles below${c.teamN ? ", leaving out team readings" : ""}, against ${esc(peersTxt)}.">
+          <b>${c.avg == null ? "—" : Math.round(c.avg)}</b><span>${c.avg == null ? "not ranked" : "category percentile"}</span></div>
+      </header>
+      <p class="sc-sub">${c.n ? `Average of the ${c.n} percentile${c.n > 1 ? "s" : ""} below${c.teamN ? ", team readings left out" : ""}.` : "No percentiles to average."}</p>
+      <div class="sc-rows">${c.rows.map(r => {
+        const lower = LOWER.has(r.k), desc = describe(r.k);
+        // A team reading is ranked like the rest but drawn neutral: facing few shots is the defence's doing.
+        const tone = r.team ? 3 : band(r.pct);
+        return `<div class="sr${r.v == null ? " none" : ""}">
+          <div class="sr-n">${termed(r.k, true)}${lower ? '<span class="tag" data-tip="Lower is better. The percentile is flipped, so a high one still reads well.">lower is better</span>' : ""}${
+            r.team ? `<span class="tag" data-tip="Reads his team as much as him, so it is shown but left out of the category average.">team</span>` : ""}
+            ${desc ? `<small>${esc(desc)}</small>` : ""}</div>
+          <div class="sr-v tnum">${fmt(r.k, r.v)}</div>
+          <div class="sr-bar" aria-hidden="true"><span style="width:${r.pct == null ? 0 : Math.max(2, r.pct)}%;background:var(--s${tone})"></span></div>
+          <div class="sr-p tnum">${r.pct == null ? "—" : r.pct}</div></div>`; }).join("")}</div>
+      ${notes[c.c] ? `<p class="sc-note">${esc(notes[c.c])}</p>` : ""}
+    </section>`).join("");
+  // What this source does not record for the position at all - named, so an
+  // empty category never reads as a weak one - and where to find more of him.
+  const missing = (spec.so || []).filter(c => !cats.some(x => x.c === c));
+  const physical = cats.some(x => x.c === "Physical and availability") ? "" : (notes["Physical and availability"] || "");
+  // Seasons taken together show what every one of them records; name the seasons
+  // that leave a category out, so it does not read as the source never having it.
+  const partOf = season => { const d = CACHE[sourceOf(dsKey) + ":" + season]; return d && d.meta.groups[p.g]; };
+  const thin = M.combined ? missing.map(c => ({c, without: M.seasons.filter(x => { const sp = partOf(x); return sp && !(sp.s || []).some(y => y[0] === c); })}))
+    .filter(x => x.without.length && x.without.length < M.seasons.length) : [];
+  const gone = missing.filter(c => !thin.some(x => x.c === c));
+  const without = [...new Set(thin.flatMap(x => x.without))];
+  $("sheet-foot").innerHTML = missing.length ? `<div class="sheet-missing">${thin.length ? `<p><b>Not in every one of these seasons:</b>
+      ${esc(listing(thin.map(x => x.c.toLowerCase())))} - ${esc(listing(without.map(seasonLabel)))} ${without.length > 1 ? "do" : "does"} not record ${
+      thin.length > 1 ? "them" : "it"}, and seasons taken together show only what all of them record. Leave ${without.length > 1 ? "those seasons" : seasonLabel(without[0])} out to see ${thin.length > 1 ? "them" : "it"}.</p>` : ""}${
+      gone.length ? `<p><b>Not recorded in ${esc(src ? src.name : "this source")} ${esc(periodOf(dsKey))}:</b> ${esc(listing(gone.map(c => c.toLowerCase())))}.</p>` : ""}${
+      physical ? `<p>${esc(physical)}</p>` : ""}<div class="elsewhere" id="sheet-elsewhere"></div></div>` : "";
+  if (gone.length){
+    const asked = subject, have = cats.length;
+    findElsewhere(p).then(found => {
+      const box = $("sheet-elsewhere");
+      if (subject !== asked || !box) return;
+      const richer = found.filter(f => f.cats > have);
+      box.innerHTML = richer.length ? `<span>More of his game is recorded in:</span>` + richer.map(f =>
+        `<button type="button" class="btn" data-openseason="${esc(f.key)}|${esc(f.id)}">${esc(f.source)} ${
+          esc(seasonLabel(f.season))} <span class="via">${esc(f.team)}</span></button>`).join("") : "";
+    });
+  }
+  $("sheet-how").textContent = `Each row is a rate or percentage worked out from ${src ? src.name : "the source"}'s own counts, per 90 minutes where it says so. `
+    + `The percentile is his rank among ${peersTxt}: 80 means a higher figure than about 80% of them, flipped where lower is better. `
+    + (scope === "league" ? (M.combined ? `Over seasons taken together, the league percentiles are ranked here on the combined figures, by the same rule. `
+      : `The league percentiles rank him among the regulars in his position in his own league only, by the same rule. `) : "")
+    + `A category's percentile is the plain average of the percentiles listed under it; numbers that read the team, such as goals conceded, are shown but not averaged. `
+    + `The rating above uses a smaller set of metrics per position, so its category scores differ from these.`;
+}
+function drawProfile(){ drawInfo(); drawSW(); drawSheet(); }
+
 // ---- radar ---------------------------------------------------------------
 function radar(names, series){
   const N = names.length; if (!N) return "";
@@ -1620,7 +1819,7 @@ async function findElsewhere(p){
     const r = rows.sort((x, y) => near(x) - near(y) || y[4] - x[4])[0], key = c.key + ":" + A.seasons[r[4]];
     let d; try { d = await getDataset(key); } catch { continue; }
     if (!d.meta.groups[r[5]]) continue;
-    out.push({key, id: r[0], source: c.name, season: A.seasons[r[4]], team: r[2]});
+    out.push({key, id: r[0], source: c.name, season: A.seasons[r[4]], team: r[2], cats: (d.meta.groups[r[5]].s || []).length});
   }
   return out;
 }
@@ -1848,30 +2047,32 @@ function drawCompare(){
       <div class="tile-foot"><span>${lead}</span>${r.ap != null && r.bp != null ? `<span>Percentiles ${chip(r.ap)} ${chip(r.bp)}</span>` : ""}</div></div>`;
   }).join("");
 
-  // ---- the full table, grouped by the position's categories
+  // ---- the full table, grouped by the stat sheet's categories in the order
+  // that matters for player A's position
   const groupOf = {};
-  if (spec) spec.f.forEach((key, i) => { groupOf[key] = spec.w[i].length ? spec.c[spec.w[i][0]] : "Other modelled metrics"; });
-  const order = same ? [...(spec ? spec.c : []), "Other modelled metrics", "Context and playing time"] : ["All metrics"];
+  [ref.spec, spec].forEach(sp => (sp && sp.s || []).forEach(([c, ks]) => ks.forEach(k => { groupOf[k] = c; })));
+  const order = [...new Set([...(spec && spec.s || []).map(x => x[0]), ...(ref.spec && ref.spec.s || []).map(x => x[0]), "Other metrics"])];
   const sorter = !same || sortMode === "pct" ? (x, y) => (y.ap ?? -1) - (x.ap ?? -1)
-    : sortMode === "gap" ? (x, y) => (y.gap ?? -1) - (x.gap ?? -1) : (x, y) => (x.gap ?? 99) - (y.gap ?? 99);
+    : sortMode === "gap" ? (x, y) => (y.gap ?? -1) - (x.gap ?? -1) || (y.ap ?? -1) - (x.ap ?? -1)
+    : (x, y) => (x.gap ?? 99) - (y.gap ?? 99);
   const grouped = {};
-  rows.forEach(r => { const g = !same ? "All metrics" : r.modelled ? groupOf[r.key] : "Context and playing time";
-    (grouped[g] = grouped[g] || []).push(r); });
+  rows.forEach(r => { const g = groupOf[r.key] || "Other metrics"; (grouped[g] = grouped[g] || []).push(r); });
   const widest = Math.max(0.001, ...rows.map(r => r.gap ?? 0));
   const cell = (v, pct, key) => `<td class="num"><span class="vcell">${fmt(key, v)} ${chip(pct)}</span></td>`;
   const diffCell = r => {
     if (r.av == null || r.bv == null) return `<td class="num diff"><span class="muted">—</span></td>`;
     const d = r.av - r.bv, near = Math.abs(d) < 1e-9;
-    const shown = PCT.has(r.key) ? (d > 0 ? "+" : "") + d.toFixed(1) + " pts" : (d > 0 ? "+" : d < 0 ? "−" : "") + fmt(r.key, Math.abs(d));
+    const sign = d > 0 ? "+" : d < 0 ? "−" : "";
+    const shown = PCT.has(r.key) ? sign + Math.abs(d).toFixed(1) + " pts" : sign + fmt(r.key, Math.abs(d));
     return `<td class="num diff"><span class="arr" aria-hidden="true">${near ? "" : d > 0 ? "▲" : "▼"}</span>${near ? "0" : shown}</td>`;
   };
   const period = (who, t) => `${who}${ref.other ? `<span class="th-s">${esc(t)}</span>` : ""}`;
   const head = `<thead><tr><th>Metric</th><th class="num">${period(lastA, sA)}</th><th class="num">${period(lastB, sB)}</th>
     <th class="num"><span data-tip="${lastA} minus ${lastB}, in the metric's own units. A neutral difference, not a judgement: for some metrics lower is better.">Difference</span></th>
     <th><span data-tip="How far apart they are on this metric, in standard deviations, scaled by how much the metric counts in the similarity.">Gap in this match</span></th></tr></thead>`;
-  const body = order.filter(g => grouped[g]).map(g => `<tbody>${same ? `<tr class="grp"><td colspan="5">${esc(g)}</td></tr>` : ""}${
-    grouped[g].sort(sorter).map(r => `<tr id="m-${esc(r.key)}" data-label="${esc(plain(label(r.key)))}"${r.modelled || !same ? "" : ' class="off"'}>
-      <td class="lb">${termed(r.key)}${r.modelled || !same ? "" : '<span class="tag">context</span>'}</td>
+  const body = order.filter(g => grouped[g]).map(g => `<tbody><tr class="grp"><td colspan="5">${esc(g)}</td></tr>${
+    grouped[g].sort(sorter).map(r => `<tr id="m-${esc(r.key)}" data-label="${esc(plain(label(r.key)))}">
+      <td class="lb">${termed(r.key)}</td>
       ${cell(r.av, r.ap, r.key)}${cell(r.bv, r.bp, r.key)}${diffCell(r)}
       <td class="gap">${r.gap == null ? '<span class="muted">—</span>' : `<span class="gbar" title="${r.raw.toFixed(2)} SD apart"><span style="width:${
         Math.max(3, Math.round(100 * r.gap / widest))}%"></span></span>`}</td></tr>`).join("")}</tbody>`).join("");
@@ -1879,10 +2080,10 @@ function drawCompare(){
     <div class="legend-row"><span>Percentile</span><span class="chip c5">80-100</span><span class="chip c4">60-80</span>
       <span class="chip c3">40-60</span><span class="chip c2">20-40</span><span class="chip c1">0-20</span>
       <span>Against ${ref.other ? "each player's own seasons" : (M.counts[a.g] || 0).toLocaleString() + " " + esc(gname(a.g).toLowerCase()) + "s " + here()}${
-        same ? `. <span class="tag">context</span> is measured but not part of the similarity.` : "."}</span></div>`;
+        same ? `. The ${Object.keys(zgap).length} metrics with a gap are the ones the similarity uses; the rest are measured but not part of it.` : "."}</span></div>`;
   $("stats-sub").textContent = `Every metric either player has. Per-90 figures are per 90 minutes played; percentiles are against `
     + (ref.other ? "each player's own season." : `${(M.counts[a.g] || 0).toLocaleString()} ${gname(a.g).toLowerCase()}s in ${sA}.`)
-    + (same ? ` Grouped by the position's categories and sorted by ${sortMode === "gap" ? "the biggest gaps first" : sortMode === "near" ? "the closest metrics first" : "percentile"}.` : "");
+    + ` Grouped by category, in the order that matters for ${gname(a.g).toLowerCase()}s, and sorted by ${!same || sortMode === "pct" ? "percentile" : sortMode === "gap" ? "the biggest gaps first" : "the closest metrics first"}.`;
   filterMetrics();
 }
 function filterMetrics(){
@@ -2007,12 +2208,18 @@ function groupOptions(sel, current){
 function metricOptions(group, chosen, extra = []){
   const spec = G[group];
   if (!spec) return "";
-  const opts = spec.d.map(k => [k, label(k)]).sort((a, b) => a[1].localeCompare(b[1]));
+  const opt = ([k, l]) => `<option value="${k}"${k === chosen ? " selected" : ""}>${esc(l)}</option>`;
   const has = M.has || {};
   const usable = k => k === VFM_KEY ? !!vfmFit(group) : k === VALUE_KEY ? !!has.value : k === AGE_KEY ? !!has.age : false;
-  extra.filter(usable).reverse().forEach(k => opts.unshift([k, label(k)]));
-  if (spec.rw) opts.unshift([RATING_KEY, "Overall rating"]);
-  return opts.map(([k, l]) => `<option value="${k}"${k === chosen ? " selected" : ""}>${esc(l)}</option>`).join("");
+  const top = extra.filter(usable).map(k => [k, label(k)]);
+  if (spec.rw) top.unshift([RATING_KEY, "Overall rating"]);
+  // The stat sheet's categories, in the position's order; anything else after them.
+  const inSheet = new Set((spec.s || []).flatMap(x => x[1]));
+  const rest = spec.d.filter(k => !inSheet.has(k)).map(k => [k, label(k)]).sort((a, b) => a[1].localeCompare(b[1]));
+  const groups = (spec.s || []).map(([c, ks]) => [c, ks.map(k => [k, label(k)])]);
+  if (rest.length) groups.push([spec.s && spec.s.length ? "Other metrics" : "Metrics", rest]);
+  return (top.length ? `<optgroup label="Overall">${top.map(opt).join("")}</optgroup>` : "")
+    + groups.map(([c, xs]) => `<optgroup label="${esc(c)}">${xs.map(opt).join("")}</optgroup>`).join("");
 }
 // [value, percentile] for any metric of a player, the rating included.
 function cellOf(o, key, spec = G[o.g]){
@@ -2551,7 +2758,7 @@ function drawMode(){
   else if (mode === "similar"){
     setTab(ptab); drawSubject();
     if (ptab === "similar"){ drawWeights(); drawMatches(); }
-    else if (ptab === "profile") drawSW();
+    else if (ptab === "profile") drawProfile();
     else drawCareer();
   }
   else if (mode === "compare"){ drawSlots(); drawRadar(); drawCompare(); }
@@ -2856,6 +3063,12 @@ document.addEventListener("click", e => {
   if (gs){ loadDataset(gs.dataset.goseason, gs.dataset.goid ? {id: gs.dataset.goid} : {}); return; }
   const gd = t.closest("[data-godisc]");
   if (gd){ openDiscovery(gd.dataset.godisc); return; }
+  const pe = t.closest("[data-peers]");
+  if (pe){ if (pe.getAttribute("aria-disabled") !== "true"){ sheetPeers = pe.dataset.peers; drawSheet(); } return; }
+  const jp = t.closest("[data-jump]");
+  if (jp){ const el = $(jp.dataset.jump);
+    if (el) el.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
+    return; }
   const os = t.closest("[data-sseason]") || t.closest("[data-openseason]");
   if (os){ const [key, id] = (os.dataset.sseason || os.dataset.openseason).split("|");
     $("q").value = ""; $("picker").hidden = true; $("q").setAttribute("aria-expanded", "false");

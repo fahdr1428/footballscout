@@ -22,3 +22,38 @@ def test_category_membership_matches_the_baskets(path):
         assert len(spec["dw"]) == len(spec["d"]), group
         for metric, member in zip(spec["d"], spec["dw"]):
             assert member == [i for i, c in enumerate(spec["c"]) if metric in basket[c]], (group, metric)
+
+
+@pytest.mark.skipif(not SEASONS, reason="the site has not been exported")
+@pytest.mark.parametrize("path", SEASONS, ids=[p.stem for p in SEASONS])
+def test_stat_sheet_only_lists_metrics_the_season_has(path):
+    payload = json.loads(path.read_text())
+    meta = payload["meta"]
+    for group, spec in meta["groups"].items():
+        listed = [m for _, metrics in spec["s"] for m in metrics]
+        assert len(listed) == len(set(listed)), group          # one category per metric
+        assert set(listed) <= set(spec["d"]), group
+        assert set(spec["k"]) <= set(spec["d"]), group
+        assert [c for c, _ in spec["s"]] == [c for c in spec["so"] if c in {c for c, _ in spec["s"]}], group
+        for metric in listed:
+            assert metric in meta["labels"] and metric in meta["desc"], (group, metric)
+            # Every listed metric has a value for somebody in the position.
+            j = spec["d"].index(metric)
+            assert any(p["d"][j][0] is not None for p in payload["players"] if p["g"] == group), (group, metric)
+
+
+@pytest.mark.skipif(not SEASONS, reason="the site has not been exported")
+@pytest.mark.parametrize("path", SEASONS, ids=[p.stem for p in SEASONS])
+def test_league_percentiles_follow_the_figures(path):
+    """Within a position and league, a higher figure never ranks below a lower one."""
+    payload = json.loads(path.read_text())
+    lower = set(payload["meta"]["lower"])
+    for group, spec in payload["meta"]["groups"].items():
+        for league in payload["meta"]["leagues"]:
+            peers = [p for p in payload["players"] if p["g"] == group and p["l"] == league and not p.get("sq")]
+            for j, metric in enumerate(spec["d"]):
+                rows = sorted((p["d"][j][0], p["d"][j][2]) for p in peers
+                              if len(p["d"][j]) > 2 and p["d"][j][0] is not None and p["d"][j][2] is not None)
+                for (v0, p0), (v1, p1) in zip(rows, rows[1:]):
+                    if v1 > v0:
+                        assert (p1 <= p0) if metric in lower else (p1 >= p0), (group, league, metric, v0, v1)

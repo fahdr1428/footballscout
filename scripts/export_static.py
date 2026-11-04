@@ -74,7 +74,8 @@ from src.config import (  # noqa: E402
     DEFAULT_WEIGHTS, POSITION_GROUP_NAMES, RAW_DIR, ROOT_DIR, TEAM_CONTEXT_METRICS,
     categories_for,
 )
-from src.feature_engineering import category_scores, metrics_for_percentiles  # noqa: E402
+from src.stat_sheet import DESCRIPTIONS, NOT_RECORDED, TEAM_READINGS, headline_for, order_for, sheet_for  # noqa: E402
+from src.feature_engineering import category_scores, compute_percentiles, metrics_for_percentiles  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
 
 SITE_DIR = ROOT_DIR / "static"
@@ -156,24 +157,20 @@ def squad_players(features: pd.DataFrame, platform, season: str, floors: dict | 
     return squad
 
 
-def project_squad(platform, squad: pd.DataFrame):
-    """Score squad players on the regulars' scale, leaving the regulars untouched.
+def _peers(pool: pd.DataFrame) -> list[str]:
+    """The pipeline's peer group: position, and gender where a pool mixes them."""
+    return ["position_group"] + (["gender"] if "gender" in pool.columns and pool["gender"].nunique() > 1 else [])
 
-    * a percentile is where his figure would rank if he were one more member of
-      his position's regulars - the same average-rank rule, flipped where lower
-      is better - so a 90 means what it means for everyone else;
-    * his z-vector uses the position model's own scaler, with gaps filled by the
-      regulars' medians, as theirs were;
-    * his playing style is the regulars' nearest archetype.
+
+def place_among(pool: pd.DataFrame, squad: pd.DataFrame, metrics: list[str], peers: list[str]) -> pd.DataFrame:
+    """Where each squad player's figure would rank among the regulars sharing his peer columns.
+
+    The same average-rank rule the regulars are ranked by, as if he were one
+    more of them, flipped where lower is better - without moving the regulars.
     """
-    pool = platform.pool
-    squad = squad.copy()
-    squad.index = pd.RangeIndex(len(pool), len(pool) + len(squad))
-    peers = ["position_group"] + (["gender"] if "gender" in pool.columns and pool["gender"].nunique() > 1 else [])
-    pct = pd.DataFrame(index=squad.index)
-    for column in platform.percentiles.columns:
-        metric = column[4:]
-        if metric not in squad.columns:
+    columns: dict[str, pd.Series] = {}
+    for metric in metrics:
+        if metric not in squad.columns or metric not in pool.columns:
             continue
         out = pd.Series(np.nan, index=squad.index)
         for key, block in squad.groupby(peers):
@@ -190,7 +187,25 @@ def project_squad(platform, squad: pd.DataFrame):
                 rank = 100 - rank
             rank[np.isnan(values)] = np.nan
             out.loc[block.index] = np.round(rank, 1)
-        pct[column] = out
+        columns[f"pct_{metric}"] = out
+    # Built in one go: a column at a time fragments the frame across ~100 metrics.
+    return pd.DataFrame(columns, index=squad.index)
+
+
+def project_squad(platform, squad: pd.DataFrame):
+    """Score squad players on the regulars' scale, leaving the regulars untouched.
+
+    * a percentile is where his figure would rank if he were one more member of
+      his position's regulars - the same average-rank rule, flipped where lower
+      is better - so a 90 means what it means for everyone else;
+    * his z-vector uses the position model's own scaler, with gaps filled by the
+      regulars' medians, as theirs were;
+    * his playing style is the regulars' nearest archetype.
+    """
+    pool = platform.pool
+    squad = squad.copy()
+    squad.index = pd.RangeIndex(len(pool), len(pool) + len(squad))
+    pct = place_among(pool, squad, [c[4:] for c in platform.percentiles.columns], _peers(pool))
     categories = category_scores(pct, squad["position_group"])
     z: dict[int, pd.Series] = {}
     squad["archetype"] = None
@@ -272,6 +287,15 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
         for metric in sorted(set(model.features) | set(display)):
             labels[metric] = _label(metric)
 
+    # Each metric's percentile among his position in his own league as well, at
+    # full precision and by the same rule, so the stat sheet can rank him
+    # "against wingers in the Premier League" exactly as it ranks him against all.
+    shown = sorted({m for spec in groups.values() for m in spec["d"]})
+    league_peers = _peers(pool) + ["league"]
+    league_pct = compute_percentiles(pool, shown, group_col=league_peers)
+    if squad is not None and len(squad):
+        league_pct = pd.concat([league_pct, place_among(pool, squad, shown, league_peers)])
+
     players = []
     for index in rows.index:
         row = rows.loc[index]
@@ -283,10 +307,12 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
             model = platform.models[group]
             vector = squad_z[index] if index in squad_z else model.z.iloc[model.z.index.get_loc(index)]
             zrow = [round(float(v), 2) for v in vector]
+            mine, league = percentiles.loc[index], league_pct.loc[index]
             for metric in spec["d"]:
                 value = row.get(metric)
-                pct = percentiles.loc[index].get(f"pct_{metric}")
-                display.append([_num(value, 2), None if pd.isna(pct) else round(float(pct))])
+                pct, lpct = mine.get(f"pct_{metric}"), league.get(f"pct_{metric}")
+                display.append([_num(value, 2), None if pd.isna(pct) else round(float(pct)),
+                                None if lpct is None or pd.isna(lpct) else round(float(lpct))])
 
         players.append({
             "id": str(row["player_id"]),
@@ -296,6 +322,12 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
             "fs": row.get("footed_side") if pd.notna(row.get("footed_side")) else None,
             "ft": row.get("foot") if pd.notna(row.get("foot")) else None,
             "a": _num(row.get("age")), "m": int(row["minutes"]),
+            # Context for the profile: nationality, appearances and starts, and
+            # the contract Transfermarkt lists today, where the source links him.
+            "nt": row.get("nationality") if pd.notna(row.get("nationality")) else None,
+            "ap": None if pd.isna(row.get("matches")) else int(row["matches"]),
+            "st": None if pd.isna(row.get("starts")) else int(row["starts"]),
+            "ce": row.get("contract_expiry") if pd.notna(row.get("contract_expiry")) else None,
             "h": _num(row.get("height_cm"), 0),
             "v": None if pd.isna(row.get("market_value_eur")) else int(row["market_value_eur"]),
             # The fantasy price, where a source has that instead of a valuation.
@@ -318,6 +350,14 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
     # would offer a leaderboard that ranks nobody and a comparison row of dashes,
     # so they are pruned here, per group, once the values are known.
     _prune_empty_metrics(groups, players)
+    # The stat sheet for each position: its categories in reading order, each
+    # with the metrics this season actually has.
+    for group, spec in groups.items():
+        spec["s"] = sheet_for(group, spec["d"])
+        spec["k"] = headline_for(group, spec["d"])
+        # Every category the position reads in, so the page can name the ones
+        # this source does not record at all.
+        spec["so"] = order_for(group)
 
     # What this season did not measure that the source does elsewhere, straight
     # from the cleaning report - so the page can say so instead of leaving a
@@ -338,11 +378,16 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
                 | set(platform.unmodelled_groups))},
             "groups": groups,
             "labels": labels,
+            # What each stat-sheet metric tells a scout, and what no open source records.
+            "desc": {m: DESCRIPTIONS[m] for m in sorted(labels) if m in DESCRIPTIONS},
+            "notRecorded": NOT_RECORDED,
             # Rendering hints: a percentage needs a % sign, and for a
             # lower-is-better metric the smaller number is the better one.
             "pct": sorted(PERCENT_METRICS & set(labels)),
             "lower": sorted(LOWER_IS_BETTER & set(labels)),
             "club": sorted(TEAM_CONTEXT_METRICS & set(labels)),
+            # The stat sheet's team readings: shown, tagged, kept out of category averages.
+            "team": sorted(TEAM_READINGS & set(labels)),
             "collapsed": {g: info["parent"] for g, info in platform.collapsed_groups.items()},
             "counts": {g: int(n) for g, n in pool["position_group"].value_counts().items()},
             "unmodelled": {g: int(n) for g, n in platform.unmodelled_groups.items()},

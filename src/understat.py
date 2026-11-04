@@ -186,7 +186,8 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
     progress("reading where each player played, season by season")
     frame = assign_positions(frame, profiles, tm_history.load_season_positions(cache, progress=progress))
     frame = frame.merge(
-        profiles[["tm_id", "date_of_birth", "height_cm", "foot", "nationality"]],
+        profiles[["tm_id", "date_of_birth", "height_cm", "foot", "nationality"]
+                 + (["contract_expiry"] if "contract_expiry" in profiles.columns else [])],
         on="tm_id", how="left")
     frame["date_of_birth"] = pd.to_datetime(frame["date_of_birth"]).dt.strftime("%Y-%m-%d")
     frame["age"] = _age(frame)
@@ -196,8 +197,8 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
     # So the whole enrichment is withdrawn for those rows rather than patched.
     wrong = frame["age"].notna() & ~frame["age"].between(MIN_PLAUSIBLE_AGE, MAX_PLAUSIBLE_AGE)
     rejected = int(wrong.sum())
-    frame.loc[wrong, ["age", "height_cm", "foot", "nationality", "tm_id",
-                      "date_of_birth"]] = np.nan
+    frame.loc[wrong, [c for c in ["age", "height_cm", "foot", "nationality", "tm_id",
+                                  "date_of_birth", "contract_expiry"] if c in frame.columns]] = np.nan
 
     progress("attaching market values")
     frame = _attach_values(frame, cache, progress=progress)

@@ -180,6 +180,7 @@
               <button type="button" data-sort="val">Cheapest</button><button type="button" data-sort="min">Most minutes</button>
             </div>
             <label class="chk" id="own-wrap" hidden><input type="checkbox" id="own"> Include his own other seasons</label>
+            <label class="chk" id="role-wrap" hidden><input type="checkbox" id="samerole"> <span id="samerole-l"></span></label>
           </div>
           <p class="hint">Pick a player to compare the two side by side.</p>
           <div class="list" id="matches"></div>
@@ -328,6 +329,7 @@
       <section class="block">
         <div class="controls">
           <div class="field"><label for="bgroup">Position</label><select id="bgroup"></select></div>
+          <div class="field" id="brole-field" hidden><label for="brole">Exact position</label><select id="brole"></select></div>
           <div class="field"><label for="bmetric">Ranked by</label><select id="bmetric"></select></div>
           <div class="field"><label for="bdir">Order</label><select id="bdir">
             <option value="desc">Highest first</option><option value="asc">Lowest first</option></select></div>
@@ -668,9 +670,11 @@ async function combine(key){
     const usable = f.length >= Math.max(3, Math.ceil(top.f.length * MIN_SHARED));
     const fs = usable ? f : [];
     const inD = new Set(d);
-    groups[g] = {f: fs, d, c: top.c, rw: top.rw, so: top.so,
-      s: (top.s || []).map(([c, ks]) => [c, ks.filter(k => inD.has(k))]).filter(x => x[1].length),
+    const sheet = (top.s || []).map(([c, ks]) => [c, ks.filter(k => inD.has(k))]).filter(x => x[1].length);
+    groups[g] = {f: fs, d, c: top.c, rw: top.rw, so: top.so, s: sheet,
       k: (top.k || []).filter(k => inD.has(k)),
+      rs: top.rs ? Object.fromEntries(Object.entries(top.rs).map(([r, x]) => [r,
+        {o: x.o.filter(c => sheet.some(y => y[0] === c)), k: x.k.filter(k => inD.has(k))}])) : null,
       w: fs.map(k => top.w[top.f.indexOf(k)]),
       dw: top.dw ? d.map(k => top.dw[top.d.indexOf(k)]) : null,
       r: fs.map(k => meanOf(specs.map(s => s.r ? s.r[s.f.indexOf(k)] : 1))),
@@ -728,7 +732,7 @@ async function combine(key){
     const fold = k => { for (let i = rs.length - 1; i >= 0; i--) if (rs[i].p[k] != null) return rs[i].p[k]; return null; };
     players.push({id, n: latest.n, t: latest.t, l: latest.l, p: most.p, g, m,
       fl: fold("fl"), fs: fold("fs"), ft: fold("ft"), h: fold("h"), a: latest.a,
-      nt: fold("nt"), ce: fold("ce"), ap, st,
+      nt: fold("nt"), ce: fold("ce"), ap, st, ...(most.r ? {r: most.r} : {}),
       v: latest.v, pr: latest.pr, lv: fold("lv"), ld: fold("ld"), ar: most.ar,
       tc: clubs.length > 1 ? clubs : null, ss: rs.map(r => seasons[r.si]),
       z, d: dv.map(v => [v == null ? null : Math.round(v * 100) / 100, null]), cv: [], os: [],
@@ -739,10 +743,11 @@ async function combine(key){
   // regulars in his position, flipped where lower is better - the export's own
   // rule. A squad player is placed among them without moving them.
   const lower = new Set(metas.flatMap(m => m.lower));
-  const counts = {};
+  const counts = {}, roleCounts = {};
   for (const [g, spec] of Object.entries(groups)){
     const mine = players.filter(p => p.g === g), regs = mine.filter(p => !p.sq);
     counts[g] = regs.length;
+    regs.forEach(x => { if (x.r){ (roleCounts[g] = roleCounts[g] || {})[x.r] = (roleCounts[g][x.r] || 0) + 1; } });
     spec.d.forEach((k, j) => {
       const ref = regs.map(p => p.d[j][0]).filter(v => v != null).sort((a, b) => a - b);
       if (!ref.length) return;
@@ -782,6 +787,7 @@ async function combine(key){
     pct: [...new Set(metas.flatMap(m => m.pct))], lower: [...lower],
     club: [...new Set(metas.flatMap(m => m.club || []))], collapsed: last.collapsed || {},
     team: [...new Set(metas.flatMap(m => m.team || []))], notRecorded: last.notRecorded || {},
+    style: last.style || [], roleNames: last.roleNames || {}, roleCounts,
     desc: Object.assign({}, ...metas.map(m => m.desc || {})),
     counts, unmodelled, lacks: [], valuesAsOf: last.valuesAsOf, has, attribution: last.attribution,
   }};
@@ -1040,6 +1046,8 @@ function passes(o, forSimilar){
     const s = P[subject];
     if (F.xclub && o.t === s.t) return false;
     if (F.xleague && o.l === s.l) return false;
+    // In a four-bucket feed, his matches can be held to his exact position.
+    if (sameRole && scope !== "all" && s.r && o.r !== s.r) return false;
   }
   return true;
 }
@@ -1440,8 +1448,11 @@ function drawInfo(){
   const p = P[subject], gn = gname(p.g).toLowerCase(), facts = [];
   const fact = (k, v, tip = "") => facts.push(`<div${tip ? ` data-tip="${esc(tip)}"` : ""}><dt>${k}</dt><dd>${v}</dd></div>`);
   if (p.nt) fact("Nationality", esc(p.nt));
-  if (p.p) fact("Position", esc(p.p) + (p.p.toLowerCase() !== gn ? ` <span class="muted">ranked among ${esc(gn)}s</span>` : ""),
-    "The position his source lists for him, and the group he is ranked in.");
+  if (p.p) fact("Position", esc(p.p) + (p.p.toLowerCase() !== gn ? ` <span class="muted">ranked among ${esc(gn)}s${
+      p.r ? `, and on the stat sheet among ${esc(roleName(p.r).toLowerCase())}s` : ""}</span>` : ""),
+    p.r ? "Transfermarkt's position for him that season. The source itself only records four positions, so the rating and similar players use "
+      + gn + "s; the stat sheet can also rank him against " + roleName(p.r).toLowerCase() + "s only."
+      : "The position his source lists for him, and the group he is ranked in.");
   if (p.ap != null) fact("Appearances", p.ap.toLocaleString() + (p.st != null ? ` <span class="muted">${p.st.toLocaleString()} as a starter</span>` : ""),
     M.combined ? "League appearances over these seasons." : "League appearances this season.");
   fact("Minutes", p.m.toLocaleString() + (p.ap ? ` <span class="muted">${Math.round(p.m / p.ap)} a game</span>` : ""));
@@ -1473,7 +1484,7 @@ function drawInfo(){
 // among the regulars without joining them). A category's figure is the plain
 // average of the percentiles listed under it, team readings left out. Nothing
 // here is a model output.
-let sheetPeers = "all";
+let sheetPeers = "all", sameRole = false;
 const RANKS = new Map();
 const article = l => /^(La |Serie |Ligue |Liga )/.test(l) ? l : "the " + l;
 function rankPct(ref, v, sq){
@@ -1485,28 +1496,45 @@ function rankPct(ref, v, sq){
   return sq ? (lt + ties / 2 + 1) / (ref.length + 1) * 100 : (lt + (ties + 1) / 2) / ref.length * 100;
 }
 const leaguePeers = p => P.filter(o => o.g === p.g && !o.sq && o.l === p.l);
+// In a four-bucket feed, his exact position (Transfermarkt's) as well: a
+// defensive midfielder among defensive midfielders.
+const rolePeers = p => p.r ? P.filter(o => o.g === p.g && !o.sq && o.r === p.r) : [];
+const roleName = r => (M.roleNames || {})[r] || r;
+const hasRoles = () => Object.keys(M.roleNames || {}).length > 0;
 function sheetPct(p, key, scope){
   const spec = G[p.g], j = spec.d.indexOf(key);
   if (j < 0 || !p.d[j] || p.d[j][0] == null) return null;
-  if (scope !== "league") return p.d[j][1];
-  // A single season ships his league percentile, ranked at full precision; seasons
-  // taken together rank it here, on the combined figures, by the same rule.
-  if (p.d[j].length > 2) return p.d[j][2];
-  const ck = `${dsKey}|${p.g}|${p.l}|${key}`;
+  if (scope === "all") return p.d[j][1];
+  // A single season ships his league and exact-position percentiles, ranked at full
+  // precision; seasons taken together rank them here, on the combined figures, by the same rule.
+  const at = scope === "league" ? 2 : 3;
+  if (p.d[j].length > at) return p.d[j][at];
+  if (scope === "role" && !p.r) return null;
+  const ck = `${dsKey}|${p.g}|${scope === "league" ? p.l : p.r}|${scope}|${key}`;
   let ref = RANKS.get(ck);
   if (!ref){
-    ref = leaguePeers(p).map(o => o.d[j] ? o.d[j][0] : null).filter(v => v != null).sort((a, b) => a - b);
+    ref = (scope === "league" ? leaguePeers(p) : rolePeers(p)).map(o => o.d[j] ? o.d[j][0] : null)
+      .filter(v => v != null).sort((a, b) => a - b);
     RANKS.set(ck, ref);
   }
   if (!ref.length) return null;
   const pct = rankPct(ref, p.d[j][0], !!p.sq);
   return Math.round(LOWER.has(key) ? 100 - pct : pct);
 }
+// His position's sheet, read in his exact position's order where the feed has one.
+function sheetOf(p){
+  const spec = G[p.g], sheet = spec && spec.s ? spec.s : [], rs = p.r && spec && spec.rs ? spec.rs[p.r] : null;
+  if (!rs) return {sheet, k: spec ? spec.k || [] : []};
+  const at = c => { const i = rs.o.indexOf(c); return i < 0 ? 99 : i; };
+  return {sheet: sheet.slice().sort((a, b) => at(a[0]) - at(b[0])), k: rs.k};
+}
 function sheetRows(p, scope){
-  const spec = G[p.g], team = new Set(M.team || M.club || []);
-  return (spec && spec.s ? spec.s : []).map(([c, keys]) => {
+  const spec = G[p.g], team = new Set(M.team || M.club || []), style = new Set(M.style || []);
+  return sheetOf(p).sheet.map(([c, keys]) => {
     const rows = keys.map(k => { const j = spec.d.indexOf(k);
       return {k, v: p.d[j] ? p.d[j][0] : null, pct: sheetPct(p, k, scope), team: team.has(k)}; });
+    // A style category says how he plays, not how well: ranked, but not averaged.
+    if (style.has(c)) return {c, rows, style: true, n: 0, teamN: 0, avg: null};
     const counted = rows.filter(r => r.pct != null && !r.team);
     return {c, rows, n: counted.length, teamN: rows.filter(r => r.team && r.pct != null).length,
             avg: counted.length ? meanOf(counted.map(r => r.pct)) : null};
@@ -1523,37 +1551,46 @@ function drawSheet(){
   if (panel.hidden) return;
   const gn = gname(p.g).toLowerCase(), src = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey));
   const nLeague = leaguePeers(p).length, multi = (M.leagues || []).length > 1, canLeague = multi && nLeague >= 10;
-  const scope = canLeague ? sheetPeers : "all";
-  const n = scope === "league" ? nLeague : (M.counts[p.g] || 0);
-  $("sheet-peers").hidden = !multi;
-  $("sheet-peers").innerHTML = multi ? `<button type="button" data-peers="all"${scope === "all" ? ' class="on"' : ""}>All ${esc(gn)}s</button>`
-    + `<button type="button" data-peers="league"${scope === "league" ? ' class="on"' : ""}${canLeague ? ""
-      : ` aria-disabled="true" data-tip="Only ${nLeague} regular ${esc(gn)}s in ${esc(article(p.l))} here: too few to rank against."`}>${esc(cap(gn))}s in ${esc(article(p.l))}</button>` : "";
-  const peersTxt = `${n.toLocaleString()} ${gn}s${scope === "league" ? " in " + article(p.l) : ""} ${here()}`;
-  $("sheet-sub").textContent = `Every number ${src ? src.name : "this source"} records for a ${gn}, in the order that matters for the position. Percentiles against ${peersTxt}.`;
+  const roles = hasRoles() && p.g !== "GK", nRole = rolePeers(p).length, canRole = roles && !!p.r && nRole >= 10;
+  const rn = p.r ? roleName(p.r).toLowerCase() : "";
+  const scope = sheetPeers === "league" && canLeague ? "league" : sheetPeers === "role" && canRole ? "role" : "all";
+  const n = scope === "league" ? nLeague : scope === "role" ? nRole : (M.counts[p.g] || 0);
+  const btn = (k, text, ok, why) => `<button type="button" data-peers="${k}"${scope === k ? ' class="on"' : ""}${
+    ok ? "" : ` aria-disabled="true" data-tip="${esc(why)}"`}>${esc(text)}</button>`;
+  $("sheet-peers").hidden = !multi && !roles;
+  $("sheet-peers").innerHTML = btn("all", `All ${gn}s`, true, "")
+    + (roles ? btn("role", p.r ? `${cap(rn)}s` : "Exact position", canRole, p.r
+        ? `Only ${nRole} regular ${rn}s ${here()}: too few to rank against.`
+        : "Transfermarkt has no exact position for him here, so he can only be ranked among all " + gn + "s.") : "")
+    + (multi ? btn("league", `${cap(gn)}s in ${article(p.l)}`, canLeague,
+        `Only ${nLeague} regular ${gn}s in ${article(p.l)} here: too few to rank against.`) : "");
+  const peersTxt = scope === "role" ? `${n.toLocaleString()} ${rn}s ${here()}`
+    : `${n.toLocaleString()} ${gn}s${scope === "league" ? " in " + article(p.l) : ""} ${here()}`;
+  $("sheet-sub").textContent = `Every number ${src ? src.name : "this source"} records for a ${p.r && roles ? rn : gn}, in the order that matters for the position. Percentiles against ${peersTxt}.`;
   const cats = sheetRows(p, scope);
   const pctTxt = v => v == null ? "—" : ord(v);
   // The position's headline numbers, large.
-  const keyRows = (spec.k || []).map(k => cats.flatMap(c => c.rows).find(r => r.k === k)).filter(r => r && r.v != null);
+  const keyRows = sheetOf(p).k.map(k => cats.flatMap(c => c.rows).find(r => r.k === k)).filter(r => r && r.v != null);
   $("sheet-key").innerHTML = keyRows.map(r => `<div class="sk">
-      <div class="sk-n">${termed(r.k, true)}</div>
+      <div class="sk-n">${termed(r.k, true)}${r.team ? `<span class="tag" data-tip="Reads his team as much as him, so it is drawn neutral.">team</span>` : ""}</div>
       <div class="sk-v tnum">${fmt(r.k, r.v)}</div>
-      <div class="sk-bar" aria-hidden="true"><span style="width:${Math.max(2, r.pct ?? 0)}%;background:var(--s${band(r.pct)})"></span></div>
+      <div class="sk-bar" aria-hidden="true"><span style="width:${Math.max(2, r.pct ?? 0)}%;background:var(--s${r.team ? 3 : band(r.pct)})"></span></div>
       <div class="sk-p">${r.pct == null ? "Not ranked" : pctTxt(r.pct) + " percentile"}</div></div>`).join("");
-  $("sheet-jump").innerHTML = cats.map((c, i) => `<button type="button" class="sj" data-jump="sheet-cat-${i}">
-      <span>${esc(c.c)}</span><span class="chip c${band(c.avg)}">${c.avg == null ? "—" : Math.round(c.avg)}</span></button>`).join("");
+  $("sheet-jump").innerHTML = cats.map((c, i) => `<button type="button" class="sj${c.style ? " style" : ""}" data-jump="sheet-cat-${i}">
+      <span>${esc(c.c)}</span>${c.style ? "" : `<span class="chip c${band(c.avg)}">${c.avg == null ? "—" : Math.round(c.avg)}</span>`}</button>`).join("");
   const notes = M.notRecorded || {};
   $("sheet").innerHTML = cats.map((c, i) => `<section class="sheet-cat" id="sheet-cat-${i}" aria-labelledby="sheet-cat-${i}-h">
       <header class="sc-head">
         <h3 id="sheet-cat-${i}-h">${esc(c.c)}</h3>
-        <div class="sc-pct b${band(c.avg)}" data-tip="The plain average of the ${c.n} percentiles below${c.teamN ? ", leaving out team readings" : ""}, against ${esc(peersTxt)}.">
-          <b>${c.avg == null ? "—" : Math.round(c.avg)}</b><span>${c.avg == null ? "not ranked" : "category percentile"}</span></div>
+        ${c.style ? "" : `<div class="sc-pct b${band(c.avg)}" data-tip="The plain average of the ${c.n} percentiles below${c.teamN ? ", leaving out team readings" : ""}, against ${esc(peersTxt)}.">
+          <b>${c.avg == null ? "—" : Math.round(c.avg)}</b><span>${c.avg == null ? "not ranked" : "category percentile"}</span></div>`}
       </header>
-      <p class="sc-sub">${c.n ? `Average of the ${c.n} percentile${c.n > 1 ? "s" : ""} below${c.teamN ? ", team readings left out" : ""}.` : "No percentiles to average."}</p>
+      <p class="sc-sub">${c.style ? "Where on the pitch and how the player plays, not how well. Ranked like the rest, drawn neutral, and not averaged."
+        : c.n ? `Average of the ${c.n} percentile${c.n > 1 ? "s" : ""} below${c.teamN ? ", team readings left out" : ""}.` : "No percentiles to average."}</p>
       <div class="sc-rows">${c.rows.map(r => {
         const lower = LOWER.has(r.k), desc = describe(r.k);
         // A team reading is ranked like the rest but drawn neutral: facing few shots is the defence's doing.
-        const tone = r.team ? 3 : band(r.pct);
+        const tone = r.team || c.style ? 3 : band(r.pct);
         return `<div class="sr${r.v == null ? " none" : ""}">
           <div class="sr-n">${termed(r.k, true)}${lower ? '<span class="tag" data-tip="Lower is better. The percentile is flipped, so a high one still reads well.">lower is better</span>' : ""}${
             r.team ? `<span class="tag" data-tip="Reads his team as much as him, so it is shown but left out of the category average.">team</span>` : ""}
@@ -1594,6 +1631,9 @@ function drawSheet(){
     + `The percentile is his rank among ${peersTxt}: 80 means a higher figure than about 80% of them, flipped where lower is better. `
     + (scope === "league" ? (M.combined ? `Over seasons taken together, the league percentiles are ranked here on the combined figures, by the same rule. `
       : `The league percentiles rank him among the regulars in his position in his own league only, by the same rule. `) : "")
+    + (scope === "role" ? `The exact-position percentiles rank him among the regulars Transfermarkt lists in the same position that season${
+        M.combined ? ", ranked here on the combined figures" : ""}, by the same rule. ` : "")
+    + (cats.some(c => c.style) ? `Role and style rows say how a player plays rather than how well, so they are not averaged. ` : "")
     + `A category's percentile is the plain average of the percentiles listed under it; numbers that read the team, such as goals conceded, are shown but not averaged. `
     + `The rating above uses a smaller set of metrics per position, so its category scores differ from these.`;
 }
@@ -1731,6 +1771,10 @@ const whyTag = c => c ? `<span class="why">Closest on ${esc(c.toLowerCase())}</s
 function drawMatches(){
   const s = P[subject];
   $("own-wrap").hidden = scope !== "all";
+  const roleOk = hasRoles() && !!s.r && scope !== "all";
+  $("role-wrap").hidden = !roleOk;
+  if (roleOk) $("samerole-l").textContent = `Only ${roleName(s.r).toLowerCase()}s`;
+  $("samerole").checked = sameRole;
   document.querySelectorAll("#scope button").forEach(b => b.classList.toggle("on", b.dataset.scope === scope));
   drawAlternatives();   // first, so no early return below can leave the last player's list up
   if (!G[s.g] || !s.z.length){
@@ -1784,7 +1828,7 @@ function drawMatches(){
     return;
   }
   const rows = sortedMatches(ranked());
-  $("hits").textContent = `${rows.length.toLocaleString()} ${gname(s.g).toLowerCase()}s ranked by statistical similarity to ${s.n}`;
+  $("hits").textContent = `${rows.length.toLocaleString()} ${sameRole && s.r && hasRoles() ? roleName(s.r).toLowerCase() : gname(s.g).toLowerCase()}s ranked by statistical similarity to ${s.n}`;
   if (!rows.length){ $("matches").innerHTML = `<div class="empty"><b>No matches with these filters</b>No ${esc(gname(s.g).toLowerCase())} clears them. Loosen one, or reset the filters.</div>`; return; }
   $("matches").innerHTML = rows.slice(0, listLimit).map(([i, sc], n) => {
     const o = P[i];
@@ -2285,6 +2329,13 @@ function drawResults(){
 function drawBoardControls(){
   const current = G[$("bgroup").value] ? $("bgroup").value : (P[subject] ? P[subject].g : null);
   const g = groupOptions($("bgroup"), current);
+  // A four-bucket feed can narrow a bucket to one exact position (Transfermarkt's).
+  const counts = (M.roleCounts || {})[g] || {}, keepRole = $("brole").value;
+  const roles = Object.keys(counts).filter(r => counts[r] >= 10);
+  $("brole-field").hidden = !roles.length;
+  $("brole").innerHTML = `<option value="">All ${esc(gname(g).toLowerCase())}s</option>` + roles.map(r =>
+    `<option value="${r}">${esc(roleName(r))}s (${counts[r]})</option>`).join("");
+  $("brole").value = roles.includes(keepRole) ? keepRole : "";
   const keep = $("bmetric").value;
   $("bmetric").innerHTML = metricOptions(g, keep, [VFM_KEY, VALUE_KEY, AGE_KEY]);
   if (keep && G[g] && G[g].d.includes(keep)) $("bmetric").value = keep;
@@ -2292,14 +2343,17 @@ function drawBoardControls(){
 function drawBoard(){
   const metric = $("bmetric").value, group = $("bgroup").value, spec = G[group];
   if (!spec || !metric){ $("board").innerHTML = ""; $("board-hits").textContent = ""; return; }
-  const rows = [];
+  const role = $("brole-field").hidden ? "" : $("brole").value, rows = [];
   for (const i of (byGroup[group] || [])){
-    const o = P[i], c = cellOf(o, metric, spec);
-    if (c[0] != null && passes(o, false)) rows.push([i, c[0], c[1]]);
+    const o = P[i];
+    if (role && o.r !== role) continue;
+    const c = cellOf(o, metric, spec);
+    // Narrowed to one exact position, the percentile is against that position.
+    if (c[0] != null && passes(o, false)) rows.push([i, c[0], role ? sheetPct(o, metric, "role") ?? c[1] : c[1]]);
   }
   const asc = $("bdir").value === "asc";
   rows.sort((a, b) => asc ? a[1] - b[1] : b[1] - a[1]);
-  $("board-hits").textContent = rows.length.toLocaleString() + " ranked";
+  $("board-hits").textContent = rows.length.toLocaleString() + " ranked" + (role ? `, ${roleName(role).toLowerCase()}s only, percentiles against them` : "");
   const f = metric === VFM_KEY ? vfmFit(group) : null;
   $("board-note").innerHTML = f ? `<b>Value for money</b> is his rating minus the rating his price predicts: across all
     ${f.n.toLocaleString()} priced ${esc(gname(group).toLowerCase())}s ${here()}, rating = ${f.a.toFixed(1)} ${f.b < 0 ? "−" : "+"}
@@ -3173,6 +3227,7 @@ $("weights").addEventListener("input", e => {
   drawMatches(); drawCompare();
 });
 $("own").addEventListener("change", e => { showOwn = e.target.checked; listLimit = 25; drawMatches(); });
+$("samerole").addEventListener("change", e => { sameRole = e.target.checked; listLimit = 25; drawMatches(); });
 $("about-btn").addEventListener("click", () => { drawAbout(); $("about").showModal(); });
 $("about-link").addEventListener("click", e => { e.preventDefault(); drawAbout(); $("about").showModal(); });
 $("about-close").addEventListener("click", () => $("about").close());
@@ -3200,6 +3255,7 @@ $("criteria").addEventListener("input", e => {
   r.parentElement.querySelector(".pv").textContent = r.value + "th"; resLimit = 25; drawResults();
 });
 $("bgroup").addEventListener("change", () => { boardLimit = 25; drawBoardControls(); drawBoard(); });
+$("brole").addEventListener("change", () => { boardLimit = 25; drawBoard(); });
 ["bmetric", "bdir"].forEach(id => $(id).addEventListener("change", () => { boardLimit = 25; drawBoard(); }));
 
 $("copycsv").addEventListener("click", e => {

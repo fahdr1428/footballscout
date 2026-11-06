@@ -74,7 +74,8 @@ from src.config import (  # noqa: E402
     DEFAULT_WEIGHTS, POSITION_GROUP_NAMES, RAW_DIR, ROOT_DIR, TEAM_CONTEXT_METRICS,
     categories_for,
 )
-from src.stat_sheet import DESCRIPTIONS, NOT_RECORDED, TEAM_READINGS, headline_for, order_for, sheet_for  # noqa: E402
+from src.stat_sheet import (BUCKETS, DESCRIPTIONS, NOT_RECORDED, ROLE_NAMES, ROLE_OF, STYLE_CATEGORIES,
+                            TEAM_READINGS, headline_for, order_for, role_sheet, sheet_for)  # noqa: E402
 from src.feature_engineering import category_scores, compute_percentiles, metrics_for_percentiles  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
 
@@ -92,14 +93,16 @@ SITE_SOURCES = [
         "skip": set(),
         "blurb": "The most current: the big five plus Russia, 2014/15 to 2025/26 and the season "
                  "in progress, every player priced by Transfermarkt. Attacking output only - "
-                 "xG, xA, xGChain, xGBuildup - so no defending, and goalkeepers have no model.",
+                 "xG, xA, xGChain, xGBuildup - so no defending, and goalkeepers have no model. "
+                 "Players are grouped as defenders, midfielders and forwards; the stat sheet also "
+                 "ranks each against his exact Transfermarkt position, such as defensive midfielders.",
     },
     {
         "key": "fbref_big5", "name": "Big five, in depth", "via": "FBref",
         "skip": {"2025-26"},
         "stops": "its public mirror of FBref is no longer updated",
         "updated": "Season stats: FBref, via a public mirror last updated 18 Sep 2025",
-        "blurb": "The deepest: up to 44 metrics and ten specific positions, 2017/18 to 2024/25, "
+        "blurb": "The deepest: up to 109 metrics and ten specific positions, 2017/18 to 2024/25, "
                  "priced by Transfermarkt. 2023/24 is the last season every block measured in "
                  "full - the public mirror of FBref stopped in September 2025.",
     },
@@ -108,8 +111,10 @@ SITE_SOURCES = [
         "skip": set(),
         "updated": "Season stats: Fantasy Premier League, every season to the one being played",
         "blurb": "Every season from 2016/17, the one being played included: FPL's ICT and defensive-contribution numbers "
-                 "with Understat's xG, real Transfermarkt prices beside the fantasy price. One "
-                 "league and a summary feed - no progressive passes, duels or pass completion.",
+                 "with Understat's xG, real Transfermarkt prices beside the fantasy price, and keepers' "
+                 "xG faced against goals conceded. One league and a summary feed - no progressive passes, "
+                 "duels or pass completion; tackles and recoveries from 2025/26. The stat sheet also ranks "
+                 "each player against his exact Transfermarkt position.",
     },
     {
         "key": "statsbomb_2015_16", "name": "Event data", "via": "StatsBomb 2015/16",
@@ -296,6 +301,22 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
     if squad is not None and len(squad):
         league_pct = pd.concat([league_pct, place_among(pool, squad, shown, league_peers)])
 
+    # A four-bucket feed also ranks each player against his exact position,
+    # where Transfermarkt records one: a defensive midfielder among defensive
+    # midfielders, by the same rule. A player without one has no such
+    # percentile, rather than a guessed position.
+    role_pct, role = None, pd.Series(np.nan, index=rows.index, dtype=object)
+    if set(BUCKETS) & set(groups):
+        where = rows["detailed_position"] if "detailed_position" in rows.columns else rows.get("position")
+        if where is not None:
+            role = where.map(ROLE_OF).where(rows["position_group"].isin(BUCKETS))
+            role_peers = _peers(pool) + ["_role"]
+            role_pct = compute_percentiles(pool.assign(_role=role.loc[pool.index]), shown, group_col=role_peers)
+            if squad is not None and len(squad):
+                role_pct = pd.concat([role_pct, place_among(pool.assign(_role=role.loc[pool.index]),
+                                                            squad.assign(_role=role.loc[squad.index]),
+                                                            shown, role_peers)])
+
     players = []
     for index in rows.index:
         row = rows.loc[index]
@@ -308,11 +329,14 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
             vector = squad_z[index] if index in squad_z else model.z.iloc[model.z.index.get_loc(index)]
             zrow = [round(float(v), 2) for v in vector]
             mine, league = percentiles.loc[index], league_pct.loc[index]
+            exact = role_pct.loc[index] if role_pct is not None else None
+            whole = lambda x: None if x is None or pd.isna(x) else round(float(x))
             for metric in spec["d"]:
                 value = row.get(metric)
-                pct, lpct = mine.get(f"pct_{metric}"), league.get(f"pct_{metric}")
-                display.append([_num(value, 2), None if pd.isna(pct) else round(float(pct)),
-                                None if lpct is None or pd.isna(lpct) else round(float(lpct))])
+                cell = [_num(value, 2), whole(mine.get(f"pct_{metric}")), whole(league.get(f"pct_{metric}"))]
+                if exact is not None:
+                    cell.append(whole(exact.get(f"pct_{metric}")))
+                display.append(cell)
 
         players.append({
             "id": str(row["player_id"]),
@@ -328,6 +352,8 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
             "ap": None if pd.isna(row.get("matches")) else int(row["matches"]),
             "st": None if pd.isna(row.get("starts")) else int(row["starts"]),
             "ce": row.get("contract_expiry") if pd.notna(row.get("contract_expiry")) else None,
+            # His exact position in a four-bucket feed, where Transfermarkt has one.
+            **({"r": role.loc[index]} if isinstance(role.loc[index], str) else {}),
             "h": _num(row.get("height_cm"), 0),
             "v": None if pd.isna(row.get("market_value_eur")) else int(row["market_value_eur"]),
             # The fantasy price, where a source has that instead of a valuation.
@@ -355,6 +381,10 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
     for group, spec in groups.items():
         spec["s"] = sheet_for(group, spec["d"])
         spec["k"] = headline_for(group, spec["d"])
+        # Each exact position's reading order and headline numbers over the bucket's sheet.
+        found = sorted({p["r"] for p in players if p["g"] == group and p.get("r")})
+        if found:
+            spec["rs"] = {r: role_sheet(r, spec["s"], spec["d"]) for r in found}
         # Every category the position reads in, so the page can name the ones
         # this source does not record at all.
         spec["so"] = order_for(group)
@@ -381,6 +411,13 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
             # What each stat-sheet metric tells a scout, and what no open source records.
             "desc": {m: DESCRIPTIONS[m] for m in sorted(labels) if m in DESCRIPTIONS},
             "notRecorded": NOT_RECORDED,
+            # Categories that say how a player plays rather than how well: not averaged.
+            "style": list(STYLE_CATEGORIES),
+            # Exact positions in a four-bucket feed: their names and how many regulars each has.
+            "roleNames": ROLE_NAMES if role_pct is not None else {},
+            "roleCounts": ({g: {r: int(n) for r, n in sorted(block.value_counts().items())}
+                            for g, block in role.loc[pool.index].dropna().groupby(pool["position_group"])}
+                           if role_pct is not None else {}),
             # Rendering hints: a percentage needs a % sign, and for a
             # lower-is-better metric the smaller number is the better one.
             "pct": sorted(PERCENT_METRICS & set(labels)),

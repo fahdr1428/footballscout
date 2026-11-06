@@ -79,25 +79,48 @@ weighted mean, percentiles the average rank — and an independent re-implementa
 
 **The stat sheet.** Every number the source records for a player, in plain categories —
 attacking, playmaking, passing and possession, dribbling and carrying, defending, goalkeeping,
-distribution, physical and availability, discipline — **ordered for his position**: a keeper's
-sheet opens on goalkeeping (goals prevented and save percentage first) and distribution and never
-shows a tackle; a centre-back's on defending; a winger's on dribbling; a striker's on attacking.
-Four headline numbers for the position sit above it. Each row is a rate or percentage worked out
-from the source's own counts, with a line on what it tells a scout and his **percentile against
-every regular in his position, or only those in his own league** (one click; both ranked in the
-export at full precision by the same average-rank rule, flipped where lower is better). A
-category's percentile is the plain average of the percentiles listed under it, with team readings —
-goals conceded, shots a keeper faces — shown, tagged and left out. Big five, in depth carries up to
-78 metrics a position (70 from 2022/23, when the pressure and shot-creation columns stop, and 33 in
-2024/25, which has no defending or dribbling columns), including progressive passes, carries and
-receptions, passes into the final third and box, switches, through balls, pass accuracy by length,
-tackles by third, dribblers stopped, ball recoveries, errors, possession-adjusted tackles and
-interceptions, and keepers' PSxG, crosses claimed, sweeping and launches. Seasons taken together
-show what every one of them records, and the page names any season that leaves a category out. What no open dataset records is said on the page rather
-than estimated: top speed, distance covered, sprints and accelerations (tracking data), big chances
-missed and off-ball runs; a source that records less (Top leagues has shots and chances, not
-tackles) names the categories it lacks and links the same player where more of his game is
-recorded. Compare groups every metric by the same categories, and the Rankings metric list does too.
+distribution, physical and availability, discipline, and role and style — **ordered for his
+position**: a keeper's sheet opens on goalkeeping (goals prevented and save percentage first) and
+distribution and never shows a tackle; a centre-back's and a defensive midfielder's on defending;
+a winger's on dribbling; a striker's on attacking. Four headline numbers for the position sit above
+it — for a defensive midfielder, interceptions, tackles won, tackles in the middle third and
+progressive passes. Each row is a rate or percentage worked out from the source's own counts, with a
+line on what it tells a scout and his **percentile against every regular in his position, or only
+those in his own league** (one click; both ranked in the export at full precision by the same
+average-rank rule, flipped where lower is better). A category's percentile is the plain average of
+the percentiles listed under it, with team readings — goals conceded, shots and crosses a keeper
+faces — shown, tagged and left out. **Role and style** (touches by third, how deep or high a player
+operates, set-piece duty, how often a keeper goes long) says how a player plays rather than how
+well, so it is drawn neutral and never averaged.
+
+Big five, in depth carries up to **109 metrics** for an outfield position and 40 for a keeper (95
+and 40 from 2022/23, when the pressure and shot-creation columns stop; 2024/25 has no defending,
+dribbling or keeping columns at all): progressive passes, carries and receptions, passes into the
+final third and box, switches, through balls, pass completion by length and under pressure,
+tackles in each third, dribblers challenged and stopped, interceptions, blocks, clearances,
+recoveries, pressures, errors, every defensive count adjusted for possession, aerial duels won and
+lost, touches by third — and for keepers post-shot xG against goals conceded, save percentage,
+crosses faced and claimed, sweeping, penalties faced and saved, launches and pass length.
+
+**Exact positions in the four-bucket feeds.** Top leagues and the Premier League feed only record
+keepers, defenders, midfielders and forwards, so their models and ratings stay on those four. But
+Transfermarkt — a separate source — records where most players actually played each season (97% of
+Top leagues regulars), so the stat sheet can also rank a player **against his exact position only**:
+a defensive midfielder against defensive midfielders, a full-back against full-backs, read in that
+position's order with its headline numbers, and the Rankings can narrow a bucket to one position. A
+player Transfermarkt has no position for is not guessed into one. Premier League keepers get
+**xG faced minus goals conceded** — the pre-shot version of goals prevented, from the Fantasy
+Premier League's xG conceded, recorded from 2022/23 — and its outfield players tackles, recoveries and clearances, blocks
+and interceptions from 2025/26, when the feed began recording them.
+
+Seasons taken together show what every one of them records, and the page names any season that
+leaves a category out. What no open dataset records is said on the page rather than estimated:
+top speed, distance covered, sprints and accelerations (tracking data), big chances missed and
+off-ball runs, and defensive numbers for the big five after 2023/24 — the sites that have those
+license them from Opta and do not allow them to be republished. A source that records less (Top
+leagues has shots and chances, not tackles) names the categories it lacks and links the same player
+where more of his game is recorded. Compare groups every metric by the same categories, and the
+Rankings metric list does too.
 
 ![A keeper's stat sheet: goals prevented, save percentage and distribution first](assets/screenshot-stat-sheet.png)
 
@@ -998,7 +1021,8 @@ That means:
 - read each player's **rating** with its breakdown, his price as each season closed and his latest
   one, and rank, search or plot on the rating like any metric;
 - read his **stat sheet**: every recorded metric in categories ordered for his position, each with
-  its percentile against his position or against his position in his own league;
+  its percentile against his position, his position in his own league, or — in the four-bucket
+  feeds — his exact Transfermarkt position;
 - follow a player across every season he appears in, with his category percentiles season by season;
 - search by profile, rank a position on any metric, or plot it on any two;
 - keep a shortlist with notes across sources and seasons, in the browser's own storage, and share

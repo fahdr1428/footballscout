@@ -213,6 +213,12 @@ def add_derived_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df["gk_psxg_minus_ga_per90"] = np.where(
         gk, (df.get("gk_psxg", np.nan) - df.get("gk_goals_against", np.nan)) / exposure, np.nan
     ).round(3)
+    # The same idea on pre-shot xG, where a feed has the xG a keeper's team
+    # conceded while he was in goal (the Fantasy Premier League's xGC) but no
+    # post-shot model: what the chances faced were worth minus what went in.
+    df["gk_xgc_minus_ga_per90"] = np.where(
+        gk, (df.get("xgc", np.nan) - df.get("gk_goals_against", np.nan)) / exposure, np.nan
+    ).round(3)
     return df.drop(columns=[c for c in ["_aerials_total", "_saves_plus_conceded"] if c in df.columns])
 
 

@@ -102,17 +102,22 @@ SHEET = """() => {
   const p = P[subject], spec = G[p.g], out = [];
   if (!spec || !spec.s) return ['no stat sheet'];
   const cats = [...document.querySelectorAll('#sheet .sheet-cat h3')].map(h => h.textContent);
-  if (cats.join('|') !== spec.s.map(x => x[0]).join('|')) out.push(`categories ${cats.join(', ')}`);
+  const order = sheetOf(p).sheet.map(x => x[0]);
+  if (cats.join('|') !== order.join('|')) out.push(`categories ${cats.join(', ')}`);
+  if (p.r && spec.rs && spec.rs[p.r] && cats[0] !== spec.rs[p.r].o[0]) out.push(`a ${p.r} should open on ${spec.rs[p.r].o[0]}`);
   for (const sec of document.querySelectorAll('#sheet .sheet-cat')){
+    const fig = sec.querySelector('.sc-pct b');
+    if (!fig) continue;   // role and style: not averaged
     const nums = [...sec.querySelectorAll('.sr')].filter(r => !r.querySelector('.tag[data-tip^="Reads his team"]'))
       .map(r => r.querySelector('.sr-p').textContent).filter(t => t !== '—').map(Number);
-    const fig = sec.querySelector('.sc-pct b').textContent;
-    if (nums.length && Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) !== Number(fig))
-      out.push(`${sec.querySelector('h3').textContent}: ${fig} is not the average of ${nums.join(', ')}`);
+    if (nums.length && Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) !== Number(fig.textContent))
+      out.push(`${sec.querySelector('h3').textContent}: ${fig.textContent} is not the average of ${nums.join(', ')}`);
   }
-  const league = sheetPeers === 'league', peers = P.filter(o => o.g === p.g && !o.sq && (!league || o.l === p.l));
+  const scope = document.querySelector('#sheet-peers .on') ? document.querySelector('#sheet-peers .on').dataset.peers : 'all';
+  const at = {all: 1, league: 2, role: 3}[scope];
+  const peers = P.filter(o => o.g === p.g && !o.sq && (scope !== 'league' || o.l === p.l) && (scope !== 'role' || o.r === p.r));
   for (const k of spec.s.flatMap(x => x[1])){
-    const j = spec.d.indexOf(k), at = league ? 2 : 1;
+    const j = spec.d.indexOf(k);
     const xs = peers.map(o => o.d[j]).filter(x => x && x[0] != null && x[at] != null).sort((a, b) => a[0] - b[0]);
     for (let i = 1; i < xs.length; i++) if (xs[i][0] > xs[i - 1][0] && (LOWER.has(k) ? xs[i][at] > xs[i - 1][at] : xs[i][at] < xs[i - 1][at])){
       out.push(`${k}: a higher figure ranks lower`); break; }
@@ -245,6 +250,33 @@ def main() -> int:
         # the rankings list follows the same categories
         groups = page.locator("#bmetric optgroup")
         check(groups.count() >= 3, f"rankings: metrics grouped by category ({groups.count()} groups)")
+        # a four-bucket feed: a defensive midfielder ranked among defensive midfielders,
+        # read in a defensive midfielder's order, and the leaderboard narrowed to them
+        latest = [s for k, s in catalog if k == "understat_big6"]
+        if latest:
+            open_(f"#d=understat_big6:{latest[0][-2]}&t=profile")
+            dm = page.evaluate("P.findIndex(p => p.r === 'DM' && !p.sq)")
+            check(dm >= 0, "exact positions: Top leagues has defensive midfielders")
+            if dm >= 0:
+                page.evaluate(f"selectSubject({dm}); setTab('profile'); setMode('similar')"); page.wait_for_timeout(300)
+                role = page.locator('#sheet-peers [data-peers="role"]')
+                check(role.count() == 1 and "Defensive midfielders" in role.inner_text(), "exact positions: the stat sheet offers defensive midfielders")
+                role.click(); page.wait_for_timeout(200)
+                wrong = page.evaluate(SHEET)
+                check("defensive midfielders" in page.locator("#sheet-sub").inner_text() and not wrong,
+                      "exact positions: ranked among defensive midfielders: " + ("consistent" if not wrong else "; ".join(wrong[:3])))
+                page.click('#sheet-peers [data-peers="all"]')
+                page.click("#pt-similar"); page.wait_for_timeout(300)
+                page.check("#samerole"); page.wait_for_timeout(300)
+                listed = page.evaluate("[...document.querySelectorAll('#matches .row[data-m]')].map(r => P[+r.dataset.m].r)")
+                check(listed and all(r == "DM" for r in listed), f"similar players: held to defensive midfielders ({len(listed)} listed)")
+                page.uncheck("#samerole"); page.wait_for_timeout(100)
+                go("board")
+                page.select_option("#bgroup", "MID"); page.wait_for_timeout(200)
+                page.select_option("#brole", "DM"); page.wait_for_timeout(300)
+                listed = page.evaluate("[...document.querySelectorAll('#board .row[data-s]')].map(r => P[+r.dataset.s].r)")
+                check(listed and all(r == "DM" for r in listed), f"rankings: narrowed to defensive midfielders ({len(listed)} listed)")
+                page.select_option("#brole", ""); page.wait_for_timeout(100)
         open_("#v=similar")
         page.click("#pt-similar"); page.wait_for_timeout(200)
         # a match opens Compare, with the player and him side by side

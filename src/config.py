@@ -293,6 +293,7 @@ DERIVED_METRICS = {
     "open_play_npxg_share": "Share of non-penalty xG from open play %",
     "np_goals_minus_npxg_per90": "Non-penalty goals - xG per 90",
     "gk_psxg_minus_ga_per90": "Goals prevented vs post-shot xG per 90",
+    "gk_xgc_minus_ga_per90": "xG faced minus goals conceded per 90",
     "aerials_contested_per90": "Aerial duels contested per 90",
     "defensive_actions_per90": "Defensive actions per 90",
     "progressive_actions_per90": "Progressive actions per 90",
@@ -494,7 +495,7 @@ BUCKET_CATEGORIES = {
 }
 
 BUCKET_GK_CATEGORIES = {
-    "Shot Stopping": ["save_rate", "gk_saves_per90"],
+    "Shot Stopping": ["save_rate", "gk_saves_per90", "gk_xgc_minus_ga_per90"],
     "Goal Prevention": ["goals_conceded_per90", "xgc_per90", "clean_sheet_rate"],
     "Overall Rating": ["bps_per90", "influence_per90"],
     "Availability": ["starts_share", "minutes"],

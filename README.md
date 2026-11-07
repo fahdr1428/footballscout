@@ -128,6 +128,12 @@ his — summed exactly, nothing apportioned; a match he came on in or went off i
 gives **xG faced minus goals conceded**, goals conceded and xG faced per 90 and clean sheets for
 every keeper in the six leagues, fetched by the daily refresh on GitHub's runners (`scripts/
 refresh_sources.py`), and enough for keepers to have a model, similar players and a rating there.
+The season being played is fetched every day; finished seasons back to 2014/15 a few hundred
+keepers a day within a time budget, then never again. (Since 28 October 2026 understat.com has
+answered every request with a maintenance page, "We will come back soon", so neither this nor the
+season in progress has updated since; the refresh resumes on its own when the site is back. Until
+then a Top leagues keeper's sheet opens on his goalkeeping from the Premier League feed or Big
+five, in depth.)
 
 Seasons taken together show what every one of them records, and the page names any season that
 leaves a category out. What no open dataset records is said on the page rather than estimated:

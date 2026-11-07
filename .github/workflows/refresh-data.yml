@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       keeper_seasons:
-        description: "Also fetch keepers' matches for these season start years (e.g. 2014 2015 ... 2024); past seasons are kept, so a backfill can span several runs"
+        description: "Only fetch keepers' matches for these season start years (default: every season since 2014, finished ones once, a little each run)"
         required: false
         default: ""
       keeper_budget:
@@ -50,8 +50,8 @@ jobs:
         env:
           KEEPER_SEASONS: ${{ inputs.keeper_seasons }}
           KEEPER_BUDGET: ${{ inputs.keeper_budget || '15' }}
-        # Keepers' full matches are fetched for the current seasons every run;
-        # a manual run can add past seasons with keeper_seasons.
+        # Keepers' full matches: the season being played every run, finished
+        # seasons since 2014 once each, within the time budget.
         run: |
           extra=""
           if [ -n "$KEEPER_SEASONS" ]; then

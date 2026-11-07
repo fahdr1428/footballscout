@@ -259,6 +259,9 @@ def refresh_understat(seasons: list[int], out: Path) -> dict:
 # off in is left out rather than split by a guess, and the file says how many
 # full matches each figure rests on.
 KEEPERS_CSV = "understat_keepers.csv"
+# Finished seasons whose keepers have all been fetched: not asked for again.
+KEEPERS_STATE = "understat_keepers_meta.json"
+KEEPER_FIRST_SEASON = 2014
 KEEPER_COLUMNS = ["player_id", "season", "gk_full_matches", "gk_full_xga", "gk_full_goals_against",
                   "gk_full_clean_sheets"]
 KEEPER_BUDGET_MINUTES = 15
@@ -291,7 +294,10 @@ def keeper_rows(player_id: str, matches: list[dict], clubs: dict[str, set], tabl
     `clubs` maps each season label to the clubs he played for that season (from
     the league's player list), which says which side of each match was his.
     """
-    seasons: dict[str, dict] = {}
+    # A row for every season he is listed in, so one with no full match reads 0, not "not fetched".
+    seasons: dict[str, dict] = {season: {"player_id": str(player_id), "season": season, "gk_full_matches": 0,
+                                         "gk_full_xga": 0.0, "gk_full_goals_against": 0, "gk_full_clean_sheets": 0}
+                                for season in sorted(clubs)}
     for m in matches:
         try:
             season = _season_label(int(m["season"]))
@@ -299,9 +305,7 @@ def keeper_rows(player_id: str, matches: list[dict], clubs: dict[str, set], tabl
             continue
         if season not in clubs:
             continue
-        row = seasons.setdefault(season, {"player_id": str(player_id), "season": season, "gk_full_matches": 0,
-                                          "gk_full_xga": 0.0, "gk_full_goals_against": 0,
-                                          "gk_full_clean_sheets": 0})
+        row = seasons[season]
         game = table.get(str(m.get("id")))
         if game is None or str(m.get("position", "")).strip() != "GK":
             continue
@@ -355,8 +359,13 @@ def refresh_understat_keepers(seasons: list[int], out: Path, current: int,
     carries on, so a backfill of past seasons can span several runs.
     """
     target = out / "live" / KEEPERS_CSV
+    state_path = out / "live" / KEEPERS_STATE
     have = pd.read_csv(target, dtype={"player_id": str}) if target.exists() else pd.DataFrame(columns=KEEPER_COLUMNS)
     done = set(zip(have["player_id"].astype(str), have["season"]))
+    complete = set(json.loads(state_path.read_text()).get("complete", [])) if state_path.exists() else set()
+    now = _season_label(current)
+    # A finished season whose keepers are all in already is not fetched again.
+    seasons = [s for s in seasons if _season_label(s) == now or _season_label(s) not in complete]
     deadline = time.monotonic() + budget_minutes * 60
     table: dict[str, dict] = {}
     clubs: dict[str, dict[str, set]] = {}
@@ -377,8 +386,9 @@ def refresh_understat_keepers(seasons: list[int], out: Path, current: int,
                 if "GK" in str(p.get("position", "")).split():
                     titles = {t.strip() for t in str(p.get("team_title", "")).split(",") if t.strip()}
                     clubs.setdefault(str(p["id"]), {}).setdefault(_season_label(season), set()).update(titles)
-    now = _season_label(current)
-    todo = sorted(pid for pid, by in clubs.items() if any(s == now or (pid, s) not in done for s in by))
+    # The season being played first, then the most recent finished ones.
+    todo = sorted((pid for pid, by in clubs.items() if any(s == now or (pid, s) not in done for s in by)),
+                  key=lambda pid: (now not in clubs[pid], tuple(-int(s[:4]) for s in sorted(clubs[pid], reverse=True)), pid))
     log(f"keepers: {len(clubs)} in these seasons, {len(todo)} to fetch")
     rows, fetched = [], 0
     for pid in todo:
@@ -401,6 +411,12 @@ def refresh_understat_keepers(seasons: list[int], out: Path, current: int,
                  .sort_values(["season", "player_id"], kind="stable").reset_index(drop=True))
     target.parent.mkdir(parents=True, exist_ok=True)
     table_out.to_csv(target, index=False)
+    # A finished season is complete once every keeper it lists has a row.
+    have_now = set(zip(table_out["player_id"].astype(str), table_out["season"]))
+    for label in {s for by in clubs.values() for s in by} - {now}:
+        if all((pid, label) in have_now for pid, by in clubs.items() if label in by):
+            complete.add(label)
+    state_path.write_text(json.dumps({"complete": sorted(complete)}, indent=1) + "\n")
     log(f"wrote {target.relative_to(ROOT)}: {len(table_out):,} keeper-seasons ({len(new):,} from this run)")
     return {"keepers_fetched": fetched, "keeper_seasons": len(table_out), "to_fetch": len(todo)}
 
@@ -545,8 +561,11 @@ def main() -> int:
     if args.only in (None, "understat") and understat_failed is None:
         # Keepers are extra: a failure here is logged and the rest of the refresh stands.
         try:
+            # Every season since 2014/15 by default: finished ones are fetched once,
+            # a little each run within the budget, then left alone.
+            wanted = args.keeper_seasons or range(KEEPER_FIRST_SEASON, max(args.seasons) + 1)
             meta["understat_keepers"] = refresh_understat_keepers(
-                sorted(set(args.keeper_seasons or args.seasons)), args.out, max(args.seasons), args.keeper_budget)
+                sorted(set(wanted) | set(args.seasons)), args.out, max(args.seasons), args.keeper_budget)
         except BaseException as error:  # noqa: BLE001
             log(f"keepers not refreshed: {error}")
     meta_path.parent.mkdir(parents=True, exist_ok=True)

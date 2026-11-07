@@ -83,3 +83,29 @@ def test_an_answer_that_is_not_json_falls_back_to_the_page(monkeypatch):
     assert route == "embedded JSON" and players == [{"id": "1"}]
     assert len(calls) == 2 and any("not JSON" in line and "Just a moment" in line for line in logged)
     assert not rs.unreachable(RuntimeError("not JSON")) and rs.unreachable(TimeoutError())
+
+
+def test_finished_seasons_are_fetched_once_and_the_current_one_every_run(tmp_path, monkeypatch):
+    """The daily run backfills keepers a little at a time and never re-asks for a finished season."""
+    asked = []
+    def fake_league(league, season, deadline=None):
+        asked.append((league, season))
+        rs.LEAGUE_DATA[(league, season)] = {"dates": DATES if league == "EPL" else [],
+                                            "players": [{"id": "77", "position": "GK", "team_title": "Arsenal"}]
+                                            if league == "EPL" else []}
+        return rs.LEAGUE_DATA[(league, season)]["players"], "test"
+    monkeypatch.setattr(rs, "understat_players", fake_league)
+    monkeypatch.setattr(rs, "understat_player_matches",
+                        lambda pid, deadline=None: [dict(m, season="2024") for m in MATCHES[:2]] + MATCHES[:2])
+    monkeypatch.setattr(rs.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(rs, "log", lambda *_: None)
+    monkeypatch.setattr(rs, "ROOT", tmp_path)
+    rs.LEAGUE_DATA.clear()
+    rs.refresh_understat_keepers([2024, 2025], tmp_path, current=2025)
+    table = pd.read_csv(tmp_path / "live" / rs.KEEPERS_CSV, dtype={"player_id": str})
+    assert sorted(table["season"]) == ["2024-25", "2025-26"] and set(table["gk_full_matches"]) == {2}
+    state = (tmp_path / "live" / rs.KEEPERS_STATE).read_text()
+    assert "2024-25" in state and "2025-26" not in state
+    asked.clear(); rs.LEAGUE_DATA.clear()
+    rs.refresh_understat_keepers([2024, 2025], tmp_path, current=2025)
+    assert {season for _, season in asked} == {2025}   # the finished season is not asked for again

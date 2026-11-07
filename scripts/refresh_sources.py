@@ -149,10 +149,14 @@ UNDERSTAT_TIMEOUT = 30
 LEAGUE_DATA: dict[tuple[str, int], dict] = {}
 
 
-def _glimpse(body: bytes, n: int = 300) -> str:
-    """The start of an answer that was not what was asked for, on one line, for the log."""
-    text = body[:n].decode("utf-8", "replace")
-    return re.sub(r"\s+", " ", text).strip() or "(empty)"
+def _glimpse(body: bytes, n: int = 400) -> str:
+    """What an answer that was not what was asked for says, on one line, for the log:
+    for a page, its visible text (an error page's message), not its markup."""
+    text = body.decode("utf-8", "replace")
+    if "<html" in text[:2000].lower():
+        text = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", text)
+        text = re.sub(r"(?s)<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()[:n] or "(empty)"
 
 
 def _page_hints(page: str) -> str:
@@ -195,7 +199,8 @@ def understat_players(league: str, season: int,
     if players:
         LEAGUE_DATA[(league, season)] = {"players": players, "dates": _decode_embedded(page, "datesData") or []}
         return players, "embedded JSON"
-    log(f"  page fetched ({len(page):,} chars) but no player data found in it: {_page_hints(page)}")
+    log(f"  page fetched ({len(page):,} chars) but no player data found in it: {_page_hints(page)}; "
+        f"it says: {_glimpse(page.encode())}")
     return [], "none"
 
 

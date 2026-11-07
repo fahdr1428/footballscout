@@ -65,3 +65,21 @@ def test_keepers_reach_the_dataset_and_become_rates_per_full_match(tmp_path):
     assert row["gk_xgc_minus_ga_per90"] == 0.6 and row["clean_sheet_rate"] == 50.0
     # A keeper with no full matches fetched has no reading at all, not a zero.
     assert np.isnan(derived.iloc[1]["gk_xgc_minus_ga_per90"])
+
+
+def test_an_answer_that_is_not_json_falls_back_to_the_page(monkeypatch):
+    """A changed endpoint is not a host that is down: the page is read instead, and the log says what came back."""
+    calls, logged = [], []
+    def fake_fetch(url, **_):
+        calls.append(url)
+        if "getLeagueData" in url:
+            return b"<!doctype html><title>Just a moment</title>"
+        return (b"<html><title>EPL</title><script src='/js/app.js'></script>"
+                b"<script>var playersData = JSON.parse('[{\\x22id\\x22:\\x221\\x22}]');</script></html>")
+    monkeypatch.setattr(rs, "fetch", fake_fetch)
+    monkeypatch.setattr(rs, "log", logged.append)
+    monkeypatch.setattr(rs.time, "sleep", lambda *_: None)
+    players, route = rs.understat_players("EPL", 2026)
+    assert route == "embedded JSON" and players == [{"id": "1"}]
+    assert len(calls) == 2 and any("not JSON" in line and "Just a moment" in line for line in logged)
+    assert not rs.unreachable(RuntimeError("not JSON")) and rs.unreachable(TimeoutError())

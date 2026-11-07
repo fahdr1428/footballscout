@@ -87,8 +87,9 @@ def log(message: str) -> None:
 
 def unreachable(error: BaseException) -> bool:
     """No answer at all - a failed DNS lookup, a refused or hung connection - as
-    opposed to an HTTP status, which is the host answering."""
-    return getattr(error, "code", None) is None
+    opposed to an HTTP status, which is the host answering. An answer that could
+    not be read (not JSON, say) is an answer too."""
+    return isinstance(error, (urllib.error.URLError, TimeoutError, OSError)) and getattr(error, "code", None) is None
 
 
 def fetch(url: str, headers: dict | None = None, retries: int = 6, timeout: int = 60,
@@ -148,6 +149,20 @@ UNDERSTAT_TIMEOUT = 30
 LEAGUE_DATA: dict[tuple[str, int], dict] = {}
 
 
+def _glimpse(body: bytes, n: int = 300) -> str:
+    """The start of an answer that was not what was asked for, on one line, for the log."""
+    text = body[:n].decode("utf-8", "replace")
+    return re.sub(r"\s+", " ", text).strip() or "(empty)"
+
+
+def _page_hints(page: str) -> str:
+    """What a page loads its data from, when it no longer embeds it: for the log."""
+    endpoints = sorted(set(re.findall(r"(get[A-Z]\w*Data[\w/{}$.+'\"-]*)", page)))[:10]
+    scripts = sorted(set(re.findall(r"<script[^>]+src=[\"']([^\"']+)", page)))[:10]
+    title = re.search(r"<title>(.*?)</title>", page, re.S)
+    return (f"title {title.group(1).strip()[:80]!r}; " if title else "") + f"endpoints {endpoints}; scripts {scripts}"
+
+
 def understat_players(league: str, season: int,
                       deadline: float | None = None) -> tuple[list[dict], str]:
     """One league-season of player aggregates, and which route returned it."""
@@ -157,7 +172,12 @@ def understat_players(league: str, season: int,
             "X-Requested-With": "XMLHttpRequest", "Referer": page_url,
             "Accept": "application/json, text/javascript, */*; q=0.01"},
             retries=4, timeout=UNDERSTAT_TIMEOUT, deadline=deadline)
-        data = json.loads(raw.decode("utf-8"))
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except ValueError:
+            # An answer, but not JSON - a changed endpoint or a challenge page. Say
+            # what it was and read the page instead, rather than treating the host as down.
+            raise RuntimeError(f"getLeagueData answered {len(raw):,} bytes that are not JSON: {_glimpse(raw)}")
         players = data.get("players") if isinstance(data, dict) else None
         if players:
             LEAGUE_DATA[(league, season)] = {"players": players, "dates": data.get("dates") or []}
@@ -175,7 +195,7 @@ def understat_players(league: str, season: int,
     if players:
         LEAGUE_DATA[(league, season)] = {"players": players, "dates": _decode_embedded(page, "datesData") or []}
         return players, "embedded JSON"
-    log(f"  page fetched ({len(page):,} chars) but no player data found in it")
+    log(f"  page fetched ({len(page):,} chars) but no player data found in it: {_page_hints(page)}")
     return [], "none"
 
 
@@ -306,7 +326,10 @@ def understat_player_matches(player_id: str, deadline: float | None = None) -> l
             "X-Requested-With": "XMLHttpRequest", "Referer": page_url,
             "Accept": "application/json, text/javascript, */*; q=0.01"},
             retries=3, timeout=UNDERSTAT_TIMEOUT, deadline=deadline)
-        data = json.loads(raw.decode("utf-8"))
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except ValueError:
+            raise RuntimeError(f"getPlayerData answered {len(raw):,} bytes that are not JSON: {_glimpse(raw)}")
         if isinstance(data, dict) and isinstance(data.get("matches"), list):
             return data["matches"]
     except Exception as error:  # noqa: BLE001 - fall through to the page

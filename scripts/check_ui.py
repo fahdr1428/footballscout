@@ -101,11 +101,13 @@ COMBINED = """async name => {
 SHEET = """() => {
   const p = P[subject], spec = G[p.g], out = [];
   if (!spec || !spec.s) return ['no stat sheet'];
-  const cats = [...document.querySelectorAll('#sheet .sheet-cat h3')].map(h => h.textContent);
+  // A category embedded from another source (the position's lead one, where this
+  // source does not record it) comes first and is checked on its own.
+  const cats = [...document.querySelectorAll('#sheet .sheet-cat:not(.embed) h3')].map(h => h.textContent);
   const order = sheetOf(p).sheet.map(x => x[0]);
   if (cats.join('|') !== order.join('|')) out.push(`categories ${cats.join(', ')}`);
   if (p.r && spec.rs && spec.rs[p.r] && cats[0] !== spec.rs[p.r].o[0]) out.push(`a ${p.r} should open on ${spec.rs[p.r].o[0]}`);
-  for (const sec of document.querySelectorAll('#sheet .sheet-cat')){
+  for (const sec of document.querySelectorAll('#sheet .sheet-cat')){   // embedded ones too: same rule
     const fig = sec.querySelector('.sc-pct b');
     if (!fig) continue;   // role and style: not averaged
     const nums = [...sec.querySelectorAll('.sr')].filter(r => !r.querySelector('.tag[data-tip^="Reads his team"]'))
@@ -277,6 +279,23 @@ def main() -> int:
                 listed = page.evaluate("[...document.querySelectorAll('#board .row[data-s]')].map(r => P[+r.dataset.s].r)")
                 check(listed and all(r == "DM" for r in listed), f"rankings: narrowed to defensive midfielders ({len(listed)} listed)")
                 page.select_option("#brole", ""); page.wait_for_timeout(100)
+            # the category that matters most for the position comes first, from
+            # another source when this one does not record it
+            for group, role, lead in (("DEF", "CB", "Defending"), ("GK", None, "Goalkeeping")):
+                open_(f"#d=understat_big6:{latest[0][-2]}&t=profile")
+                pick = page.evaluate(f"""(() => {{ const xs = P.map((p, i) => [p, i]).filter(([p]) => p.g === '{group}' && !p.sq
+                    && p.l === 'Premier League' && {'true' if role is None else f"p.r === '{role}'"}); xs.sort((a, b) => b[0].m - a[0].m);
+                    return xs.length ? xs[0][1] : -1; }})()""")
+                if pick < 0:
+                    check(False, f"lead category: no Premier League {group} in Top leagues")
+                    continue
+                page.evaluate(f"selectSubject({pick}); setTab('profile'); setMode('similar')")
+                page.wait_for_function("!document.getElementById('sheet-embed') || !/Looking for/.test(document.getElementById('sheet-embed').innerText)",
+                                       timeout=60000)
+                first = page.locator("#sheet .sheet-cat h3")
+                who = page.evaluate("P[subject].n")
+                check(first.count() > 0 and first.first.inner_text() == lead,
+                      f"lead category: {who} ({group}) in Top leagues opens on {first.first.inner_text() if first.count() else 'nothing'}")
         open_("#v=similar")
         page.click("#pt-similar"); page.wait_for_timeout(200)
         # a match opens Compare, with the player and him side by side

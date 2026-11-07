@@ -143,6 +143,11 @@ UNDERSTAT_BUDGET_SECONDS = 8 * 60
 UNDERSTAT_TIMEOUT = 30
 
 
+# Every league-season fetched this run - its players and its matches - so the
+# keeper step reads the matches without asking understat.com twice.
+LEAGUE_DATA: dict[tuple[str, int], dict] = {}
+
+
 def understat_players(league: str, season: int,
                       deadline: float | None = None) -> tuple[list[dict], str]:
     """One league-season of player aggregates, and which route returned it."""
@@ -155,6 +160,7 @@ def understat_players(league: str, season: int,
         data = json.loads(raw.decode("utf-8"))
         players = data.get("players") if isinstance(data, dict) else None
         if players:
+            LEAGUE_DATA[(league, season)] = {"players": players, "dates": data.get("dates") or []}
             return players, "getLeagueData"
         log(f"  getLeagueData returned no players (keys: {list(data)[:6] if isinstance(data, dict) else type(data)})")
     except Exception as error:  # noqa: BLE001 - fall through to the page
@@ -167,6 +173,7 @@ def understat_players(league: str, season: int,
                  deadline=deadline).decode("utf-8", "replace")
     players = _decode_embedded(page, "playersData")
     if players:
+        LEAGUE_DATA[(league, season)] = {"players": players, "dates": _decode_embedded(page, "datesData") or []}
         return players, "embedded JSON"
     log(f"  page fetched ({len(page):,} chars) but no player data found in it")
     return [], "none"
@@ -214,6 +221,160 @@ def refresh_understat(seasons: list[int], out: Path) -> dict:
     table.to_csv(target, index=False)
     log(f"wrote {target.relative_to(ROOT)}: {len(table):,} rows")
     return {"fetched_at": stamp, "rows": len(table), "by_league_season": summary}
+
+
+# --------------------------------------------------------------------------
+# Understat goalkeepers
+# --------------------------------------------------------------------------
+# Understat's season aggregate records nothing a keeper does. Its match list
+# does: every league match with both sides' xG and goals. A keeper's own match
+# list says which matches he played and for how long, so for every match he
+# played in full, the xG of the shots his team faced and the goals it let in
+# are his - exactly, with nothing apportioned. A match he came on in or went
+# off in is left out rather than split by a guess, and the file says how many
+# full matches each figure rests on.
+KEEPERS_CSV = "understat_keepers.csv"
+KEEPER_COLUMNS = ["player_id", "season", "gk_full_matches", "gk_full_xga", "gk_full_goals_against",
+                  "gk_full_clean_sheets"]
+KEEPER_BUDGET_MINUTES = 15
+
+
+def _season_label(start: int) -> str:
+    return f"{start}-{str(start + 1)[-2:]}"
+
+
+def match_table(dates: list[dict]) -> dict[str, dict]:
+    """Finished league matches by id: each side's club, xG and goals."""
+    out = {}
+    for m in dates:
+        if not m.get("isResult") or "h" not in m or "a" not in m:
+            continue
+        try:
+            out[str(m["id"])] = {
+                "h": m["h"]["title"], "a": m["a"]["title"],
+                "xg": {k: float(m["xG"][k]) for k in ("h", "a")},
+                "goals": {k: int(m["goals"][k]) for k in ("h", "a")},
+            }
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def keeper_rows(player_id: str, matches: list[dict], clubs: dict[str, set], table: dict[str, dict]) -> list[dict]:
+    """One keeper's full matches in goal, summed season by season.
+
+    `clubs` maps each season label to the clubs he played for that season (from
+    the league's player list), which says which side of each match was his.
+    """
+    seasons: dict[str, dict] = {}
+    for m in matches:
+        try:
+            season = _season_label(int(m["season"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if season not in clubs:
+            continue
+        row = seasons.setdefault(season, {"player_id": str(player_id), "season": season, "gk_full_matches": 0,
+                                          "gk_full_xga": 0.0, "gk_full_goals_against": 0,
+                                          "gk_full_clean_sheets": 0})
+        game = table.get(str(m.get("id")))
+        if game is None or str(m.get("position", "")).strip() != "GK":
+            continue
+        try:
+            if int(float(m.get("time", 0))) < 90:
+                continue
+        except (TypeError, ValueError):
+            continue
+        mine = {side for side in ("h", "a") if game[side] in clubs[season]}
+        if len(mine) != 1:
+            continue   # his club cannot be told apart from the opponent's name: left out
+        other = "a" if mine == {"h"} else "h"
+        row["gk_full_matches"] += 1
+        row["gk_full_xga"] += game["xg"][other]
+        row["gk_full_goals_against"] += game["goals"][other]
+        row["gk_full_clean_sheets"] += int(game["goals"][other] == 0)
+    for row in seasons.values():
+        row["gk_full_xga"] = round(row["gk_full_xga"], 3)
+    return list(seasons.values())
+
+
+def understat_player_matches(player_id: str, deadline: float | None = None) -> list[dict]:
+    """A player's league matches, from the JSON endpoint or, failing that, his page."""
+    page_url = f"{UNDERSTAT}/player/{player_id}"
+    try:
+        raw = fetch(f"{UNDERSTAT}/getPlayerData/{player_id}", headers={
+            "X-Requested-With": "XMLHttpRequest", "Referer": page_url,
+            "Accept": "application/json, text/javascript, */*; q=0.01"},
+            retries=3, timeout=UNDERSTAT_TIMEOUT, deadline=deadline)
+        data = json.loads(raw.decode("utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("matches"), list):
+            return data["matches"]
+    except Exception as error:  # noqa: BLE001 - fall through to the page
+        if unreachable(error):
+            raise
+        log(f"  getPlayerData unavailable for {player_id}: {error}")
+    time.sleep(PAUSE_SECONDS)
+    page = fetch(page_url, retries=3, timeout=UNDERSTAT_TIMEOUT, deadline=deadline).decode("utf-8", "replace")
+    return _decode_embedded(page, "matchesData") or []
+
+
+def refresh_understat_keepers(seasons: list[int], out: Path, current: int,
+                              budget_minutes: float = KEEPER_BUDGET_MINUTES) -> dict:
+    """Every keeper's full matches for these seasons, added to a running file.
+
+    Finished seasons are fetched once and kept; the season being played is
+    fetched again every run. A run stops at its time budget and the next one
+    carries on, so a backfill of past seasons can span several runs.
+    """
+    target = out / "live" / KEEPERS_CSV
+    have = pd.read_csv(target, dtype={"player_id": str}) if target.exists() else pd.DataFrame(columns=KEEPER_COLUMNS)
+    done = set(zip(have["player_id"].astype(str), have["season"]))
+    deadline = time.monotonic() + budget_minutes * 60
+    table: dict[str, dict] = {}
+    clubs: dict[str, dict[str, set]] = {}
+    for season in seasons:
+        for league in UNDERSTAT_LEAGUES:
+            if (league, season) not in LEAGUE_DATA:
+                log(f"understat {league} {season} (for its keepers)")
+                try:
+                    understat_players(league, season, deadline)
+                except Exception as error:  # noqa: BLE001
+                    log(f"  skipped: {error}")
+                time.sleep(PAUSE_SECONDS)
+            data = LEAGUE_DATA.get((league, season))
+            if not data:
+                continue
+            table.update(match_table(data["dates"]))
+            for p in data["players"]:
+                if "GK" in str(p.get("position", "")).split():
+                    titles = {t.strip() for t in str(p.get("team_title", "")).split(",") if t.strip()}
+                    clubs.setdefault(str(p["id"]), {}).setdefault(_season_label(season), set()).update(titles)
+    now = _season_label(current)
+    todo = sorted(pid for pid, by in clubs.items() if any(s == now or (pid, s) not in done for s in by))
+    log(f"keepers: {len(clubs)} in these seasons, {len(todo)} to fetch")
+    rows, fetched = [], 0
+    for pid in todo:
+        if time.monotonic() >= deadline:
+            log(f"  time budget spent after {fetched} keepers; the next run carries on")
+            break
+        try:
+            matches = understat_player_matches(pid, deadline)
+        except Exception as error:  # noqa: BLE001
+            log(f"  keeper {pid}: {error}")
+            continue
+        rows += keeper_rows(pid, matches, clubs[pid], table)
+        fetched += 1
+        time.sleep(PAUSE_SECONDS)
+    new = pd.DataFrame(rows, columns=KEEPER_COLUMNS)
+    if len(new):
+        key = set(zip(new["player_id"], new["season"]))
+        have = have[[k not in key for k in zip(have["player_id"].astype(str), have["season"])]]
+    table_out = (pd.concat([have, new], ignore_index=True)
+                 .sort_values(["season", "player_id"], kind="stable").reset_index(drop=True))
+    target.parent.mkdir(parents=True, exist_ok=True)
+    table_out.to_csv(target, index=False)
+    log(f"wrote {target.relative_to(ROOT)}: {len(table_out):,} keeper-seasons ({len(new):,} from this run)")
+    return {"keepers_fetched": fetched, "keeper_seasons": len(table_out), "to_fetch": len(todo)}
 
 
 # --------------------------------------------------------------------------
@@ -321,6 +482,11 @@ def main() -> int:
     parser.add_argument("--only", choices=["understat", "transfermarkt"], default=None)
     parser.add_argument("--seasons", type=int, nargs="*", default=None,
                         help="Understat season start years, e.g. 2025 for 2025/26")
+    parser.add_argument("--keeper-seasons", type=int, nargs="*", default=None,
+                        help="season start years to fetch keepers' matches for (default: --seasons); "
+                             "past seasons are fetched once and kept")
+    parser.add_argument("--keeper-budget", type=float, default=KEEPER_BUDGET_MINUTES,
+                        help="minutes this run may spend on keepers before leaving the rest to the next")
     args = parser.parse_args()
     args.out = args.out.resolve()
     args.seasons = args.seasons or default_seasons()
@@ -345,8 +511,16 @@ def main() -> int:
         log(f"understat failed ({understat_failed}); trying once more")
         try:
             meta["understat"] = refresh_understat(args.seasons, args.out)
+            understat_failed = None
         except BaseException as error:  # noqa: BLE001
             failures.append(f"understat: {error}")
+    if args.only in (None, "understat") and understat_failed is None:
+        # Keepers are extra: a failure here is logged and the rest of the refresh stands.
+        try:
+            meta["understat_keepers"] = refresh_understat_keepers(
+                sorted(set(args.keeper_seasons or args.seasons)), args.out, max(args.seasons), args.keeper_budget)
+        except BaseException as error:  # noqa: BLE001
+            log(f"keepers not refreshed: {error}")
     meta_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path.write_text(json.dumps(meta, indent=2) + "\n")
     for failure in failures:

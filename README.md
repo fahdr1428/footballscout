@@ -113,6 +113,22 @@ player Transfermarkt has no position for is not guessed into one. Premier League
 Premier League's xG conceded, recorded from 2022/23 — and its outfield players tackles, recoveries and clearances, blocks
 and interceptions from 2025/26, when the feed began recording them.
 
+**The category that matters most comes first.** A centre-back's sheet opens on defending, a
+keeper's on goalkeeping, a central midfielder's on passing, a striker's on attacking. Where a source
+does not record that category at all — Top leagues has no tackles — the sheet opens on the same
+player's numbers for it from the nearest season of a source that does: the Premier League feed's
+tackles, recoveries and clearances for a Premier League defender this season, Big five, in depth for
+the rest. They are labelled with the source and season, ranked against that source's players in his
+position, and never mixed into this source's averages, rating or similar players.
+
+**Keepers in Top leagues.** Understat's season figures record nothing a keeper does, but its match
+list has both sides' xG and goals for every match, and each keeper's own match list says which he
+played. For every match a keeper played in full, the xG his team faced and the goals it let in are
+his — summed exactly, nothing apportioned; a match he came on in or went off in is left out. That
+gives **xG faced minus goals conceded**, goals conceded and xG faced per 90 and clean sheets for
+every keeper in the six leagues, fetched by the daily refresh on GitHub's runners (`scripts/
+refresh_sources.py`), and enough for keepers to have a model, similar players and a rating there.
+
 Seasons taken together show what every one of them records, and the page names any season that
 leaves a category out. What no open dataset records is said on the page rather than estimated:
 top speed, distance covered, sprints and accelerations (tracking data), big chances missed and

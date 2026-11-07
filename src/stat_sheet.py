@@ -67,7 +67,7 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("sca_from_open_play_pass_per90", "Open-play passes that lead to a shot"),
         ("sca_from_set_piece_per90", "Set pieces delivered that lead to a shot"),
         ("xg_chain_per90", "xG of every move the player is part of that ends in a shot"),
-        ("xg_buildup_per90", "The same, leaving out the shot and the assist: build-up work"),
+        ("xg_buildup_per90", "xG of the moves the player is part of, leaving out the shot and the assist: build-up work"),
         ("creativity_per90", "FPL's creativity index"),
     ]),
     ("Passing and possession", [
@@ -205,7 +205,7 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
 # For keepers, distribution is their passing: the passing metrics move to it,
 # and what the team gives away in front of them sits with their goalkeeping.
 GK_DISTRIBUTION = ["pass_pct", "passes_attempted_per90", "long_pass_pct", "long_passes_completed_per90",
-                   "progressive_passes_per90"]
+                   "progressive_passes_per90", "xg_buildup_per90"]
 GK_KEEPING = ["xgc_per90"]
 
 # Categories that are not averaged and whose rows are drawn neutral.
@@ -254,7 +254,7 @@ NOT_RECORDED = {
 # leagues, the Premier League feed) still finds four numbers that fit the role.
 HEADLINE: dict[str, list[str]] = {
     "GK": ["gk_psxg_minus_ga_per90", "gk_xgc_minus_ga_per90", "gk_save_pct", "gk_launch_pct", "pass_pct",
-           "save_rate", "gk_cross_stop_pct", "clean_sheet_rate", "xgc_per90"],
+           "save_rate", "gk_cross_stop_pct", "clean_sheet_rate", "xgc_per90", "gk_goals_against_per90"],
     "CB": ["defensive_actions_per90", "aerial_win_pct", "progressive_passes_per90", "pass_pct",
            "cbi_per90", "defensive_contribution_per90", "tackles_per90", "ball_recoveries_per90",
            "xg_buildup_per90", "xg_chain_per90", "xa_per90", "npxg_per90"],

@@ -80,6 +80,11 @@ ATTRIBUTION = (
 # FULL_SEASON_GAMES rounds; the one in progress is kept, flagged, and left out
 # of the default pool.
 LIVE_CSV = RAW_DIR / "live" / "understat_live.csv"
+# Keepers' full matches in goal, from Understat's match lists: the xG their team
+# faced and the goals it let in while they played every minute (written by
+# scripts/refresh_sources.py on GitHub's runners).
+KEEPERS_CSV = RAW_DIR / "live" / "understat_keepers.csv"
+KEEPER_COLUMNS = ["gk_full_matches", "gk_full_xga", "gk_full_goals_against", "gk_full_clean_sheets"]
 FULL_SEASON_GAMES = 30
 PARTIAL_SEASONS = {"2026/27"}
 FIRST_SEASON, LAST_SEASON = "2014/15", "2025/26"
@@ -372,6 +377,7 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
     # One row per player-season: a mid-season move is two Understat rows, and the
     # counting stats add up while the club of record is where he played most.
     frame = _collapse_transfers(frame)
+    frame = attach_keepers(frame, progress=progress)
 
     if enrich:
         frame, matched = attach_transfermarkt(frame, cache, progress=progress)
@@ -390,6 +396,19 @@ def build_dataset(cache: Path, seasons: list[str] | None = None,
         **matched,
     }
     return frame, coverage
+
+
+def attach_keepers(frame: pd.DataFrame, path: Path = KEEPERS_CSV, progress=print) -> pd.DataFrame:
+    """Each keeper-season's full matches in goal, where they have been fetched."""
+    if not path.exists():
+        return frame
+    keepers = pd.read_csv(path, dtype={"player_id": str})
+    keepers = keepers[["player_id", "season"] + KEEPER_COLUMNS].drop_duplicates(["player_id", "season"], keep="last")
+    out = frame.drop(columns=[c for c in KEEPER_COLUMNS if c in frame.columns]).merge(
+        keepers, on=["player_id", "season"], how="left")
+    found = out["gk_full_matches"].notna() & out["position_group"].eq("GK")
+    progress(f"  keepers' full matches attached to {int(found.sum()):,} goalkeeper-seasons")
+    return out
 
 
 def _unescape_names(frame: pd.DataFrame) -> pd.DataFrame:

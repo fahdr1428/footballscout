@@ -471,8 +471,8 @@ OUTFIELD_CATEGORIES = {
 }
 
 GK_CATEGORIES = {
-    "Shot Stopping": ["gk_save_pct", "gk_psxg_minus_ga_per90", "gk_saves_per90"],
-    "Goal Prevention": ["gk_goals_against_per90", "gk_psxg_minus_ga_per90"],
+    "Shot Stopping": ["gk_save_pct", "gk_psxg_minus_ga_per90", "gk_xgc_minus_ga_per90", "gk_saves_per90"],
+    "Goal Prevention": ["gk_goals_against_per90", "gk_psxg_minus_ga_per90", "gk_xgc_minus_ga_per90"],
     "Claiming Crosses": ["gk_cross_stop_pct", "gk_crosses_stopped_per90"],
     "Sweeping": ["gk_def_actions_outside_box_per90"],
     "Distribution": ["pass_pct", "passes_attempted_per90", "progressive_passes_per90"],
@@ -535,6 +535,7 @@ POSITION_FEATURES = {
         "starts_share",
         "gk_save_pct",
         "gk_psxg_minus_ga_per90",
+        "gk_xgc_minus_ga_per90",
         "gk_saves_per90",
         "gk_goals_against_per90",
         "gk_cross_stop_pct",
@@ -545,6 +546,9 @@ POSITION_FEATURES = {
         "passes_attempted_per90",
         "progressive_passes_per90",
         "long_passes_attempted_per90",
+        # A keeper's part in moves that end in a shot: the one distribution
+        # reading Understat and the Premier League feed carry.
+        "xg_buildup_per90",
     ],
     # The three bucket groups are only populated by a summary feed; on an
     # event dataset every one of these columns is absent and the group is empty.
@@ -1134,9 +1138,12 @@ DATA_SOURCES: dict[str, DataSource] = {
             "alike easily: the median closest match scores **96.0%**, against **81.8%** on the "
             "big-five source with its 15-24 more varied metrics. Read the ranking, not the "
             "number - and do not compare a percentage here with a percentage there.",
-            "**Goalkeepers have no model.** None of the 17 metrics a goalkeeper is ranked on "
-            "exist in this feed, so they stay in the pool, are listed everywhere, and carry no "
-            "similarity score or archetype. The app says how many that is.",
+            "**Goalkeepers are read from the matches they played in full.** Understat's season "
+            "figures record nothing a keeper does, so the daily refresh reads each keeper's match "
+            "list and, for every match he played in full, the xG his team faced and the goals it "
+            "let in (scripts/refresh_sources.py): xG faced minus goals conceded, goals conceded and "
+            "xG faced per 90, and clean sheets. There are no saves or shots on target. Until those "
+            "matches have been fetched, keepers stay in the pool with no similarity score or archetype.",
             "**Ages, heights, feet, nationalities and market values are joined on from "
             "Transfermarkt**, because Understat publishes none of them. The two feeds share no "
             "id, so players are matched on **name, season, league and club** (Transfermarkt's "

@@ -74,7 +74,7 @@ from src.config import (  # noqa: E402
     DEFAULT_WEIGHTS, POSITION_GROUP_NAMES, RAW_DIR, ROOT_DIR, TEAM_CONTEXT_METRICS,
     categories_for,
 )
-from src.stat_sheet import (BUCKETS, DESCRIPTIONS, NOT_RECORDED, ROLE_NAMES, ROLE_OF, STYLE_CATEGORIES,
+from src.stat_sheet import (BUCKETS, DESCRIPTIONS, NOT_RECORDED, ORDER, ROLE_NAMES, ROLE_OF, STYLE_CATEGORIES,
                             TEAM_READINGS, headline_for, order_for, role_sheet, sheet_for)  # noqa: E402
 from src.feature_engineering import category_scores, compute_percentiles, metrics_for_percentiles  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
@@ -93,9 +93,17 @@ SITE_SOURCES = [
         "skip": set(),
         "blurb": "The most current: the big five plus Russia, 2014/15 to 2025/26 and the season "
                  "in progress, every player priced by Transfermarkt. Attacking output only - "
-                 "xG, xA, xGChain, xGBuildup - so no defending, and goalkeepers have no model. "
+                 "xG, xA, xGChain, xGBuildup - so no defending. "
                  "Players are grouped as defenders, midfielders and forwards; the stat sheet also "
                  "ranks each against his exact Transfermarkt position, such as defensive midfielders.",
+        # Said only once the keepers' matches have been fetched and modelled.
+        "keepers": "Keepers are read from the matches they played in full: xG faced against goals "
+                   "conceded, and clean sheets.",
+        "no_keepers": "Goalkeepers have no model.",
+        # What this source's sheet cannot hold, said under the category.
+        "notes": {"Goalkeeping": "Understat records no saves or shots on target. These are the matches he played "
+                                 "in full: the xG his team faced and the goals it let in, so they read the "
+                                 "defence as well as him."},
     },
     {
         "key": "fbref_big5", "name": "Big five, in depth", "via": "FBref",
@@ -240,7 +248,7 @@ def _label(column: str) -> str:
     return METRIC_LABELS.get(column) or COUNTING_STATS.get(column) or column
 
 
-def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
+def export(platform, season: str, squad: pd.DataFrame | None = None, notes: dict | None = None) -> dict:
     """Everything the page needs for one season, keyed short because it ships over the wire.
 
     The important choice is shipping each player's **z-vector** and each
@@ -410,9 +418,12 @@ def export(platform, season: str, squad: pd.DataFrame | None = None) -> dict:
             "labels": labels,
             # What each stat-sheet metric tells a scout, and what no open source records.
             "desc": {m: DESCRIPTIONS[m] for m in sorted(labels) if m in DESCRIPTIONS},
-            "notRecorded": NOT_RECORDED,
+            "notRecorded": {**NOT_RECORDED, **(notes or {})},
             # Categories that say how a player plays rather than how well: not averaged.
             "style": list(STYLE_CATEGORIES),
+            # Each position's reading order, so the page knows which category leads
+            # even when this source does not record it.
+            "orders": ORDER,
             # Exact positions in a four-bucket feed: their names and how many regulars each has.
             "roleNames": ROLE_NAMES if role_pct is not None else {},
             "roleCounts": ({g: {r: int(n) for r, n in sorted(block.value_counts().items())}
@@ -492,7 +503,7 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
             progress(f"  {season}: nothing to model - skipped")
             continue
         squad = squad_players(features, platform, season, floors if in_progress else None)
-        payloads[season] = export(platform, season, squad)
+        payloads[season] = export(platform, season, squad, notes=spec.get("notes"))
         payloads[season]["meta"]["squadMinutes"] = (SQUAD_MINUTES_IN_PROGRESS if in_progress else SQUAD_MINUTES) if len(squad) else None
         if in_progress:
             payloads[season]["meta"].update({
@@ -621,8 +632,12 @@ def main() -> int:
         updated = spec.get("updated") or (
             f"Season stats: Understat, with 2025/26 onward fetched from understat.com on {when}"
             if when else "Season stats: Understat")
+        blurb = spec["blurb"]
+        if "keepers" in spec:
+            keepers = any("GK" in p["meta"]["groups"] for p in payloads.values())
+            blurb += " " + (spec["keepers"] if keepers else spec["no_keepers"])
         catalog.append({"key": spec["key"], "name": spec["name"], "via": spec["via"],
-                        "blurb": spec["blurb"], "updated": updated,
+                        "blurb": blurb, "updated": updated,
                         **({"stops": spec["stops"]} if spec.get("stops") else {}),
                         "attribution": DATA_SOURCES[spec["key"]].attribution,
                         "seasons": entries, "all": everything})

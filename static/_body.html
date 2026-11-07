@@ -235,6 +235,7 @@
             <div><h2 id="sheet-h">Stat sheet</h2><p class="sub" id="sheet-sub"></p></div>
             <div class="seg" id="sheet-peers" role="group" aria-label="Rank against"></div>
           </div>
+          <p class="sk-from" id="sheet-key-from" hidden></p>
           <div class="sheet-key" id="sheet-key"></div>
           <nav class="sheet-jump" id="sheet-jump" aria-label="Stat sheet categories"></nav>
           <div class="sheet" id="sheet"></div>
@@ -787,7 +788,7 @@ async function combine(key){
     pct: [...new Set(metas.flatMap(m => m.pct))], lower: [...lower],
     club: [...new Set(metas.flatMap(m => m.club || []))], collapsed: last.collapsed || {},
     team: [...new Set(metas.flatMap(m => m.team || []))], notRecorded: last.notRecorded || {},
-    style: last.style || [], roleNames: last.roleNames || {}, roleCounts,
+    style: last.style || [], roleNames: last.roleNames || {}, roleCounts, orders: last.orders || {},
     desc: Object.assign({}, ...metas.map(m => m.desc || {})),
     counts, unmodelled, lacks: [], valuesAsOf: last.valuesAsOf, has, attribution: last.attribution,
   }};
@@ -1547,9 +1548,20 @@ function describe(k){
 }
 function drawSheet(){
   const p = P[subject], spec = G[p.g], panel = $("sheet-panel");
-  panel.hidden = !spec || !spec.s || !spec.s.length;
-  if (panel.hidden) return;
+  $("sheet-key-from").hidden = true;
   const gn = gname(p.g).toLowerCase(), src = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey));
+  panel.hidden = false;
+  if (!spec || !spec.s || !spec.s.length){
+    // Nothing of his position recorded here (a keeper in Top leagues): the sheet
+    // is only what another source records for him, if one does.
+    $("sheet-sub").textContent = `${src ? src.name : "This source"} records nothing a ${gn} does beyond minutes and cards.`;
+    ["sheet-peers", "sheet-key", "sheet-jump", "sheet-foot"].forEach(id => { $(id).innerHTML = ""; });
+    $("sheet-peers").hidden = true;
+    $("sheet").innerHTML = "";
+    $("sheet-how").textContent = embedHow();
+    drawEmbed(p, leadCategory(p), []);
+    return;
+  }
   const nLeague = leaguePeers(p).length, multi = (M.leagues || []).length > 1, canLeague = multi && nLeague >= 10;
   const roles = hasRoles() && p.g !== "GK", nRole = rolePeers(p).length, canRole = roles && !!p.r && nRole >= 10;
   const rn = p.r ? roleName(p.r).toLowerCase() : "";
@@ -1600,6 +1612,10 @@ function drawSheet(){
           <div class="sr-p tnum">${r.pct == null ? "—" : r.pct}</div></div>`; }).join("")}</div>
       ${notes[c.c] ? `<p class="sc-note">${esc(notes[c.c])}</p>` : ""}
     </section>`).join("");
+  // The category that matters most for his position, when this source does not
+  // record it: his numbers for it from the nearest season of a source that does.
+  const lead = leadCategory(p);
+  if (lead && !cats.some(x => x.c === lead)) drawEmbed(p, lead, cats);
   // What this source does not record for the position at all - named, so an
   // empty category never reads as a weak one - and where to find more of him.
   const missing = (spec.so || []).filter(c => !cats.some(x => x.c === c));
@@ -1635,9 +1651,119 @@ function drawSheet(){
         M.combined ? ", ranked here on the combined figures" : ""}, by the same rule. ` : "")
     + (cats.some(c => c.style) ? `Role and style rows say how a player plays rather than how well, so they are not averaged. ` : "")
     + `A category's percentile is the plain average of the percentiles listed under it; numbers that read the team, such as goals conceded, are shown but not averaged. `
-    + `The rating above uses a smaller set of metrics per position, so its category scores differ from these.`;
+    + `The rating above uses a smaller set of metrics per position, so its category scores differ from these. `
+    + (lead && !cats.some(x => x.c === lead) ? embedHow() : "");
 }
 function drawProfile(){ drawInfo(); drawSW(); drawSheet(); }
+
+// ---- the lead category from another source ------------------------------------
+// A centre-back's sheet should open on defending and a keeper's on goalkeeping.
+// Where this source does not record that category at all (Top leagues has no
+// tackles and nothing a keeper does), the sheet opens on the same player's
+// numbers for it from the nearest season of a source that does - its own
+// values and its own percentiles, against that source's players in his
+// position, and labelled as such. Nothing is carried into this source's
+// averages or models.
+const ELSEWHERE = new Map();
+function leadCategory(p){
+  const orders = M.orders || {}, spec = G[p.g];
+  const order = (p.r && hasRoles() && orders[p.r]) || orders[p.g] || (spec && spec.so) || (p.g === "GK" ? ["Goalkeeping"] : []);
+  return order[0] || null;
+}
+const here_src = () => { const c = BUNDLE.catalog.find(x => x.key === sourceOf(dsKey)); return c ? c.name : "this source"; };
+const embedHow = () => "Where this source does not record the category that matters most for the position, the sheet opens on the "
+  + "player's numbers for it from the nearest season of another source that does: that source's own figures and percentiles, "
+  + "against its players in his position. They are not mixed into this source's averages, ratings or similar players.";
+async function findCategoryElsewhere(p, category){
+  const ck = `${dsKey}|${p.id}|${category}`;
+  if (ELSEWHERE.has(ck)) return ELSEWHERE.get(ck);
+  const words = n => plain(n).split(/[^a-z0-9]+/).filter(Boolean);
+  const mine = words(p.n), year = +seasonsIn(dsKey).slice().sort().pop().slice(0, 4);
+  const sameClub = (a, b) => plain(a).slice(0, 3) === plain(b).slice(0, 3);
+  const sameName = (r, loose) => { const w = words(r[1]);
+    if (w.join(" ") === mine.join(" ")) return true;
+    if (!loose) return false;
+    const [short, long] = w.length < mine.length ? [w, mine] : [mine, w];
+    return short.every(x => long.includes(x)); };
+  let best = null;
+  for (const c of BUNDLE.catalog){
+    if (c.key === sourceOf(dsKey)) continue;
+    let A; try { A = await getAll(c.key); } catch { continue; }
+    let rows = A.players.filter(r => sameName(r, false));
+    if (!rows.length) rows = A.players.filter(r => r[3] === p.l && sameClub(r[2], p.t) && sameName(r, true));
+    const near = r => Math.abs(+A.seasons[r[4]].slice(0, 4) - year);
+    // The nearest seasons first, the later of two equally near; three tries a source.
+    for (const r of rows.sort((x, y) => near(x) - near(y) || y[4] - x[4]).slice(0, 3)){
+      const key = c.key + ":" + A.seasons[r[4]];
+      let d; try { d = await getDataset(key); } catch { continue; }
+      const spec = d.meta.groups[r[5]], part = spec && spec.s ? spec.s.find(x => x[0] === category) : null;
+      const o = part ? d.players.find(x => String(x.id) === String(r[0]) && x.g === r[5]) : null;
+      if (!o) continue;
+      const team = new Set(d.meta.team || d.meta.club || []), lower = new Set(d.meta.lower || []);
+      const rows2 = part[1].map(k => { const j = spec.d.indexOf(k);
+        return {k, v: o.d[j] ? o.d[j][0] : null, pct: o.d[j] ? o.d[j][1] : null, team: team.has(k), lower: lower.has(k)}; })
+        .filter(x => x.v != null);
+      if (!rows2.length) continue;
+      const counted = rows2.filter(x => x.pct != null && !x.team);
+      const cand = {key, id: o.id, source: c.name, season: A.seasons[r[4]], club: o.t, near: near(r), rows: rows2,
+        group: (d.meta.groupNames || {})[o.g] || o.g, peers: (d.meta.counts || {})[o.g] || 0,
+        avg: counted.length ? meanOf(counted.map(x => x.pct)) : null, n: counted.length,
+        labels: d.meta.labels || {}, desc: d.meta.desc || {}, pctKeys: new Set(d.meta.pct || [])};
+      if (!best || cand.near < best.near || (cand.near === best.near && cand.rows.length > best.rows.length)) best = cand;
+      break;
+    }
+  }
+  ELSEWHERE.set(ck, best);
+  return best;
+}
+let embedToken = 0;
+function drawEmbed(p, category, cats){
+  if (!category) return;
+  const gn = gname(p.g).toLowerCase(), asked = subject, key = dsKey, token = ++embedToken;
+  $("sheet").insertAdjacentHTML("afterbegin", `<section class="sheet-cat embed" id="sheet-embed" aria-labelledby="sheet-embed-h">
+    <header class="sc-head"><h3 id="sheet-embed-h">${esc(category)}</h3></header>
+    <p class="sc-sub">Not recorded here. Looking for his ${esc(category.toLowerCase())} in the other sources…</p></section>`);
+  findCategoryElsewhere(p, category).then(e => {
+    const box = $("sheet-embed");
+    // Only the latest draw fills the sheet: a redraw while this was looking has its own.
+    if (token !== embedToken || subject !== asked || dsKey !== key || !box) return;
+    if (!e){ box.querySelector(".sc-sub").textContent = `Not recorded here, and he is not in a source that records ${category.toLowerCase()} for ${gn}s.`; return; }
+    const fmtE = (k, v) => v == null ? "—" : e.pctKeys.has(k) ? v.toFixed(1) + "%" : Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
+    const nameE = k => { const l = e.labels[k] || k, x = explain(k);
+      return x ? `<span class="term" tabindex="0" data-tip="${esc(l + ". " + x)}">${esc(l.replace(/\s*\([^)]*\)/g, ""))}</span>` : esc(l.replace(/\s*\([^)]*\)/g, "")); };
+    const peers = `${e.peers.toLocaleString()} ${e.group.toLowerCase()}s in ${e.source} ${seasonLabel(e.season)}`;
+    box.innerHTML = `<header class="sc-head">
+        <h3 id="sheet-embed-h">${esc(category)}</h3>
+        <div class="sc-pct b${band(e.avg)}" data-tip="The plain average of the ${e.n} percentiles below, against ${esc(peers)}.">
+          <b>${e.avg == null ? "—" : Math.round(e.avg)}</b><span>${e.avg == null ? "not ranked" : "category percentile"}</span></div>
+      </header>
+      <p class="sc-from"><b>From ${esc(e.source)}, ${esc(seasonLabel(e.season))}</b>${e.club ? ` (${esc(e.club)})` : ""}: ${esc(here_src())} does not record
+        ${esc(category.toLowerCase())}, so these are his numbers from the nearest season that does, with percentiles against ${esc(peers)}.
+        <button type="button" class="linkbtn" data-openseason="${esc(e.key)}|${esc(e.id)}">Open that season</button></p>
+      <div class="sc-rows">${e.rows.map(r => {
+        const tone = r.team ? 3 : band(r.pct), d = e.desc[r.k];
+        return `<div class="sr">
+          <div class="sr-n">${nameE(r.k)}${r.lower ? '<span class="tag" data-tip="Lower is better. The percentile is flipped, so a high one still reads well.">lower is better</span>' : ""}${
+            r.team ? '<span class="tag" data-tip="Reads his team as much as him, so it is left out of the category average.">team</span>' : ""}
+            ${d ? `<small>${esc(d)}</small>` : ""}</div>
+          <div class="sr-v tnum">${fmtE(r.k, r.v)}</div>
+          <div class="sr-bar" aria-hidden="true"><span style="width:${r.pct == null ? 0 : Math.max(2, r.pct)}%;background:var(--s${tone})"></span></div>
+          <div class="sr-p tnum">${r.pct == null ? "—" : r.pct}</div></div>`; }).join("")}</div>`;
+    // The headline numbers follow: a centre-back's are defending, wherever they come from.
+    const top = e.rows.filter(r => !r.team && r.pct != null).slice(0, 4);
+    if (top.length >= 2){
+      $("sheet-key-from").hidden = false;
+      $("sheet-key-from").textContent = `${category} first, from ${e.source} ${seasonLabel(e.season)}`;
+    }
+    if (top.length >= 2) $("sheet-key").innerHTML = top.map(r => `<div class="sk">
+        <div class="sk-n">${nameE(r.k)}</div>
+        <div class="sk-v tnum">${fmtE(r.k, r.v)}</div>
+        <div class="sk-bar" aria-hidden="true"><span style="width:${Math.max(2, r.pct)}%;background:var(--s${band(r.pct)})"></span></div>
+        <div class="sk-p">${ord(r.pct)} percentile among ${esc(e.group.toLowerCase())}s</div></div>`).join("");
+    $("sheet-jump").insertAdjacentHTML("afterbegin", `<button type="button" class="sj embed" data-jump="sheet-embed">
+      <span>${esc(category)} <span class="via">${esc(seasonLabel(e.season))}</span></span><span class="chip c${band(e.avg)}">${e.avg == null ? "—" : Math.round(e.avg)}</span></button>`);
+  });
+}
 
 // ---- radar ---------------------------------------------------------------
 function radar(names, series){

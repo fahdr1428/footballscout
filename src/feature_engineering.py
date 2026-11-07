@@ -219,7 +219,28 @@ def add_derived_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df["gk_xgc_minus_ga_per90"] = np.where(
         gk, (df.get("xgc", np.nan) - df.get("gk_goals_against", np.nan)) / exposure, np.nan
     ).round(3)
+    df = add_keeper_full_match_rates(df)
     return df.drop(columns=[c for c in ["_aerials_total", "_saves_plus_conceded"] if c in df.columns])
+
+
+def add_keeper_full_match_rates(df: pd.DataFrame) -> pd.DataFrame:
+    """Understat's keepers: xG faced, goals conceded and clean sheets per full match.
+
+    Read from the matches a keeper played in full (see scripts/refresh_sources.py),
+    each exactly 90 minutes, so a rate per full match is a rate per 90. A
+    keeper with none fetched has no reading rather than a zero.
+    """
+    if "gk_full_matches" not in df.columns:
+        return df
+    df = df.copy()
+    full = df["gk_full_matches"].where(df["position_group"].eq("GK") & df["gk_full_matches"].gt(0))
+    xga, conceded = df["gk_full_xga"] / full, df["gk_full_goals_against"] / full
+    rates = {"xgc_per90": xga.round(3), "gk_goals_against_per90": conceded.round(3),
+             "gk_xgc_minus_ga_per90": (xga - conceded).round(3),
+             "clean_sheet_rate": (100 * df["gk_full_clean_sheets"] / full).round(2)}
+    for column, values in rates.items():
+        df[column] = values.combine_first(df[column]) if column in df.columns else values
+    return df
 
 
 def add_possession_adjusted(df: pd.DataFrame) -> pd.DataFrame:

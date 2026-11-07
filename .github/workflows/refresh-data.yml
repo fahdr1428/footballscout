@@ -9,6 +9,15 @@ name: Refresh data
 
 on:
   workflow_dispatch:
+    inputs:
+      keeper_seasons:
+        description: "Also fetch keepers' matches for these season start years (e.g. 2014 2015 ... 2024); past seasons are kept, so a backfill can span several runs"
+        required: false
+        default: ""
+      keeper_budget:
+        description: "Minutes this run may spend on keepers"
+        required: false
+        default: "15"
   schedule:
     # Every morning at 05:41 UTC, after the previous evening's matches - so this
     # season is at most a day old, and a failed fetch is retried the next day
@@ -38,7 +47,18 @@ jobs:
         run: pip install -r requirements-dev.txt -c constraints.txt
 
       - name: Fetch Understat and Transfermarkt
-        run: python scripts/refresh_sources.py --out data/raw
+        env:
+          KEEPER_SEASONS: ${{ inputs.keeper_seasons }}
+          KEEPER_BUDGET: ${{ inputs.keeper_budget || '15' }}
+        # Keepers' full matches are fetched for the current seasons every run;
+        # a manual run can add past seasons with keeper_seasons.
+        run: |
+          extra=""
+          if [ -n "$KEEPER_SEASONS" ]; then
+            current=$(python -c "import sys; sys.path.insert(0, 'scripts'); import refresh_sources as r; print(' '.join(map(str, r.default_seasons())))")
+            extra="--keeper-seasons $KEEPER_SEASONS $current"
+          fi
+          python scripts/refresh_sources.py --out data/raw --keeper-budget "$KEEPER_BUDGET" $extra
 
       - name: Rebuild the six-league dataset
         run: python scripts/fetch_understat.py --include-partial --cache /tmp/understat-big6

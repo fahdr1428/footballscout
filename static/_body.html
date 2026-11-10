@@ -1766,7 +1766,8 @@ function drawSheet(){
 
   $("sheet-sub").textContent = hasOwn
     ? `Every number ${srcName} records for a ${p.r && roles ? rn : gn}, in the order that matters for the position. Percentiles against ${peersTxt}.`
-      + (embedded.length ? ` Shaded sections are not recorded by ${srcName}: they are his numbers from the nearest season that has them, named on each.` : "")
+      + (embedded.length ? ` Shaded sections are what ${srcName} does not record${
+          sections.some(x => x.deep && own.some(o => o.c === x.name)) ? ", or records less fully" : ""}: they are his numbers from the nearest season that has them, named on each.` : "")
     : `${srcName} records nothing a ${gn} does beyond minutes and cards. The sections below are his numbers from the sources that do, named on each.`;
 
   // ---- the position's headline numbers, from whichever section holds them
@@ -1863,7 +1864,7 @@ function drawSheet(){
     + (sections.some(x => x.sec.style) ? `Role and style rows say how a player plays rather than how well, so they are not averaged. ` : "")
     + `A category's percentile is the plain average of the percentiles listed under it; numbers that read the team, such as goals conceded, are shown but not averaged. `
     + `The rating above uses a smaller set of metrics per position, so its category scores differ from these. `
-    + (embedded.length || !hasOwn ? `A shaded section is the same player in another season or source, because ${srcName} does not record that category: `
+    + (embedded.length || !hasOwn ? `A shaded section is the same player in another season or source, because ${srcName} does not record that category or records far less of it: `
       + `its figures and percentiles are that source's own, against its players in his position, and are not mixed into ${srcName}'s averages, rating or similar players.` : "");
 }
 function drawProfile(){ drawInfo(); drawSW(); drawSheet(); }

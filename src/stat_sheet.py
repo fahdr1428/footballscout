@@ -46,6 +46,8 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("shots_on_target_per90", "Shots that test the keeper"),
         ("shot_accuracy_pct", "Share of shots on target"),
         ("npxg_per_shot", "Average quality of the chances shot from"),
+        ("shot_conversion_pct", "Share of shots that go in (penalties left out where the source counts them apart)"),
+        ("npxg_xa_per90", "Chances taken plus chances created: all-round attacking threat without penalties"),
         ("sca_per90", "Actions that lead directly to a shot"),
         ("gca_per90", "Actions that lead directly to a goal"),
         ("touches_att_pen_per90", "Presence in the opposition box"),
@@ -57,12 +59,15 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("assists_per90", "Direct creative output"),
         ("xa_per90", "Expected assists: the quality of the chances created"),
         ("key_passes_per90", "Passes that lead to a shot"),
+        ("xa_per_key_pass", "Average quality of the chances created: a cut-back in the box against a pass to a 30-yard shot"),
+        ("assists_minus_xa_per90", "Assists above or below what the chances created were worth: mostly team-mates' finishing"),
         ("progressive_passes_per90", "Passes that move the ball significantly towards goal"),
         ("through_balls_per90", "Passes that break a defensive line"),
         ("passes_into_final_third_per90", "Passes that take play into the final third"),
         ("passes_into_pen_area_per90", "Passes into the penalty area"),
         ("crosses_per90", "How often the player crosses, completed or not"),
         ("crosses_into_pen_area_per90", "Crosses completed into the box"),
+        ("cross_box_pct", "Share of crosses that find a team-mate in the box"),
         ("switches_per90", "Changing the direction of an attack"),
         ("sca_from_open_play_pass_per90", "Open-play passes that lead to a shot"),
         ("sca_from_set_piece_per90", "Set pieces delivered that lead to a shot"),
@@ -81,6 +86,8 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("long_pass_pct", "Accuracy over 30 yards: range of distribution"),
         ("long_passes_completed_per90", "Long passes that find a team-mate"),
         ("progressive_pass_distance_per90", "Yards the ball is moved towards goal with passes"),
+        ("progressive_pass_rate", "How often a completed pass moves play on: forward-thinking, not just busy"),
+        ("pass_progress_per_pass", "Yards gained towards goal per pass attempted"),
         ("progressive_actions_per90", "Ball progression: progressive passes plus progressive carries"),
         ("passes_under_pressure_per90", "Passes made with an opponent closing in"),
         ("passes_completed_under_pressure_per90", "Passes completed with an opponent closing in"),
@@ -89,6 +96,7 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("touches_per90", "Involvement in play"),
         ("carries_into_final_third_per90", "Carrying the ball into the final third"),
         ("possession_lost_per90", "Miscontrols plus times dispossessed: ball security"),
+        ("turnover_rate", "Ball security per touch, so a busy player is not marked down for seeing more of it"),
         ("miscontrols_per90", "First-touch reliability"),
         ("dispossessed_per90", "Losing the ball to a tackle"),
         ("influence_per90", "FPL's influence index: involvement in the moments that decide matches"),
@@ -99,6 +107,8 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("dribbles_attempted_per90", "How often the player takes someone on"),
         ("progressive_carries_per90", "Carries that move the ball significantly towards goal"),
         ("progressive_carry_distance_per90", "Yards the ball is carried towards goal"),
+        ("progressive_carry_rate", "How often a carry moves play on"),
+        ("carry_progress_per_carry", "Yards gained towards goal per carry"),
         ("carries_into_pen_area_per90", "Carrying the ball into the box"),
         ("sca_from_dribble_per90", "Take-ons and carries that lead to a shot"),
         ("carries_per90", "How often the player carries the ball"),
@@ -114,8 +124,11 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("dribbler_stop_pct", "Share of opponents who tried to dribble past and were stopped"),
         ("dribblers_tackled_per90", "Dribblers stopped with a tackle"),
         ("interceptions_per90", "Reading the game"),
+        ("tackles_interceptions_per90", "The two ways of winning the ball back, together"),
+        ("dribbled_past_per90", "Dribblers faced who got past: one-against-one defending lost"),
         ("blocks_per90", "Blocking shots and passes"),
         ("shots_blocked_per90", "Getting in the way of opposition shots"),
+        ("passes_blocked_per90", "Getting in the way of opposition passes"),
         ("clearances_per90", "Clearing danger"),
         ("ball_recoveries_per90", "Winning back loose balls"),
         ("pressures_per90", "Pressing an opponent on the ball"),
@@ -145,6 +158,7 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
         ("save_rate", "Saves as a share of saves plus goals conceded"),
         ("gk_saves_per90", "Shot-stopping activity"),
         ("gk_psxg_per90", "Quality of the shots faced, after they are struck"),
+        ("gk_psxg_per_sot", "How hard the average shot on target faced was to save"),
         ("gk_shots_on_target_against_per90", "How many shots on target the keeper faces"),
         ("gk_goals_against_per90", "Goals let in: the defence in front of the keeper shapes it as much as the keeper"),
         ("clean_sheet_rate", "Share of matches without conceding"),
@@ -180,11 +194,24 @@ SHEET: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     # How a player plays rather than how well: shown, drawn neutral and not averaged.
     ("Role and style", [
+        ("team_shot_share", "His shots per 90 as a share of the team's: how much of the shooting is his"),
+        ("team_npxg_share", "His chances per 90 as a share of the team's"),
+        ("team_key_pass_share", "His key passes per 90 as a share of the team's: how much of the creating is his"),
+        ("team_xg_chain_share", "xG of the moves he is part of, per 90, against the team's xG per 90"),
+        ("team_touch_share", "His touches per 90 as a share of the team's: how much play runs through him"),
+        ("team_progressive_pass_share", "His progressive passes per 90 as a share of the team's"),
+        ("team_defensive_action_share", "His tackles and interceptions per 90 as a share of the team's"),
+        ("buildup_share", "How much of his involvement is build-up rather than the shot or the final pass"),
+        ("short_pass_share", "Passes of 5 to 15 yards as a share of his passing"),
+        ("medium_pass_share", "Passes of 15 to 30 yards as a share of his passing"),
+        ("long_pass_share", "Passes over 30 yards as a share of his passing"),
+        ("take_on_rate", "How often a touch becomes a take-on"),
         ("touches_def_pen_per90", "Touches in the player's own box"),
         ("touches_def_third_per90", "Touches in the defensive third"),
         ("touches_mid_third_per90", "Touches in the middle third"),
         ("touches_att_third_per90", "Touches in the attacking third"),
         ("def_third_touch_share", "Share of touches in the defensive third: how deep the player operates"),
+        ("mid_third_touch_share", "Share of touches in the middle third"),
         ("att_third_touch_share", "Share of touches in the attacking third: how high the player operates"),
         ("box_touch_share", "Share of touches in the opposition box"),
         ("att_third_tackle_share", "Share of tackles made in the attacking third: where the ball is won"),
@@ -210,6 +237,8 @@ GK_KEEPING = ["xgc_per90"]
 
 # Categories that are not averaged and whose rows are drawn neutral.
 STYLE_CATEGORIES = ("Role and style",)
+# A source's own composite indexes: shown where it has them, never a gap where it does not.
+OPTIONAL_CATEGORIES = ("Overall indexes",)
 _TAIL = ["Physical and availability", "Discipline", "Overall indexes", "Role and style"]
 
 # The order a scout reads each position in. Keepers see keeping; outfield
@@ -233,6 +262,9 @@ ORDER = {
 OUTFIELD_ORDER = ORDER["CM"]
 # Rows that mean nothing for a keeper even where a feed carries them.
 OUTFIELD_ONLY = {"offsides_per90", "dribblers_challenged_per90", "pressured_pass_share",
+                 "team_shot_share", "team_npxg_share", "team_key_pass_share", "team_xg_chain_share",
+                 "team_progressive_pass_share", "team_defensive_action_share", "buildup_share", "take_on_rate",
+                 "mid_third_touch_share",
                  "open_play_npxg_share", "set_piece_sca_share", "corners_taken_per90", "free_kick_passes_per90",
                  "att_third_tackle_share", "box_touch_share", "att_third_touch_share", "touches_att_third_per90"}
 # Rows that mean nothing for an outfield player.
@@ -263,8 +295,9 @@ HEADLINE: dict[str, list[str]] = {
            "creativity_per90", "xg_buildup_per90", "xg_chain_per90"],
     "DEF": ["defensive_contribution_per90", "cbi_per90", "tackles_per90", "ball_recoveries_per90",
             "creativity_per90", "threat_per90", "xa_per90", "xg_buildup_per90", "xg_chain_per90"],
-    "DM": ["interceptions_per90", "tackles_won_per90", "tackles_mid_third_per90", "progressive_passes_per90",
-           "pass_pct", "tackles_per90", "ball_recoveries_per90", "defensive_contribution_per90", "cbi_per90",
+    "DM": ["tackles_interceptions_per90", "tackles_won_per90", "progressive_passes_per90", "pass_pct",
+           "interceptions_per90", "tackles_mid_third_per90",
+           "tackles_per90", "ball_recoveries_per90", "defensive_contribution_per90", "cbi_per90",
            "xg_buildup_per90", "xg_chain_per90", "key_passes_per90", "xa_per90"],
     "CM": ["progressive_passes_per90", "pass_pct", "xa_per90", "ball_recoveries_per90",
            "tackles_per90", "key_passes_per90", "xg_buildup_per90", "xg_chain_per90",
@@ -291,6 +324,7 @@ HEADLINE: dict[str, list[str]] = {
 TEAM_READINGS = frozenset({
     "clean_sheet_rate", "goals_conceded_per90", "xgc_per90", "gk_goals_against_per90", "gk_saves_per90",
     "gk_psxg_per90", "gk_shots_on_target_against_per90", "gk_crosses_faced_per90", "gk_pens_faced_per90",
+    "gk_psxg_per_sot",
 })
 
 DESCRIPTIONS: dict[str, str] = {m: d for _, rows in SHEET for m, d in rows}

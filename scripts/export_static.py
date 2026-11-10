@@ -74,7 +74,7 @@ from src.config import (  # noqa: E402
     DEFAULT_WEIGHTS, POSITION_GROUP_NAMES, RAW_DIR, ROOT_DIR, TEAM_CONTEXT_METRICS,
     categories_for,
 )
-from src.stat_sheet import (BUCKETS, DESCRIPTIONS, NOT_RECORDED, ORDER, ROLE_NAMES, ROLE_OF, STYLE_CATEGORIES,
+from src.stat_sheet import (BUCKETS, DESCRIPTIONS, HEADLINE, NOT_RECORDED, ORDER, ROLE_NAMES, ROLE_OF, STYLE_CATEGORIES,
                             TEAM_READINGS, headline_for, order_for, role_sheet, sheet_for)  # noqa: E402
 from src.feature_engineering import category_scores, compute_percentiles, metrics_for_percentiles  # noqa: E402
 from src.pipeline import build_features, build_platform  # noqa: E402
@@ -110,7 +110,7 @@ SITE_SOURCES = [
         "skip": {"2025-26"},
         "stops": "its public mirror of FBref is no longer updated",
         "updated": "Season stats: FBref, via a public mirror last updated 18 Sep 2025",
-        "blurb": "The deepest: up to 109 metrics and ten specific positions, 2017/18 to 2024/25, "
+        "blurb": "The deepest: up to {metrics} metrics and ten specific positions, 2017/18 to 2024/25, "
                  "priced by Transfermarkt. 2023/24 is the last season every block measured in "
                  "full - the public mirror of FBref stopped in September 2025.",
     },
@@ -360,6 +360,13 @@ def export(platform, season: str, squad: pd.DataFrame | None = None, notes: dict
             "ap": None if pd.isna(row.get("matches")) else int(row["matches"]),
             "st": None if pd.isna(row.get("starts")) else int(row["starts"]),
             "ce": row.get("contract_expiry") if pd.notna(row.get("contract_expiry")) else None,
+            # Transfermarkt's line-up record for the season: every position he started
+            # in ("Right Winger:21|Left Winger:6"), or failing that the starts and share
+            # of his main one, and games started as captain.
+            **({"pp": row["positions_played"]} if isinstance(row.get("positions_played"), str) else
+               {"psh": [int(row["position_starts"]), round(100 * float(row["position_share"]))]}
+               if pd.notna(row.get("position_starts")) and pd.notna(row.get("position_share")) else {}),
+            **({"cp": int(row["captain_starts"])} if pd.notna(row.get("captain_starts")) and row["captain_starts"] > 0 else {}),
             # His exact position in a four-bucket feed, where Transfermarkt has one.
             **({"r": role.loc[index]} if isinstance(role.loc[index], str) else {}),
             "h": _num(row.get("height_cm"), 0),
@@ -424,6 +431,9 @@ def export(platform, season: str, squad: pd.DataFrame | None = None, notes: dict
             # Each position's reading order, so the page knows which category leads
             # even when this source does not record it.
             "orders": ORDER,
+            # Each position's headline numbers in full, so the page can fill them from
+            # another source's rows where this one lacks the position's lead category.
+            "headline": HEADLINE,
             # Exact positions in a four-bucket feed: their names and how many regulars each has.
             "roleNames": ROLE_NAMES if role_pct is not None else {},
             "roleCounts": ({g: {r: int(n) for r, n in sorted(block.value_counts().items())}
@@ -453,6 +463,11 @@ def export(platform, season: str, squad: pd.DataFrame | None = None, notes: dict
         },
         "players": players,
     }
+
+
+def _sheet_categories(meta: dict) -> list[str]:
+    """Every stat-sheet category a season records for any position."""
+    return sorted({category for group in meta["groups"].values() for category, _ in group.get("s", [])})
 
 
 def _prune_empty_metrics(groups: dict, players: list) -> None:
@@ -619,6 +634,9 @@ def main() -> int:
             entries.append({
                 "season": season, "file": path, "players": len(payload["players"]),
                 "lacks": len(payload["meta"]["lacks"]),
+                # Which stat-sheet categories the season records for anyone, so the
+                # page only loads a season that can fill a category another lacks.
+                "cats": _sheet_categories(payload["meta"]),
             })
             if payload["meta"].get("inProgress"):
                 entries[-1]["inProgress"] = True
@@ -632,7 +650,10 @@ def main() -> int:
         updated = spec.get("updated") or (
             f"Season stats: Understat, with 2025/26 onward fetched from understat.com on {when}"
             if when else "Season stats: Understat")
-        blurb = spec["blurb"]
+        # The most metrics any position's stat sheet holds in this source, counted from the build.
+        deepest = max((sum(len(rows) for _, rows in group["s"])
+                       for p in payloads.values() for group in p["meta"]["groups"].values()), default=0)
+        blurb = spec["blurb"].replace("{metrics}", str(deepest))
         if "keepers" in spec:
             keepers = any("GK" in p["meta"]["groups"] for p in payloads.values())
             blurb += " " + (spec["keepers"] if keepers else spec["no_keepers"])
@@ -647,7 +668,14 @@ def main() -> int:
         return 1
     built = {c["key"] for c in catalog}
     order = [s["key"] for s in SITE_SOURCES]
-    catalog += [entry for key, entry in kept.items() if key not in built and key in order]
+    for key, entry in kept.items():
+        if key in built or key not in order:
+            continue
+        # A source kept from the published page: fill in what its entries lack.
+        for season in entry["seasons"]:
+            if "cats" not in season and (args.out / season["file"]).exists():
+                season["cats"] = _sheet_categories(json.loads((args.out / season["file"]).read_text(encoding="utf-8"))["meta"])
+        catalog.append(entry)
     catalog.sort(key=lambda c: order.index(c["key"]))
     source, _, season = DEFAULT_DATASET.partition(":")
     if not inline and (args.out / f"data/{source}__{season}.json").exists():

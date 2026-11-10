@@ -305,6 +305,33 @@ DERIVED_METRICS = {
     "pass_progress_per_pass": "Progressive distance per pass attempted (yards)",
     "carry_progress_per_carry": "Progressive distance per carry (yards)",
     "set_piece_sca_share": "Share of chances created from set pieces %",
+    # Depth metrics: sums, differences and ratios of a source's own counts
+    # (feature_engineering.add_depth_metrics).
+    "tackles_interceptions_per90": "Tackles + interceptions per 90",
+    "dribbled_past_per90": "Times dribbled past per 90",
+    "passes_blocked_per90": "Passes blocked per 90",
+    "npxg_xa_per90": "Non-penalty xG + xA per 90",
+    "assists_minus_xa_per90": "Assists minus xA per 90",
+    "shot_conversion_pct": "Goals per shot %",
+    "xa_per_key_pass": "xA per key pass",
+    "cross_box_pct": "Crosses that find the box %",
+    "gk_psxg_per_sot": "Post-shot xG per shot on target faced",
+    "short_pass_share": "Short passes as a share of his passing %",
+    "medium_pass_share": "Medium passes as a share of his passing %",
+    "long_pass_share": "Long passes as a share of his passing %",
+    "progressive_pass_rate": "Progressive passes per 100 completed",
+    "progressive_carry_rate": "Progressive carries per 100 carries",
+    "turnover_rate": "Possession lost per 100 touches",
+    "take_on_rate": "Take-ons per 100 touches",
+    "mid_third_touch_share": "Share of touches in the middle third %",
+    "buildup_share": "Build-up as a share of his xGChain %",
+    "team_shot_share": "Share of the team's shots %",
+    "team_npxg_share": "Share of the team's non-penalty xG %",
+    "team_key_pass_share": "Share of the team's key passes %",
+    "team_xg_chain_share": "Involved in this share of the team's xG %",
+    "team_touch_share": "Share of the team's touches %",
+    "team_progressive_pass_share": "Share of the team's progressive passes %",
+    "team_defensive_action_share": "Share of the team's tackles and interceptions %",
 }
 
 # Metrics that describe the *team* more than the player. A summary feed
@@ -340,6 +367,8 @@ LOWER_IS_BETTER = {
     "offsides_per90",
     "pens_conceded_per90",
     "possession_lost_per90",
+    "dribbled_past_per90",
+    "turnover_rate",
 }
 
 # Counting stats that should never be turned into a per-90 rate.
@@ -403,6 +432,9 @@ PERCENT_METRICS = set(RATIO_METRICS) | {
     "clean_sheet_rate", "starts_share", "ownership_pct",
     "att_third_touch_share", "box_touch_share", "def_third_touch_share",
     "att_third_tackle_share", "set_piece_sca_share",
+    "shot_conversion_pct", "cross_box_pct", "short_pass_share", "medium_pass_share", "long_pass_share",
+    "mid_third_touch_share", "buildup_share", "team_shot_share", "team_npxg_share", "team_key_pass_share",
+    "team_xg_chain_share", "team_touch_share", "team_progressive_pass_share", "team_defensive_action_share",
 }
 
 # --------------------------------------------------------------------------
@@ -1093,6 +1125,8 @@ class DataSource:
     missing: tuple[str, ...] = ()  # columns this source cannot supply
     default_seasons: tuple[str, ...] = ()   # what the pool opens on
     taxonomy: str = "detailed"              # "detailed" or "bucket" position groups
+    # Understat counts a penalty as a shot; FBref and the event data do not.
+    shots_include_penalties: bool = False
 
 
 DATA_SOURCES: dict[str, DataSource] = {
@@ -1160,6 +1194,7 @@ DATA_SOURCES: dict[str, DataSource] = {
                  "aerials_won", "ball_recoveries", "passes_attempted", "progressive_passes"),
         default_seasons=("2023-24", "2024-25", "2025-26"),
         taxonomy="bucket",
+        shots_include_penalties=True,
     ),
     "fbref_big5": DataSource(
         key="fbref_big5",
@@ -1280,6 +1315,7 @@ DATA_SOURCES: dict[str, DataSource] = {
         missing=("height_cm", "team_possession"),
         default_seasons=("2025-26",),
         taxonomy="bucket",
+        shots_include_penalties=True,
     ),
     "transfermarkt": DataSource(
         key="transfermarkt",

@@ -237,6 +237,15 @@
           </div>
           <p class="sk-from" id="sheet-key-from" hidden></p>
           <div class="sheet-key" id="sheet-key"></div>
+          <div class="sheet-tools" id="sheet-tools">
+            <div class="sheet-find"><input type="search" id="sheet-find" placeholder="Find a stat" aria-label="Find a stat on this sheet">
+              <span class="muted tnum" id="sheet-find-n"></span></div>
+            <div class="seg" id="sheet-order" role="group" aria-label="Order the rows">
+              <button type="button" data-order="scout" class="on">Scouting order</button>
+              <button type="button" data-order="best">Best first</button>
+              <button type="button" data-order="worst">Weakest first</button>
+            </div>
+          </div>
           <nav class="sheet-jump" id="sheet-jump" aria-label="Stat sheet categories"></nav>
           <div class="sheet" id="sheet"></div>
           <div class="sheet-foot" id="sheet-foot"></div>
@@ -296,6 +305,10 @@
               <p class="note" id="radar-note"></p></div>
           </section>
         </div>
+        <section class="block cats-card" id="cmp-cats-card" aria-labelledby="cats-h" hidden>
+          <div class="block-head"><div><h3 id="cats-h">Category by category</h3><p class="sub" id="cats-sub"></p></div></div>
+          <div class="block-body"><div class="cmp-cats" id="cmp-cats"></div><p class="calc-note" id="cats-note"></p></div>
+        </section>
         <div class="tiles" id="tiles"></div>
         <section class="block table-card" id="stats" aria-labelledby="stats-h">
           <div class="block-head">
@@ -587,7 +600,7 @@ const eur = v => v == null ? "—" : v >= 1e9 ? "€" + (v/1e9).toFixed(2) + "bn
 const worth = p => p.v != null ? eur(p.v) : (p.pr != null ? "£" + p.pr.toFixed(1) + "m*" : "—");
 const band = p => p == null ? 3 : p >= 80 ? 5 : p >= 60 ? 4 : p >= 40 ? 3 : p >= 20 ? 2 : 1;
 const chip = p => `<span class="chip c${band(p)}">${p == null ? "—" : p}</span>`;
-const fmt = (key, v) => v == null ? "—" : key === RATING_KEY ? String(Math.round(v))
+const fmt = (key, v) => v == null ? "—" : key === RATING_KEY ? String(Math.round(v)) : isCat(key) ? v.toFixed(1)
   : key === VALUE_KEY ? eur(v) : key === AGE_KEY ? v.toFixed(1) : key === VFM_KEY ? (v >= 0 ? "+" : "") + v.toFixed(1)
   : PCT.has(key) ? v.toFixed(1) + "%"
   : Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
@@ -598,7 +611,12 @@ const fmt = (key, v) => v == null ? "—" : key === RATING_KEY ? String(Math.rou
 const RATING_KEY = "__rating", VALUE_KEY = "__value", AGE_KEY = "__age", VFM_KEY = "__vfm";
 const PSEUDO = {[RATING_KEY]: "Overall rating", [VALUE_KEY]: "Market value", [AGE_KEY]: "Age",
                 [VFM_KEY]: "Value for money (rating vs price)"};
-const label = k => PSEUDO[k] || (M.labels && M.labels[k]) || k;
+// A stat-sheet category's average rides along the same way: the plain average of
+// his percentiles across the category's stats, team readings left out - the
+// figure the sheet prints beside the category - so a position can be ranked,
+// searched and charted by "defending" or "passing" as a whole.
+const CAT_KEY = "__cat:", isCat = k => typeof k === "string" && k.startsWith(CAT_KEY), catOf = k => k.slice(CAT_KEY.length);
+const label = k => PSEUDO[k] || (isCat(k) ? catOf(k) + ": category average" : (M.labels && M.labels[k]) || k);
 const gname = g => (M.groupNames[g] || g);
 const seasonLabel = s => s.replace("-", "/");
 
@@ -657,6 +675,17 @@ const WEIGHT_BY = {npxg_per_shot: "shots_per90", shot_accuracy_pct: "shots_per90
   gk_save_pct: "gk_shots_on_target_against_per90", pass_pct_under_pressure: "passes_under_pressure_per90"};
 const TOTALS = new Set(["minutes"]);
 const meanOf = xs => xs.reduce((t, x) => t + x, 0) / xs.length;
+// Seasons taken together: starts in each position add up, where every season has the record.
+function linedUp(rs){
+  const out = {}, cp = rs.reduce((t, r) => t + (r.p.cp || 0), 0);
+  if (cp) out.cp = cp;
+  if (rs.length && rs.every(r => r.p.pp)){
+    const sum = new Map();
+    rs.forEach(r => r.p.pp.split("|").forEach(x => { const at = x.lastIndexOf(":"); sum.set(x.slice(0, at), (sum.get(x.slice(0, at)) || 0) + +x.slice(at + 1)); }));
+    out.pp = [...sum].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([n, c]) => n + ":" + c).join("|");
+  }
+  return out;
+}
 async function combine(key){
   const src = sourceOf(key), seasons = seasonsIn(key).slice().sort();
   const parts = await Promise.all(seasons.map(s => getDataset(src + ":" + s)));
@@ -734,6 +763,7 @@ async function combine(key){
     players.push({id, n: latest.n, t: latest.t, l: latest.l, p: most.p, g, m,
       fl: fold("fl"), fs: fold("fs"), ft: fold("ft"), h: fold("h"), a: latest.a,
       nt: fold("nt"), ce: fold("ce"), ap, st, ...(most.r ? {r: most.r} : {}),
+      ...linedUp(rs),
       v: latest.v, pr: latest.pr, lv: fold("lv"), ld: fold("ld"), ar: most.ar,
       tc: clubs.length > 1 ? clubs : null, ss: rs.map(r => seasons[r.si]),
       z, d: dv.map(v => [v == null ? null : Math.round(v * 100) / 100, null]), cv: [], os: [],
@@ -789,6 +819,7 @@ async function combine(key){
     club: [...new Set(metas.flatMap(m => m.club || []))], collapsed: last.collapsed || {},
     team: [...new Set(metas.flatMap(m => m.team || []))], notRecorded: last.notRecorded || {},
     style: last.style || [], roleNames: last.roleNames || {}, roleCounts, orders: last.orders || {},
+    headline: last.headline || {},
     desc: Object.assign({}, ...metas.map(m => m.desc || {})),
     counts, unmodelled, lacks: [], valuesAsOf: last.valuesAsOf, has, attribution: last.attribution,
   }};
@@ -843,7 +874,8 @@ function setData(key, payload){
   renderDatasetBar();
   setupFilters();
   if (!G[searchGroup]) searchGroup = null;
-  criteria = criteria.filter(c => searchGroup && (c.metric === RATING_KEY || c.metric === VFM_KEY || G[searchGroup].d.includes(c.metric)));
+  criteria = criteria.filter(c => searchGroup && (c.metric === RATING_KEY || c.metric === VFM_KEY || G[searchGroup].d.includes(c.metric)
+    || (isCat(c.metric) && catList(searchGroup).includes(catOf(c.metric)))));
 }
 
 // The bar at the top of every page: which data, which seasons, and - one click
@@ -1381,6 +1413,8 @@ const GLOSSARY = [
   [/pressures/, "Pressures", "Times he closed down an opponent who had the ball."],
 ];
 function explain(key){
+  if (isCat(key)) return `The plain average of his percentiles across the stat sheet's ${catOf(key).toLowerCase()} stats, team readings left out: `
+    + `the figure the stat sheet prints beside the category. The percentile beside it is where that average ranks among the regulars in his position.`;
   const hit = GLOSSARY.find(([re]) => re.test(key));
   return hit ? hit[2] + (/per90/.test(key) ? " Per 90 means per full match of minutes." : "") : "";
 }
@@ -1457,6 +1491,19 @@ function drawInfo(){
   if (p.ap != null) fact("Appearances", p.ap.toLocaleString() + (p.st != null ? ` <span class="muted">${p.st.toLocaleString()} as a starter</span>` : ""),
     M.combined ? "League appearances over these seasons." : "League appearances this season.");
   fact("Minutes", p.m.toLocaleString() + (p.ap ? ` <span class="muted">${Math.round(p.m / p.ap)} a game</span>` : ""));
+  // Where he actually started, from Transfermarkt's line-ups: every position, or his main one's share.
+  if (p.pp){
+    const parts = p.pp.split("|").map(x => { const at = x.lastIndexOf(":"); return [x.slice(0, at), +x.slice(at + 1)]; });
+    const total = parts.reduce((t, x) => t + x[1], 0);
+    fact("Positions started", parts.slice(0, 3).map(([n, c]) => `${esc(n)} ${c}`).join(", ")
+      + (parts.length > 3 ? ` <span class="muted">and ${parts.length - 3} more</span>` : parts.length === 1 ? ` <span class="muted">every league start</span>` : ""),
+      `League games started in each position ${M.combined ? "over these seasons" : "this season"}, from Transfermarkt's line-ups: ${
+        parts.map(([n, c]) => `${n} ${c} (${Math.round(100 * c / total)}%)`).join(", ")}.`);
+  } else if (p.psh){
+    fact("Main position", `${esc(p.p)} <span class="muted">${p.psh[1]}% of his league starts (${p.psh[0]})</span>`,
+      "The position he started most league games in this season, and its share of his starts, from Transfermarkt's line-ups.");
+  }
+  if (p.cp) fact("Captain", `${p.cp} start${p.cp > 1 ? "s" : ""}`, "League games started wearing the armband, from Transfermarkt's line-ups.");
   // Contract dates are Transfermarkt's today, so they are only shown on the newest season.
   if (p.ce && seasonIsLatest()){
     const d = new Date(p.ce + "T00:00:00Z");
@@ -1546,31 +1593,122 @@ function describe(k){
   const d = (M.desc || {})[k] || "", bare = x => plain(x).replace(/per 90|\(.*?\)|[^a-z]/g, "");
   return d && !bare(label(k)).includes(bare(d)) ? d : "";
 }
+// ---- the stat sheet, drawn -----------------------------------------------------
+// One section per category, in the order that matters for the position. A
+// category this source records is drawn from it. One it does not record - Top
+// leagues has no tackles, no passing and nothing a keeper does - is drawn from
+// the same player's nearest season in a source that does: that source's own
+// figures and percentiles, against its players in his position, shaded and
+// labelled with where it came from, and never mixed into this source's
+// averages, rating or similar players. Where several seasons record a
+// category the reader can switch between them.
+let sheetFind = "", sheetOrder = "scout";
+const sheetOpen = new Set(), embedPick = new Map(), SHEET_FOLD = 8;
+const ELSEWHERE = new Map(), MEDIANS = new Map();
+function sheetOrderFor(p){
+  const orders = M.orders || {}, spec = G[p.g];
+  return (p.r && hasRoles() && orders[p.r]) || orders[p.g] || (spec && spec.so) || (p.g === "GK" ? ["Goalkeeping", "Distribution"] : []);
+}
+const leadCategory = p => sheetOrderFor(p)[0] || null;
+// A source's own composite indexes (the Premier League feed's): an extra where it has them, never a gap.
+const OPTIONAL_CATS = new Set(["Overall indexes"]);
+const here_src = () => { const c = BUNDLE.catalog.find(x => x.key === sourceOf(dsKey)); return c ? c.name : "this source"; };
+// The middle figure among a set of peers, on the figures shown.
+function medianOf(cacheKey, players, spec, k){
+  let m = MEDIANS.get(cacheKey);
+  if (m === undefined){
+    const j = spec.d.indexOf(k);
+    const xs = j < 0 ? [] : players.map(o => o.d[j] ? o.d[j][0] : null).filter(v => v != null).sort((x, y) => x - y);
+    m = xs.length ? (xs.length % 2 ? xs[(xs.length - 1) / 2] : (xs[xs.length / 2 - 1] + xs[xs.length / 2]) / 2) : null;
+    MEDIANS.set(cacheKey, m);
+  }
+  return m;
+}
+// The same player in the other sources (and this source's other seasons where
+// this one is thinner than they are): his nearest seasons, until the categories
+// missing here are covered or three seasons of a source have been tried.
+async function findSheetsElsewhere(p){
+  const words = n => plain(n).split(/[^a-z0-9]+/).filter(Boolean);
+  const mine = words(p.n), year = +seasonsIn(dsKey).slice().sort().pop().slice(0, 4);
+  const sameClub = (x, y) => plain(x).slice(0, 3) === plain(y).slice(0, 3);
+  const sameName = (r, loose) => { const w = words(r[1]);
+    if (w.join(" ") === mine.join(" ")) return true;
+    if (!loose) return false;
+    const [short, long] = w.length < mine.length ? [w, mine] : [mine, w];
+    return short.every(x => long.includes(x)); };
+  const style = new Set(M.style || []), own = new Set(((G[p.g] && G[p.g].s) || []).map(x => x[0]));
+  const wanted = sheetOrderFor(p).filter(c => !own.has(c) && !style.has(c) && !OPTIONAL_CATS.has(c));
+  const out = [];
+  if (!wanted.length) return out;
+  const current = new Set(seasonsIn(dsKey));
+  for (const c of BUNDLE.catalog){
+    const same = c.key === sourceOf(dsKey);
+    if (same && !((M.lacks || []).length || M.combined)) continue;
+    let A; try { A = await getAll(c.key); } catch { continue; }
+    let rows = A.players.filter(r => sameName(r, false));
+    if (!rows.length) rows = A.players.filter(r => r[3] === p.l && sameClub(r[2], p.t) && sameName(r, true));
+    if (same) rows = rows.filter(r => String(r[0]) === String(p.id) && !current.has(A.seasons[r[4]]));
+    const near = r => Math.abs(+A.seasons[r[4]].slice(0, 4) - year);
+    const left = new Set(wanted);
+    // Only seasons the catalogue says record a category still missing are loaded.
+    const records = r => { const e = c.seasons.find(x => x.season === A.seasons[r[4]]);
+      return !e || !e.cats || e.cats.some(x => left.has(x)); };
+    let tried = 0;
+    for (const r of rows.sort((x, y) => near(x) - near(y) || y[4] - x[4])){
+      if (!records(r)) continue;
+      if (++tried > 3) break;
+      const key = c.key + ":" + A.seasons[r[4]];
+      let d; try { d = await getDataset(key); } catch { continue; }
+      const spec = d.meta.groups[r[5]];
+      const o = spec && spec.s ? d.players.find(x => String(x.id) === String(r[0]) && x.g === r[5]) : null;
+      if (!o) continue;
+      const has = spec.s.map(x => x[0]).filter(x => left.has(x));
+      if (!has.length) continue;
+      has.forEach(x => left.delete(x));
+      out.push({key, id: o.id, source: c.name, season: A.seasons[r[4]], club: o.t, near: near(r), spec, o, meta: d.meta,
+        group: (d.meta.groupNames || {})[o.g] || o.g, peers: (d.meta.counts || {})[o.g] || 0,
+        regs: d.players.filter(x => x.g === o.g && !x.sq)});
+      if (!left.size) break;
+    }
+  }
+  return out;
+}
+// One category of a player's sheet in another season or source.
+function candRows(cand, category){
+  const part = (cand.spec.s || []).find(x => x[0] === category);
+  if (!part) return null;
+  const team = new Set(cand.meta.team || cand.meta.club || []);
+  const rows = part[1].map(k => { const cell = cand.o.d[cand.spec.d.indexOf(k)];
+    return {k, v: cell ? cell[0] : null, pct: cell ? cell[1] : null, team: team.has(k)}; }).filter(r => r.v != null);
+  if (!rows.length) return null;
+  const style = (cand.meta.style || []).includes(category);
+  const counted = style ? [] : rows.filter(r => r.pct != null && !r.team);
+  return {c: category, rows, style, from: cand, n: counted.length, teamN: rows.filter(r => r.team && r.pct != null).length,
+          avg: counted.length ? meanOf(counted.map(r => r.pct)) : null};
+}
+const nameIn = (k, labels) => { const l = (labels && labels[k]) || label(k), e = explain(k), short = l.replace(/\s*\([^)]*\)/g, "");
+  return e ? `<span class="term" tabindex="0" data-tip="${esc(l + ". " + e)}">${esc(short)}</span>` : esc(short); };
+// What a metric tells a scout - unless that only repeats its name.
+const descIn = (k, labels, descs) => { const d = (descs || {})[k] || "", bare = x => plain(x).replace(/per 90|\(.*?\)|[^a-z]/g, "");
+  return d && !bare((labels && labels[k]) || label(k)).includes(bare(d)) ? d : ""; };
+const fmtIn = (k, v, pcts) => v == null ? "—" : pcts.has(k) ? v.toFixed(1) + "%" : Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
+const fromText = cand => `${cand.source} ${seasonLabel(cand.season)}`;
 function drawSheet(){
   const p = P[subject], spec = G[p.g], panel = $("sheet-panel");
-  $("sheet-key-from").hidden = true;
-  const gn = gname(p.g).toLowerCase(), src = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey));
+  const gn = gname(p.g).toLowerCase(), src = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey)), srcName = src ? src.name : "this source";
+  const hasOwn = !!(spec && spec.s && spec.s.length);
   panel.hidden = false;
-  if (!spec || !spec.s || !spec.s.length){
-    // Nothing of his position recorded here (a keeper in Top leagues): the sheet
-    // is only what another source records for him, if one does.
-    $("sheet-sub").textContent = `${src ? src.name : "This source"} records nothing a ${gn} does beyond minutes and cards.`;
-    ["sheet-peers", "sheet-key", "sheet-jump", "sheet-foot"].forEach(id => { $(id).innerHTML = ""; });
-    $("sheet-peers").hidden = true;
-    $("sheet").innerHTML = "";
-    $("sheet-how").textContent = embedHow();
-    drawEmbed(p, leadCategory(p), []);
-    return;
-  }
-  const nLeague = leaguePeers(p).length, multi = (M.leagues || []).length > 1, canLeague = multi && nLeague >= 10;
-  const roles = hasRoles() && p.g !== "GK", nRole = rolePeers(p).length, canRole = roles && !!p.r && nRole >= 10;
+
+  // ---- who he is ranked against in this source
+  const nLeague = leaguePeers(p).length, multi = (M.leagues || []).length > 1, canLeague = hasOwn && multi && nLeague >= 10;
+  const roles = hasOwn && hasRoles() && p.g !== "GK", nRole = rolePeers(p).length, canRole = roles && !!p.r && nRole >= 10;
   const rn = p.r ? roleName(p.r).toLowerCase() : "";
   const scope = sheetPeers === "league" && canLeague ? "league" : sheetPeers === "role" && canRole ? "role" : "all";
   const n = scope === "league" ? nLeague : scope === "role" ? nRole : (M.counts[p.g] || 0);
   const btn = (k, text, ok, why) => `<button type="button" data-peers="${k}"${scope === k ? ' class="on"' : ""}${
     ok ? "" : ` aria-disabled="true" data-tip="${esc(why)}"`}>${esc(text)}</button>`;
-  $("sheet-peers").hidden = !multi && !roles;
-  $("sheet-peers").innerHTML = btn("all", `All ${gn}s`, true, "")
+  $("sheet-peers").hidden = !hasOwn || (!multi && !roles);
+  $("sheet-peers").innerHTML = !hasOwn ? "" : btn("all", `All ${gn}s`, true, "")
     + (roles ? btn("role", p.r ? `${cap(rn)}s` : "Exact position", canRole, p.r
         ? `Only ${nRole} regular ${rn}s ${here()}: too few to rank against.`
         : "Transfermarkt has no exact position for him here, so he can only be ranked among all " + gn + "s.") : "")
@@ -1578,192 +1716,157 @@ function drawSheet(){
         `Only ${nLeague} regular ${gn}s in ${article(p.l)} here: too few to rank against.`) : "");
   const peersTxt = scope === "role" ? `${n.toLocaleString()} ${rn}s ${here()}`
     : `${n.toLocaleString()} ${gn}s${scope === "league" ? " in " + article(p.l) : ""} ${here()}`;
-  $("sheet-sub").textContent = `Every number ${src ? src.name : "this source"} records for a ${p.r && roles ? rn : gn}, in the order that matters for the position. Percentiles against ${peersTxt}.`;
-  const cats = sheetRows(p, scope);
-  const pctTxt = v => v == null ? "—" : ord(v);
-  // The position's headline numbers, large.
-  const keyRows = sheetOf(p).k.map(k => cats.flatMap(c => c.rows).find(r => r.k === k)).filter(r => r && r.v != null);
-  $("sheet-key").innerHTML = keyRows.map(r => `<div class="sk">
-      <div class="sk-n">${termed(r.k, true)}${r.team ? `<span class="tag" data-tip="Reads his team as much as him, so it is drawn neutral.">team</span>` : ""}</div>
-      <div class="sk-v tnum">${fmt(r.k, r.v)}</div>
+  const ownPeers = !hasOwn ? [] : scope === "league" ? leaguePeers(p) : scope === "role" ? rolePeers(p) : P.filter(o => o.g === p.g && !o.sq);
+  const own = hasOwn ? sheetRows(p, scope) : [];
+
+  // ---- the same player elsewhere, for what this source does not record
+  const style = new Set(M.style || []), order = sheetOrderFor(p);
+  const need = order.filter(c => !own.some(x => x.c === c) && !style.has(c) && !OPTIONAL_CATS.has(c));
+  const ck = `${dsKey}|${p.id}`;
+  let cands = ELSEWHERE.get(ck), looking = false;
+  if (cands === undefined && need.length){
+    const asked = subject, key = dsKey;
+    looking = true; cands = [];
+    ELSEWHERE.set(ck, null);
+    findSheetsElsewhere(p).then(found => {
+      ELSEWHERE.set(ck, found);
+      if (subject === asked && dsKey === key && mode === "similar" && ptab === "profile") drawSheet();
+    }).catch(() => ELSEWHERE.set(ck, []));
+  } else if (cands === null){ looking = true; cands = []; }
+  cands = cands || [];
+
+  // ---- one section a category, in the position's order
+  const sections = [], nowhere = [];
+  for (const name of [...new Set([...order, ...own.map(c => c.c)])]){
+    const mine = own.find(c => c.c === name) || null;
+    const others = cands.map(cd => candRows(cd, name)).filter(Boolean)
+      .sort((x, y) => x.from.near - y.from.near || y.rows.length - x.rows.length);
+    // The nearest season that records the category properly: one stray row from
+    // a nearer season does not stand in for thirty from the one before.
+    const richest = Math.max(0, ...others.map(x => x.rows.length));
+    const auto = mine || others.find(x => x.rows.length >= Math.max(3, 0.15 * richest)) || others[0] || null;
+    const picked = embedPick.get(name);
+    const sec = picked === "own" ? (mine || auto) : (others.find(x => x.from.key === picked) || auto);
+    if (!sec){ if (need.includes(name)) nowhere.push(name); continue; }
+    if (sec.from && OPTIONAL_CATS.has(name)) continue;
+    // Other seasons worth switching to: ones that record more of the category,
+    // or - under a borrowed section - a nearer season or this source's own.
+    // A far fuller record of the same category a season or two away goes under
+    // it, not behind a button: this season's five defending numbers, then the
+    // twenty-four the deeper source kept.
+    const fuller = sec.style ? [] : others.filter(x => x !== sec && x.rows.length >= 2 * sec.rows.length && x.rows.length >= sec.rows.length + 6);
+    const most = Math.max(0, ...fuller.map(x => x.rows.length));
+    const deep = fuller.find(x => x.rows.length >= 0.5 * most) || null;
+    const alts = [mine, ...others].filter(x => x && x !== sec && x !== deep && (!x.from || x.rows.length >= 3)
+      && (x.rows.length > sec.rows.length || (sec.from && (!x.from || x.from.near < sec.from.near))));
+    sections.push({name, sec, alts: alts.slice(0, 3), fold: name});
+    if (deep) sections.push({name, sec: deep, alts: [], deep: sec.rows.length, fold: name + "|deep"});
+  }
+  const embedded = sections.filter(x => x.sec.from);
+
+  $("sheet-sub").textContent = hasOwn
+    ? `Every number ${srcName} records for a ${p.r && roles ? rn : gn}, in the order that matters for the position. Percentiles against ${peersTxt}.`
+      + (embedded.length ? ` Shaded sections are not recorded by ${srcName}: they are his numbers from the nearest season that has them, named on each.` : "")
+    : `${srcName} records nothing a ${gn} does beyond minutes and cards. The sections below are his numbers from the sources that do, named on each.`;
+
+  // ---- the position's headline numbers, from whichever section holds them
+  const byKey = new Map();
+  sections.forEach(x => { if (!x.sec.style) x.sec.rows.forEach(r => { if (r.v != null && !byKey.has(r.k)) byKey.set(r.k, {r, sec: x.sec}); }); });
+  const headline = (M.headline || {})[p.r && hasRoles() ? p.r : p.g] || (hasOwn ? sheetOf(p).k : []);
+  // ... the first four the sections hold, shown in the sections' own order so the lead category leads.
+  const at = sec => sections.findIndex(x => x.sec === sec);
+  const tiles = [...new Set(headline)].map(k => byKey.get(k)).filter(Boolean).slice(0, 4)
+    .map((x, i) => [x, i]).sort((a, b) => at(a[0].sec) - at(b[0].sec) || a[1] - b[1]).map(x => x[0]);
+  $("sheet-key-from").hidden = true;
+  $("sheet-key").innerHTML = tiles.map(({r, sec}) => { const cd = sec.from, labels = cd ? cd.meta.labels : M.labels;
+    return `<div class="sk${cd ? " embed" : ""}">
+      <div class="sk-n">${nameIn(r.k, labels)}${r.team ? `<span class="tag" data-tip="Reads his team as much as him, so it is drawn neutral.">team</span>` : ""}</div>
+      <div class="sk-v tnum">${fmtIn(r.k, r.v, cd ? new Set(cd.meta.pct || []) : PCT)}</div>
       <div class="sk-bar" aria-hidden="true"><span style="width:${Math.max(2, r.pct ?? 0)}%;background:var(--s${r.team ? 3 : band(r.pct)})"></span></div>
-      <div class="sk-p">${r.pct == null ? "Not ranked" : pctTxt(r.pct) + " percentile"}</div></div>`).join("");
-  $("sheet-jump").innerHTML = cats.map((c, i) => `<button type="button" class="sj${c.style ? " style" : ""}" data-jump="sheet-cat-${i}">
-      <span>${esc(c.c)}</span>${c.style ? "" : `<span class="chip c${band(c.avg)}">${c.avg == null ? "—" : Math.round(c.avg)}</span>`}</button>`).join("");
+      <div class="sk-p">${r.pct == null ? "Not ranked" : ord(r.pct) + " percentile"}${cd ? `<span class="sk-src">${esc(fromText(cd))}</span>` : ""}</div></div>`; }).join("");
+
+  // ---- tools: find a stat, order the rows
+  const q = plain(sheetFind.trim());
+  $("sheet-tools").hidden = !sections.length;
+  document.querySelectorAll("#sheet-order button").forEach(x => x.classList.toggle("on", x.dataset.order === sheetOrder));
+  if ($("sheet-find").value !== sheetFind) $("sheet-find").value = sheetFind;
+
   const notes = M.notRecorded || {};
-  $("sheet").innerHTML = cats.map((c, i) => `<section class="sheet-cat" id="sheet-cat-${i}" aria-labelledby="sheet-cat-${i}-h">
+  let matched = 0;
+  const html = sections.map(({name, sec, alts, deep, fold: foldKey}, i) => {
+    const cd = sec.from || null, labels = cd ? cd.meta.labels : M.labels, descs = cd ? cd.meta.desc : M.desc;
+    const pcts = cd ? new Set(cd.meta.pct || []) : PCT, lower = cd ? new Set(cd.meta.lower || []) : LOWER;
+    const against = cd ? `${cd.peers.toLocaleString()} ${cd.group.toLowerCase()}s in ${fromText(cd)}` : peersTxt;
+    const median = k => cd ? medianOf(`${cd.key}|${cd.o.g}|${k}`, cd.regs, cd.spec, k) : medianOf(`${dsKey}|${p.g}|${scope}|${scope === "league" ? p.l : scope === "role" ? p.r : ""}|${k}`, ownPeers, spec, k);
+    const rows = sec.rows.slice();
+    if (sheetOrder !== "scout") rows.sort((x, y) => (x.pct == null) - (y.pct == null) || (sheetOrder === "best" ? y.pct - x.pct : x.pct - y.pct));
+    const hit = r => !q || plain(((labels && labels[r.k]) || label(r.k)) + " " + ((descs || {})[r.k] || "")).includes(q);
+    const hits = rows.filter(hit).length;
+    matched += hits;
+    if (q && !hits) return "";
+    const fold = !q && i > 0 && !sheetOpen.has(foldKey) && rows.length > SHEET_FOLD + 2;
+    const id = `sheet-cat-${i}`;
+    return `<section class="sheet-cat${cd ? " embed" : ""}" id="${id}" data-cat="${esc(name)}" aria-labelledby="${id}-h">
       <header class="sc-head">
-        <h3 id="sheet-cat-${i}-h">${esc(c.c)}</h3>
-        ${c.style ? "" : `<div class="sc-pct b${band(c.avg)}" data-tip="The plain average of the ${c.n} percentiles below${c.teamN ? ", leaving out team readings" : ""}, against ${esc(peersTxt)}.">
-          <b>${c.avg == null ? "—" : Math.round(c.avg)}</b><span>${c.avg == null ? "not ranked" : "category percentile"}</span></div>`}
+        <h3 id="${id}-h">${esc(name)}${deep ? '<span class="sc-deep">in depth</span>' : ""}</h3>
+        ${sec.style ? "" : `<div class="sc-pct b${band(sec.avg)}" data-tip="The plain average of the ${sec.n} percentiles below${sec.teamN ? ", leaving out team readings" : ""}, against ${esc(against)}.">
+          <b>${sec.avg == null ? "—" : Math.round(sec.avg)}</b><span>${sec.avg == null ? "not ranked" : "category percentile"}</span></div>`}
       </header>
-      <p class="sc-sub">${c.style ? "Where on the pitch and how the player plays, not how well. Ranked like the rest, drawn neutral, and not averaged."
-        : c.n ? `Average of the ${c.n} percentile${c.n > 1 ? "s" : ""} below${c.teamN ? ", team readings left out" : ""}.` : "No percentiles to average."}</p>
-      <div class="sc-rows">${c.rows.map(r => {
-        const lower = LOWER.has(r.k), desc = describe(r.k);
-        // A team reading is ranked like the rest but drawn neutral: facing few shots is the defence's doing.
-        const tone = r.team || c.style ? 3 : band(r.pct);
-        return `<div class="sr${r.v == null ? " none" : ""}">
-          <div class="sr-n">${termed(r.k, true)}${lower ? '<span class="tag" data-tip="Lower is better. The percentile is flipped, so a high one still reads well.">lower is better</span>' : ""}${
+      ${cd ? `<p class="sc-from"><b>From ${esc(cd.source)}, ${esc(seasonLabel(cd.season))}</b>${cd.club ? ` (${esc(cd.club)})` : ""}${
+          cd.near >= 2 ? `, ${cd.near} seasons ${+cd.season.slice(0, 4) < +seasonsIn(dsKey).slice().sort().pop().slice(0, 4) ? "earlier" : "later"}` : ""}. ${
+          deep ? `The fuller record of this category: ${sec.rows.length} stats to the ${deep} above, from the nearest season that keeps them`
+          : `${esc(srcName)} ${own.some(x => x.c === name) ? "records less of this" : "does not record this"}, so these are his numbers from ${
+            cd.near ? "the nearest season that does" : "the same season there"}`}, ranked against ${esc(against)}.
+          <button type="button" class="linkbtn" data-openseason="${esc(cd.key)}|${esc(cd.id)}">Open that season</button></p>` : ""}
+      <p class="sc-sub">${sec.style ? "Where on the pitch and how the player plays, not how well. Ranked like the rest, drawn neutral, and not averaged."
+        : sec.n ? `Average of the ${sec.n} percentile${sec.n > 1 ? "s" : ""} below${sec.teamN ? ", team readings left out" : ""}.` : "No percentiles to average."}</p>
+      ${alts.length ? `<div class="sc-alts"><span>Also recorded in</span>${alts.map(x => `<button type="button" class="chip-btn" data-embed="${esc(name)}|${x.from ? esc(x.from.key) : "own"}">${
+          esc(x.from ? fromText(x.from) : srcName + " " + periodOf(dsKey))} <span class="via">${x.rows.length} stat${x.rows.length > 1 ? "s" : ""}</span></button>`).join("")}</div>` : ""}
+      <div class="sc-rows">${rows.map((r, at) => {
+        const tone = r.team || sec.style ? 3 : band(r.pct), d = descIn(r.k, labels, descs), med = median(r.k);
+        return `<div class="sr${r.v == null ? " none" : ""}" data-k="${esc(r.k)}"${!hit(r) || (fold && at >= SHEET_FOLD) ? " hidden" : ""}>
+          <div class="sr-n">${nameIn(r.k, labels)}${lower.has(r.k) ? '<span class="tag" data-tip="Lower is better. The percentile is flipped, so a high one still reads well.">lower is better</span>' : ""}${
             r.team ? `<span class="tag" data-tip="Reads his team as much as him, so it is shown but left out of the category average.">team</span>` : ""}
-            ${desc ? `<small>${esc(desc)}</small>` : ""}</div>
-          <div class="sr-v tnum">${fmt(r.k, r.v)}</div>
+            ${d ? `<small>${esc(d)}</small>` : ""}</div>
+          <div class="sr-v tnum">${fmtIn(r.k, r.v, pcts)}${med == null ? "" : `<small data-tip="The middle figure among ${esc(against)}: half are above it, half below.">median ${fmtIn(r.k, med, pcts)}</small>`}</div>
           <div class="sr-bar" aria-hidden="true"><span style="width:${r.pct == null ? 0 : Math.max(2, r.pct)}%;background:var(--s${tone})"></span></div>
           <div class="sr-p tnum">${r.pct == null ? "—" : r.pct}</div></div>`; }).join("")}</div>
-      ${notes[c.c] ? `<p class="sc-note">${esc(notes[c.c])}</p>` : ""}
-    </section>`).join("");
-  // The category that matters most for his position, when this source does not
-  // record it: his numbers for it from the nearest season of a source that does.
-  const lead = leadCategory(p);
-  if (lead && !cats.some(x => x.c === lead)) drawEmbed(p, lead, cats);
-  // What this source does not record for the position at all - named, so an
-  // empty category never reads as a weak one - and where to find more of him.
-  const missing = (spec.so || []).filter(c => !cats.some(x => x.c === c));
-  const physical = cats.some(x => x.c === "Physical and availability") ? "" : (notes["Physical and availability"] || "");
-  // Seasons taken together show what every one of them records; name the seasons
-  // that leave a category out, so it does not read as the source never having it.
+      ${!q && i > 0 && rows.length > SHEET_FOLD + 2 ? `<button type="button" class="more sc-more" data-sheet-open="${esc(foldKey)}">${
+          fold ? `Show all ${rows.length} ${esc(name.toLowerCase())} stats` : "Show fewer"}</button>` : ""}
+      ${!cd && notes[name] ? `<p class="sc-note">${esc(notes[name])}</p>` : ""}
+    </section>`; }).join("");
+  $("sheet").innerHTML = (looking ? `<p class="sheet-looking">Looking in the other sources for what ${esc(srcName)} does not record for him: ${esc(listing(need.map(c => c.toLowerCase())))}…</p>` : "")
+    + (q && !matched ? `<p class="sheet-looking">No stat here matches "${esc(sheetFind.trim())}".</p>` : "") + html;
+  $("sheet-find-n").textContent = q ? `${matched} stat${matched === 1 ? "" : "s"}` : `${sections.reduce((t, x) => t + x.sec.rows.length, 0)} stats`;
+  $("sheet-jump").innerHTML = sections.map(({name, sec, deep}, i) => `<button type="button" class="sj${sec.style ? " style" : ""}${sec.from ? " embed" : ""}" data-jump="sheet-cat-${i}">
+      <span>${esc(name)}${deep ? " in depth" : ""}${sec.from ? ` <span class="via">${esc(seasonLabel(sec.from.season))}</span>` : ""}</span>${
+      sec.style ? "" : `<span class="chip c${band(sec.avg)}">${sec.avg == null ? "—" : Math.round(sec.avg)}</span>`}</button>`).join("");
+
+  // ---- what nobody records for him, said rather than left blank
   const partOf = season => { const d = CACHE[sourceOf(dsKey) + ":" + season]; return d && d.meta.groups[p.g]; };
-  const thin = M.combined ? missing.map(c => ({c, without: M.seasons.filter(x => { const sp = partOf(x); return sp && !(sp.s || []).some(y => y[0] === c); })}))
+  const thin = M.combined ? need.map(c => ({c, without: M.seasons.filter(x => { const sp = partOf(x); return sp && !(sp.s || []).some(y => y[0] === c); })}))
     .filter(x => x.without.length && x.without.length < M.seasons.length) : [];
-  const gone = missing.filter(c => !thin.some(x => x.c === c));
   const without = [...new Set(thin.flatMap(x => x.without))];
-  $("sheet-foot").innerHTML = missing.length ? `<div class="sheet-missing">${thin.length ? `<p><b>Not in every one of these seasons:</b>
+  const physical = notes["Physical and availability"] || "";
+  $("sheet-foot").innerHTML = (thin.length || (nowhere.length && !looking)) ? `<div class="sheet-missing">${thin.length ? `<p><b>Not in every one of these seasons:</b>
       ${esc(listing(thin.map(x => x.c.toLowerCase())))} - ${esc(listing(without.map(seasonLabel)))} ${without.length > 1 ? "do" : "does"} not record ${
-      thin.length > 1 ? "them" : "it"}, and seasons taken together show only what all of them record. Leave ${without.length > 1 ? "those seasons" : seasonLabel(without[0])} out to see ${thin.length > 1 ? "them" : "it"}.</p>` : ""}${
-      gone.length ? `<p><b>Not recorded in ${esc(src ? src.name : "this source")} ${esc(periodOf(dsKey))}:</b> ${esc(listing(gone.map(c => c.toLowerCase())))}.</p>` : ""}${
-      physical ? `<p>${esc(physical)}</p>` : ""}<div class="elsewhere" id="sheet-elsewhere"></div></div>` : "";
-  if (gone.length){
-    const asked = subject, have = cats.length;
-    findElsewhere(p).then(found => {
-      const box = $("sheet-elsewhere");
-      if (subject !== asked || !box) return;
-      const richer = found.filter(f => f.cats > have);
-      box.innerHTML = richer.length ? `<span>More of his game is recorded in:</span>` + richer.map(f =>
-        `<button type="button" class="btn" data-openseason="${esc(f.key)}|${esc(f.id)}">${esc(f.source)} ${
-          esc(seasonLabel(f.season))} <span class="via">${esc(f.team)}</span></button>`).join("") : "";
-    });
-  }
-  $("sheet-how").textContent = `Each row is a rate or percentage worked out from ${src ? src.name : "the source"}'s own counts, per 90 minutes where it says so. `
-    + `The percentile is his rank among ${peersTxt}: 80 means a higher figure than about 80% of them, flipped where lower is better. `
+      thin.length > 1 ? "them" : "it"}, and seasons taken together show only what all of them record.</p>` : ""}${
+      nowhere.length && !looking ? `<p><b>Not recorded for him in any source here:</b> ${esc(listing(nowhere.map(c => c.toLowerCase())))}. ${
+        esc(srcName)} does not record ${nowhere.length > 1 ? "them" : "it"}, and he is not in a season of another source that does.</p>` : ""}${
+      physical && !sections.some(x => x.name === "Physical and availability") ? `<p>${esc(physical)}</p>` : ""}</div>` : "";
+  $("sheet-how").textContent = `Each row is a rate or percentage worked out from the source's own counts, per 90 minutes where it says so. `
+    + `The percentile is his rank among the players named: 80 means a higher figure than about 80% of them, flipped where lower is better; the median is the middle figure among them. `
     + (scope === "league" ? (M.combined ? `Over seasons taken together, the league percentiles are ranked here on the combined figures, by the same rule. `
       : `The league percentiles rank him among the regulars in his position in his own league only, by the same rule. `) : "")
     + (scope === "role" ? `The exact-position percentiles rank him among the regulars Transfermarkt lists in the same position that season${
         M.combined ? ", ranked here on the combined figures" : ""}, by the same rule. ` : "")
-    + (cats.some(c => c.style) ? `Role and style rows say how a player plays rather than how well, so they are not averaged. ` : "")
+    + (sections.some(x => x.sec.style) ? `Role and style rows say how a player plays rather than how well, so they are not averaged. ` : "")
     + `A category's percentile is the plain average of the percentiles listed under it; numbers that read the team, such as goals conceded, are shown but not averaged. `
     + `The rating above uses a smaller set of metrics per position, so its category scores differ from these. `
-    + (lead && !cats.some(x => x.c === lead) ? embedHow() : "");
+    + (embedded.length || !hasOwn ? `A shaded section is the same player in another season or source, because ${srcName} does not record that category: `
+      + `its figures and percentiles are that source's own, against its players in his position, and are not mixed into ${srcName}'s averages, rating or similar players.` : "");
 }
 function drawProfile(){ drawInfo(); drawSW(); drawSheet(); }
-
-// ---- the lead category from another source ------------------------------------
-// A centre-back's sheet should open on defending and a keeper's on goalkeeping.
-// Where this source does not record that category at all (Top leagues has no
-// tackles and nothing a keeper does), the sheet opens on the same player's
-// numbers for it from the nearest season of a source that does - its own
-// values and its own percentiles, against that source's players in his
-// position, and labelled as such. Nothing is carried into this source's
-// averages or models.
-const ELSEWHERE = new Map();
-function leadCategory(p){
-  const orders = M.orders || {}, spec = G[p.g];
-  const order = (p.r && hasRoles() && orders[p.r]) || orders[p.g] || (spec && spec.so) || (p.g === "GK" ? ["Goalkeeping"] : []);
-  return order[0] || null;
-}
-const here_src = () => { const c = BUNDLE.catalog.find(x => x.key === sourceOf(dsKey)); return c ? c.name : "this source"; };
-const embedHow = () => "Where this source does not record the category that matters most for the position, the sheet opens on the "
-  + "player's numbers for it from the nearest season of another source that does: that source's own figures and percentiles, "
-  + "against its players in his position. They are not mixed into this source's averages, ratings or similar players.";
-async function findCategoryElsewhere(p, category){
-  const ck = `${dsKey}|${p.id}|${category}`;
-  if (ELSEWHERE.has(ck)) return ELSEWHERE.get(ck);
-  const words = n => plain(n).split(/[^a-z0-9]+/).filter(Boolean);
-  const mine = words(p.n), year = +seasonsIn(dsKey).slice().sort().pop().slice(0, 4);
-  const sameClub = (a, b) => plain(a).slice(0, 3) === plain(b).slice(0, 3);
-  const sameName = (r, loose) => { const w = words(r[1]);
-    if (w.join(" ") === mine.join(" ")) return true;
-    if (!loose) return false;
-    const [short, long] = w.length < mine.length ? [w, mine] : [mine, w];
-    return short.every(x => long.includes(x)); };
-  let best = null;
-  for (const c of BUNDLE.catalog){
-    if (c.key === sourceOf(dsKey)) continue;
-    let A; try { A = await getAll(c.key); } catch { continue; }
-    let rows = A.players.filter(r => sameName(r, false));
-    if (!rows.length) rows = A.players.filter(r => r[3] === p.l && sameClub(r[2], p.t) && sameName(r, true));
-    const near = r => Math.abs(+A.seasons[r[4]].slice(0, 4) - year);
-    // The nearest seasons first, the later of two equally near; three tries a source.
-    for (const r of rows.sort((x, y) => near(x) - near(y) || y[4] - x[4]).slice(0, 3)){
-      const key = c.key + ":" + A.seasons[r[4]];
-      let d; try { d = await getDataset(key); } catch { continue; }
-      const spec = d.meta.groups[r[5]], part = spec && spec.s ? spec.s.find(x => x[0] === category) : null;
-      const o = part ? d.players.find(x => String(x.id) === String(r[0]) && x.g === r[5]) : null;
-      if (!o) continue;
-      const team = new Set(d.meta.team || d.meta.club || []), lower = new Set(d.meta.lower || []);
-      const rows2 = part[1].map(k => { const j = spec.d.indexOf(k);
-        return {k, v: o.d[j] ? o.d[j][0] : null, pct: o.d[j] ? o.d[j][1] : null, team: team.has(k), lower: lower.has(k)}; })
-        .filter(x => x.v != null);
-      if (!rows2.length) continue;
-      const counted = rows2.filter(x => x.pct != null && !x.team);
-      const cand = {key, id: o.id, source: c.name, season: A.seasons[r[4]], club: o.t, near: near(r), rows: rows2,
-        group: (d.meta.groupNames || {})[o.g] || o.g, peers: (d.meta.counts || {})[o.g] || 0,
-        avg: counted.length ? meanOf(counted.map(x => x.pct)) : null, n: counted.length,
-        labels: d.meta.labels || {}, desc: d.meta.desc || {}, pctKeys: new Set(d.meta.pct || [])};
-      if (!best || cand.near < best.near || (cand.near === best.near && cand.rows.length > best.rows.length)) best = cand;
-      break;
-    }
-  }
-  ELSEWHERE.set(ck, best);
-  return best;
-}
-let embedToken = 0;
-function drawEmbed(p, category, cats){
-  if (!category) return;
-  const gn = gname(p.g).toLowerCase(), asked = subject, key = dsKey, token = ++embedToken;
-  $("sheet").insertAdjacentHTML("afterbegin", `<section class="sheet-cat embed" id="sheet-embed" aria-labelledby="sheet-embed-h">
-    <header class="sc-head"><h3 id="sheet-embed-h">${esc(category)}</h3></header>
-    <p class="sc-sub">Not recorded here. Looking for his ${esc(category.toLowerCase())} in the other sources…</p></section>`);
-  findCategoryElsewhere(p, category).then(e => {
-    const box = $("sheet-embed");
-    // Only the latest draw fills the sheet: a redraw while this was looking has its own.
-    if (token !== embedToken || subject !== asked || dsKey !== key || !box) return;
-    if (!e){ box.querySelector(".sc-sub").textContent = `Not recorded here, and he is not in a source that records ${category.toLowerCase()} for ${gn}s.`; return; }
-    const fmtE = (k, v) => v == null ? "—" : e.pctKeys.has(k) ? v.toFixed(1) + "%" : Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
-    const nameE = k => { const l = e.labels[k] || k, x = explain(k);
-      return x ? `<span class="term" tabindex="0" data-tip="${esc(l + ". " + x)}">${esc(l.replace(/\s*\([^)]*\)/g, ""))}</span>` : esc(l.replace(/\s*\([^)]*\)/g, "")); };
-    const peers = `${e.peers.toLocaleString()} ${e.group.toLowerCase()}s in ${e.source} ${seasonLabel(e.season)}`;
-    box.innerHTML = `<header class="sc-head">
-        <h3 id="sheet-embed-h">${esc(category)}</h3>
-        <div class="sc-pct b${band(e.avg)}" data-tip="The plain average of the ${e.n} percentiles below, against ${esc(peers)}.">
-          <b>${e.avg == null ? "—" : Math.round(e.avg)}</b><span>${e.avg == null ? "not ranked" : "category percentile"}</span></div>
-      </header>
-      <p class="sc-from"><b>From ${esc(e.source)}, ${esc(seasonLabel(e.season))}</b>${e.club ? ` (${esc(e.club)})` : ""}: ${esc(here_src())} does not record
-        ${esc(category.toLowerCase())}, so these are his numbers from the nearest season that does, with percentiles against ${esc(peers)}.
-        <button type="button" class="linkbtn" data-openseason="${esc(e.key)}|${esc(e.id)}">Open that season</button></p>
-      <div class="sc-rows">${e.rows.map(r => {
-        const tone = r.team ? 3 : band(r.pct), d = e.desc[r.k];
-        return `<div class="sr">
-          <div class="sr-n">${nameE(r.k)}${r.lower ? '<span class="tag" data-tip="Lower is better. The percentile is flipped, so a high one still reads well.">lower is better</span>' : ""}${
-            r.team ? '<span class="tag" data-tip="Reads his team as much as him, so it is left out of the category average.">team</span>' : ""}
-            ${d ? `<small>${esc(d)}</small>` : ""}</div>
-          <div class="sr-v tnum">${fmtE(r.k, r.v)}</div>
-          <div class="sr-bar" aria-hidden="true"><span style="width:${r.pct == null ? 0 : Math.max(2, r.pct)}%;background:var(--s${tone})"></span></div>
-          <div class="sr-p tnum">${r.pct == null ? "—" : r.pct}</div></div>`; }).join("")}</div>`;
-    // The headline numbers follow: a centre-back's are defending, wherever they come from.
-    const top = e.rows.filter(r => !r.team && r.pct != null).slice(0, 4);
-    if (top.length >= 2){
-      $("sheet-key-from").hidden = false;
-      $("sheet-key-from").textContent = `${category} first, from ${e.source} ${seasonLabel(e.season)}`;
-    }
-    if (top.length >= 2) $("sheet-key").innerHTML = top.map(r => `<div class="sk">
-        <div class="sk-n">${nameE(r.k)}</div>
-        <div class="sk-v tnum">${fmtE(r.k, r.v)}</div>
-        <div class="sk-bar" aria-hidden="true"><span style="width:${Math.max(2, r.pct)}%;background:var(--s${band(r.pct)})"></span></div>
-        <div class="sk-p">${ord(r.pct)} percentile among ${esc(e.group.toLowerCase())}s</div></div>`).join("");
-    $("sheet-jump").insertAdjacentHTML("afterbegin", `<button type="button" class="sj embed" data-jump="sheet-embed">
-      <span>${esc(category)} <span class="via">${esc(seasonLabel(e.season))}</span></span><span class="chip c${band(e.avg)}">${e.avg == null ? "—" : Math.round(e.avg)}</span></button>`);
-  });
-}
 
 // ---- radar ---------------------------------------------------------------
 function radar(names, series){
@@ -2111,7 +2214,7 @@ const simTip = () => "Similarity is 100 × the cosine between the two players' s
   + (flatWeights() ? "every metric counting the same (one season, so repeatability cannot be measured). "
                    : "each metric weighted by how well it repeats from season to season. ") + "It says how alike their numbers are - not ability, quality, potential or "
   + "tactical role - and it is not a probability, nor adjusted for league or team strength. Labels: 95+ near-identical, 90+ very similar, 80+ similar, 70+ partly similar.";
-const unitOf = key => key === RATING_KEY ? "out of 100" : /_per90$/.test(key) ? "per 90 minutes" : PCT.has(key) ? "percentage" : key === "minutes" ? "minutes played" : "";
+const unitOf = key => key === RATING_KEY ? "out of 100" : isCat(key) ? "average percentile" : /_per90$/.test(key) ? "per 90 minutes" : PCT.has(key) ? "percentage" : key === "minutes" ? "minutes played" : "";
 const bareLabel = key => shortLabel(key).replace(/ per 90$/, "");
 // Headline metrics for the tiles: familiar ones for the position first, then the
 // model's most repeatable metrics, and only ones both players have.
@@ -2227,6 +2330,36 @@ function drawCompare(){
     : (x, y) => (x.gap ?? 99) - (y.gap ?? 99);
   const grouped = {};
   rows.forEach(r => { const g = groupOf[r.key] || "Other metrics"; (grouped[g] = grouped[g] || []).push(r); });
+
+  // ---- category by category: on the stats both have, each player's average
+  // percentile (against his own position) and who has the better figure on how
+  // many of them. Counted straight off the table below.
+  const teamKeys = new Set([...(M.team || M.club || []), ...(ref.meta.team || ref.meta.club || [])]);
+  const styleCats = new Set([...(M.style || []), ...(ref.meta.style || [])]);
+  const cats = order.filter(g => grouped[g] && g !== "Other metrics" && !styleCats.has(g)).map(g => {
+    const both = grouped[g].filter(r => r.av != null && r.bv != null && r.ap != null && r.bp != null && !teamKeys.has(r.key));
+    let la = 0, lb = 0;
+    both.forEach(r => { const d = (LOWER.has(r.key) ? -1 : 1) * (r.av - r.bv); if (d > 1e-9) la++; else if (d < -1e-9) lb++; });
+    return {g, n: both.length, a: both.length ? meanOf(both.map(r => r.ap)) : null, b: both.length ? meanOf(both.map(r => r.bp)) : null, la, lb};
+  }).filter(c => c.n >= 2);
+  $("cmp-cats-card").hidden = !cats.length;
+  if (cats.length){
+    const tot = cats.reduce((t, c) => ({n: t.n + c.n, la: t.la + c.la, lb: t.lb + c.lb}), {n: 0, la: 0, lb: 0});
+    const bar = (v, mark) => `<span class="cc-bar"><span class="cc-track"><i style="width:${Math.max(2, v)}%;background:var(${mark})"></i></span><b class="tnum">${Math.round(v)}</b></span>`;
+    $("cmp-cats").innerHTML = `<div class="cc cc-head" aria-hidden="true"><span>Category</span>
+        <span><span class="cc-key"><i style="background:var(--mark-a)"></i>${lastA}</span><span class="cc-key"><i style="background:var(--mark-b)"></i>${lastB}</span> average percentile</span>
+        <span>Better figure on</span></div>`
+      + cats.map(c => { const lv = c.n - c.la - c.lb;
+        return `<button type="button" class="cc" data-catjump="${esc(c.g)}" aria-label="${esc(c.g)}: ${lastA} ${Math.round(c.a)}, ${lastB} ${Math.round(c.b)}. Show these rows in the table">
+          <span class="cc-n"><b>${esc(c.g)}</b><small>${c.n} stats both have</small></span>
+          <span class="cc-bars">${bar(c.a, "--mark-a")}${bar(c.b, "--mark-b")}</span>
+          <span class="cc-lead"><b${c.la > c.lb ? ' class="up"' : ""}>${lastA} ${c.la}</b><b${c.lb > c.la ? ' class="up"' : ""}>${lastB} ${c.lb}</b>${lv ? `<span>level ${lv}</span>` : ""}</span></button>`; }).join("");
+    $("cats-sub").textContent = `Across the ${tot.n} stats both have, ${a.n} has the better figure on ${tot.la} and ${b.n} on ${tot.lb}${
+      tot.n - tot.la - tot.lb ? `, with ${tot.n - tot.la - tot.lb} level` : ""}.`;
+    $("cats-note").textContent = `Each bar is the plain average of that player's percentiles on the stats both have in the category, `
+      + (ref.other ? "each against his own position and season" : "against his own position") + `, team readings left out. `
+      + `"Better figure" compares the two players' own numbers stat by stat: the higher one, or the lower where lower is better. Select a category to see its rows.`;
+  }
   const widest = Math.max(0.001, ...rows.map(r => r.gap ?? 0));
   const cell = (v, pct, key) => `<td class="num"><span class="vcell">${fmt(key, v)} ${chip(pct)}</span></td>`;
   const diffCell = r => {
@@ -2240,7 +2373,7 @@ function drawCompare(){
   const head = `<thead><tr><th>Metric</th><th class="num">${period(lastA, sA)}</th><th class="num">${period(lastB, sB)}</th>
     <th class="num"><span data-tip="${lastA} minus ${lastB}, in the metric's own units. A neutral difference, not a judgement: for some metrics lower is better.">Difference</span></th>
     <th><span data-tip="How far apart they are on this metric, in standard deviations, scaled by how much the metric counts in the similarity.">Gap in this match</span></th></tr></thead>`;
-  const body = order.filter(g => grouped[g]).map(g => `<tbody><tr class="grp"><td colspan="5">${esc(g)}</td></tr>${
+  const body = order.filter(g => grouped[g]).map(g => `<tbody data-grp="${esc(g)}"><tr class="grp"><td colspan="5">${esc(g)}</td></tr>${
     grouped[g].sort(sorter).map(r => `<tr id="m-${esc(r.key)}" data-label="${esc(plain(label(r.key)))}">
       <td class="lb">${termed(r.key)}</td>
       ${cell(r.av, r.ap, r.key)}${cell(r.bv, r.bp, r.key)}${diffCell(r)}
@@ -2383,17 +2516,53 @@ function metricOptions(group, chosen, extra = []){
   const usable = k => k === VFM_KEY ? !!vfmFit(group) : k === VALUE_KEY ? !!has.value : k === AGE_KEY ? !!has.age : false;
   const top = extra.filter(usable).map(k => [k, label(k)]);
   if (spec.rw) top.unshift([RATING_KEY, "Overall rating"]);
+  const cats = catList(group).map(c => [CAT_KEY + c, label(CAT_KEY + c)]);
   // The stat sheet's categories, in the position's order; anything else after them.
   const inSheet = new Set((spec.s || []).flatMap(x => x[1]));
   const rest = spec.d.filter(k => !inSheet.has(k)).map(k => [k, label(k)]).sort((a, b) => a[1].localeCompare(b[1]));
   const groups = (spec.s || []).map(([c, ks]) => [c, ks.map(k => [k, label(k)])]);
   if (rest.length) groups.push([spec.s && spec.s.length ? "Other metrics" : "Metrics", rest]);
   return (top.length ? `<optgroup label="Overall">${top.map(opt).join("")}</optgroup>` : "")
+    + (cats.length ? `<optgroup label="Whole categories">${cats.map(opt).join("")}</optgroup>` : "")
     + groups.map(([c, xs]) => `<optgroup label="${esc(c)}">${xs.map(opt).join("")}</optgroup>`).join("");
+}
+// The categories of a position's sheet that can be averaged: not the style
+// ones, and only those with at least two stats that read the player.
+const CATS = new Map();
+function catKeys(group, category){
+  const spec = G[group], part = spec && (spec.s || []).find(x => x[0] === category);
+  if (!part || (M.style || []).includes(category)) return [];
+  const team = new Set(M.team || M.club || []);
+  return part[1].filter(k => !team.has(k) && spec.d.includes(k));
+}
+const catList = group => ((G[group] && G[group].s) || []).map(x => x[0]).filter(c => catKeys(group, c).length >= 2);
+// Every player's average for one category, and the regulars' averages in order to rank against.
+function catFit(group, category){
+  const ck = `${dsKey}|${group}|${category}`;
+  let f = CATS.get(ck);
+  if (f) return f;
+  const spec = G[group], js = catKeys(group, category).map(k => spec.d.indexOf(k)), avg = new Map();
+  if (js.length >= 2) for (const i of (byGroup[group] || [])){
+    const xs = js.map(j => P[i].d[j] ? P[i].d[j][1] : null).filter(v => v != null);
+    if (xs.length) avg.set(i, meanOf(xs));
+  }
+  const refOf = keep => [...avg].filter(([i]) => !P[i].sq && keep(P[i])).map(x => x[1]).sort((a, b) => a - b);
+  f = {avg, n: js.length, ref: refOf(() => true), roles: new Map(), refOf};
+  CATS.set(ck, f);
+  return f;
+}
+// [average, where that average ranks among the regulars in his position - or, given one, his exact position].
+function catCell(o, category, role = ""){
+  const f = catFit(o.g, category), v = f.avg.get(byId.get(o.id));
+  if (v == null) return [null, null];
+  let ref = f.ref;
+  if (role){ ref = f.roles.get(role); if (!ref){ ref = f.refOf(x => x.r === role); f.roles.set(role, ref); } }
+  return [v, ref.length ? Math.round(rankPct(ref, v, !!o.sq)) : null];
 }
 // [value, percentile] for any metric of a player, the rating included.
 function cellOf(o, key, spec = G[o.g]){
   if (key === RATING_KEY){ const r = ratingOf(o); return r == null ? [null, null] : [r, Math.round(r)]; }
+  if (isCat(key)) return catCell(o, catOf(key));
   if (key === VALUE_KEY) return [o.v ?? null, null];
   if (key === AGE_KEY) return [o.a ?? null, null];
   if (key === VFM_KEY){
@@ -2475,7 +2644,7 @@ function drawBoard(){
     if (role && o.r !== role) continue;
     const c = cellOf(o, metric, spec);
     // Narrowed to one exact position, the percentile is against that position.
-    if (c[0] != null && passes(o, false)) rows.push([i, c[0], role ? sheetPct(o, metric, "role") ?? c[1] : c[1]]);
+    if (c[0] != null && passes(o, false)) rows.push([i, c[0], !role ? c[1] : isCat(metric) ? catCell(o, catOf(metric), role)[1] : sheetPct(o, metric, "role") ?? c[1]]);
   }
   const asc = $("bdir").value === "asc";
   rows.sort((a, b) => asc ? a[1] - b[1] : b[1] - a[1]);
@@ -2528,7 +2697,7 @@ function drawExplore(){
   if (!spec){ $("scatter").innerHTML = `<div class="empty">No position to plot ${here()}.</div>`; return; }
   const has = M.has || {};
   const known = k => k === RATING_KEY ? !!spec.rw : k === VALUE_KEY ? !!has.value : k === AGE_KEY ? !!has.age
-    : k === VFM_KEY ? !!vfmFit(exGroup) : spec.d.includes(k);
+    : k === VFM_KEY ? !!vfmFit(exGroup) : isCat(k) ? catList(exGroup).includes(catOf(k)) : spec.d.includes(k);
   if (!known(exX) || !known(exY)) [exX, exY] = exDefaults(exGroup);
   const extra = [VFM_KEY, VALUE_KEY, AGE_KEY];
   $("xmetric").innerHTML = metricOptions(exGroup, exX, extra);
@@ -3235,6 +3404,12 @@ document.addEventListener("click", e => {
   if (t.closest("#about-data-btn")){ const open = $("about-data").hidden; $("about-data").hidden = !open;
     $("about-data-btn").setAttribute("aria-expanded", open); if (open) showFilters(false); return; }
   // ---- jumping to data
+  const cj = t.closest("[data-catjump]");
+  if (cj){ $("mfilter").value = ""; filterMetrics();
+    const tb = [...document.querySelectorAll("#compare tbody[data-grp]")].find(x => x.dataset.grp === cj.dataset.catjump);
+    if (tb){ tb.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
+      tb.classList.remove("flash"); void tb.offsetWidth; tb.classList.add("flash"); }
+    return; }
   const jump = t.closest("[data-jump]");
   if (jump){ e.preventDefault(); $("mfilter").value = ""; filterMetrics(); const row = $("m-" + jump.dataset.jump);
     if (row){ row.scrollIntoView({behavior: "smooth", block: "center"}); row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
@@ -3243,6 +3418,15 @@ document.addEventListener("click", e => {
   if (gs){ loadDataset(gs.dataset.goseason, gs.dataset.goid ? {id: gs.dataset.goid} : {}); return; }
   const gd = t.closest("[data-godisc]");
   if (gd){ openDiscovery(gd.dataset.godisc); return; }
+  const so = t.closest("#sheet-order [data-order]");
+  if (so){ sheetOrder = so.dataset.order; drawSheet(); return; }
+  const em = t.closest("[data-embed]");
+  if (em){ const at = em.dataset.embed.lastIndexOf("|"); embedPick.set(em.dataset.embed.slice(0, at), em.dataset.embed.slice(at + 1));
+    const cat = em.closest(".sheet-cat").dataset.cat; drawSheet();
+    const again = [...document.querySelectorAll("#sheet .sheet-cat")].find(x => x.dataset.cat === cat);
+    if (again) again.scrollIntoView({block: "nearest"}); return; }
+  const fo = t.closest("[data-sheet-open]");
+  if (fo){ const c = fo.dataset.sheetOpen; sheetOpen.has(c) ? sheetOpen.delete(c) : sheetOpen.add(c); drawSheet(); return; }
   const pe = t.closest("[data-peers]");
   if (pe){ if (pe.getAttribute("aria-disabled") !== "true"){ sheetPeers = pe.dataset.peers; drawSheet(); } return; }
   const jp = t.closest("[data-jump]");
@@ -3353,6 +3537,7 @@ $("weights").addEventListener("input", e => {
   drawMatches(); drawCompare();
 });
 $("own").addEventListener("change", e => { showOwn = e.target.checked; listLimit = 25; drawMatches(); });
+$("sheet-find").addEventListener("input", e => { sheetFind = e.target.value; drawSheet(); });
 $("samerole").addEventListener("change", e => { sameRole = e.target.checked; listLimit = 25; drawMatches(); });
 $("about-btn").addEventListener("click", () => { drawAbout(); $("about").showModal(); });
 $("about-link").addEventListener("click", e => { e.preventDefault(); drawAbout(); $("about").showModal(); });

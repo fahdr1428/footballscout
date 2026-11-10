@@ -101,10 +101,11 @@ COMBINED = """async name => {
 SHEET = """() => {
   const p = P[subject], spec = G[p.g], out = [];
   if (!spec || !spec.s) return ['no stat sheet'];
-  // A category embedded from another source (the position's lead one, where this
-  // source does not record it) comes first and is checked on its own.
+  // Sections borrowed from another source (what this one does not record) sit
+  // among its own in the position's order, and are checked on their own below.
   const cats = [...document.querySelectorAll('#sheet .sheet-cat:not(.embed) h3')].map(h => h.textContent);
-  const order = sheetOf(p).sheet.map(x => x[0]);
+  const own = sheetOf(p).sheet.map(x => x[0]);
+  const order = [...new Set([...sheetOrderFor(p), ...own])].filter(c => own.includes(c));
   if (cats.join('|') !== order.join('|')) out.push(`categories ${cats.join(', ')}`);
   if (p.r && spec.rs && spec.rs[p.r] && cats[0] !== spec.rs[p.r].o[0]) out.push(`a ${p.r} should open on ${spec.rs[p.r].o[0]}`);
   for (const sec of document.querySelectorAll('#sheet .sheet-cat')){   // embedded ones too: same rule
@@ -290,12 +291,49 @@ def main() -> int:
                     check(False, f"lead category: no Premier League {group} in Top leagues")
                     continue
                 page.evaluate(f"selectSubject({pick}); setTab('profile'); setMode('similar')")
-                page.wait_for_function("!document.getElementById('sheet-embed') || !/Looking for/.test(document.getElementById('sheet-embed').innerText)",
-                                       timeout=60000)
+                page.wait_for_function("!document.querySelector('.sheet-looking')", timeout=90000)
+                page.wait_for_timeout(200)
                 first = page.locator("#sheet .sheet-cat h3")
                 who = page.evaluate("P[subject].n")
-                check(first.count() > 0 and first.first.inner_text() == lead,
+                check(first.count() > 0 and first.first.inner_text().startswith(lead),
                       f"lead category: {who} ({group}) in Top leagues opens on {first.first.inner_text() if first.count() else 'nothing'}")
+                if group != "DEF":
+                    continue
+                # what Top leagues does not record is borrowed, section by section, and says from where
+                borrowed = page.locator("#sheet .sheet-cat.embed")
+                named = page.evaluate("[...document.querySelectorAll('#sheet .sheet-cat.embed .sc-from b')].every(b => /^From .+, \\d{4}\\/\\d{2}/.test(b.textContent))")
+                defending = page.evaluate("[...document.querySelectorAll('#sheet .sheet-cat')].filter(s => s.dataset.cat === 'Defending').reduce((t, s) => t + s.querySelectorAll('.sr').length, 0)")
+                check(borrowed.count() >= 2 and named and defending >= 10,
+                      f"stat sheet: {who} has {borrowed.count()} borrowed sections, each naming its source, and {defending} defending stats")
+                wrong = page.evaluate(SHEET)
+                check(not wrong, "stat sheet: borrowed sections average their own percentiles: " + ("consistent" if not wrong else "; ".join(wrong[:3])))
+                check(page.locator("#sheet .sr-v small").count() > 0 and "median" in page.locator("#sheet .sr-v small").first.inner_text(),
+                      "stat sheet: each row shows the position's median")
+                # find a stat, order the rows, open a folded section, switch a section's source
+                total = page.locator("#sheet-find-n").inner_text()
+                page.fill("#sheet-find", "tackle"); page.wait_for_timeout(300)
+                seen = page.evaluate("[...document.querySelectorAll('#sheet .sr')].filter(r => !r.hidden).map(r => r.querySelector('.sr-n').innerText.toLowerCase())")
+                check(seen and all("tackle" in t for t in seen) and page.locator("#sheet-find-n").inner_text() == f"{len(seen)} stats",
+                      f"stat sheet: finding 'tackle' leaves {len(seen)} rows of {total}")
+                page.fill("#sheet-find", ""); page.wait_for_timeout(300)
+                page.click('#sheet-order [data-order="best"]'); page.wait_for_timeout(200)
+                ranked = page.evaluate("[...document.querySelector('#sheet .sheet-cat').querySelectorAll('.sr-p')].map(x => x.textContent).filter(t => t !== '—').map(Number)")
+                check(ranked == sorted(ranked, reverse=True), "stat sheet: best first orders each section by percentile")
+                page.click('#sheet-order [data-order="scout"]'); page.wait_for_timeout(200)
+                more = page.locator("#sheet .sc-more")
+                if more.count():
+                    cat = more.first.get_attribute("data-sheet-open")
+                    hidden = page.evaluate("document.querySelectorAll('#sheet .sr[hidden]').length")
+                    more.first.click(); page.wait_for_timeout(200)
+                    check(page.evaluate("document.querySelectorAll('#sheet .sr[hidden]').length") < hidden, f"stat sheet: a long section opens in full ({cat})")
+                alt = page.locator("#sheet .sc-alts [data-embed]")
+                if alt.count():
+                    target = alt.first.get_attribute("data-embed")
+                    name = target.split("|")[0]
+                    was = page.evaluate(f"(() => {{ const s = [...document.querySelectorAll('#sheet .sheet-cat')].find(x => x.dataset.cat === {name!r}); return s.querySelectorAll('.sr').length + '|' + (s.querySelector('.sc-from b') || {{textContent: 'own'}}).textContent; }})()")
+                    alt.first.click(); page.wait_for_timeout(300)
+                    now = page.evaluate(f"(() => {{ const s = [...document.querySelectorAll('#sheet .sheet-cat')].find(x => x.dataset.cat === {name!r}); return s.querySelectorAll('.sr').length + '|' + (s.querySelector('.sc-from b') || {{textContent: 'own'}}).textContent; }})()")
+                    check(was != now, f"stat sheet: {name} switches to another season that records it ({was} -> {now})")
         open_("#v=similar")
         page.click("#pt-similar"); page.wait_for_timeout(200)
         # a match opens Compare, with the player and him side by side
@@ -306,6 +344,13 @@ def main() -> int:
         check(summary.count() == 1 and "separates them most" in summary.inner_text(), "comparison summary")
         check(page.locator("#tiles .tile").count() >= 3, "compare: headline metric tiles")
         check(page.locator("#compare tr.grp").count() >= 2, "compare: table grouped by category")
+        # category by category: counted off the table's own rows
+        cats = page.evaluate("""[...document.querySelectorAll('#cmp-cats .cc[data-catjump]')].map(c => {
+            const n = parseInt(c.querySelector('.cc-n small').textContent), led = [...c.querySelectorAll('.cc-lead b, .cc-lead span')].map(x => parseInt(x.textContent.replace(/\\D+/g, ' ').trim().split(' ').pop()));
+            const tb = [...document.querySelectorAll('#compare tbody[data-grp]')].find(x => x.dataset.grp === c.dataset.catjump);
+            return {g: c.dataset.catjump, n, sum: led.reduce((a, b) => a + b, 0), rows: tb ? tb.querySelectorAll('tr[data-label]').length : 0}; })""")
+        check(len(cats) >= 2 and all(c["n"] == c["sum"] and c["n"] <= c["rows"] for c in cats),
+              f"compare: category by category ({len(cats)} categories, each count adding up to the stats both have)")
         page.fill("#mfilter", "xg"); page.wait_for_timeout(200)
         shown = page.evaluate("[...document.querySelectorAll('#compare tr[data-label]')].filter(r => !r.hidden).length")
         check(0 < shown < page.locator("#compare tr[data-label]").count(), f"compare: metric search ({shown} rows)")
@@ -323,6 +368,17 @@ def main() -> int:
         check(page.locator("#results .row").count() > 0, "find by profile")
         go("board")
         check(page.locator("#board .row").count() > 0, "leaderboard")
+        # a whole category as one figure: the average the stat sheet prints, ranked
+        whole = page.evaluate("[...document.querySelectorAll('#bmetric option')].map(o => o.value).filter(v => v.startsWith('__cat:'))")
+        check(len(whole) >= 2, f"leaderboard: whole categories can be ranked ({len(whole)})")
+        if whole:
+            page.select_option("#bmetric", whole[0]); page.wait_for_timeout(300)
+            same = page.evaluate("""(() => { const cat = document.getElementById('bmetric').value.slice(6);
+                const rows = [...document.querySelectorAll('#board .row[data-s]')].map(r => [P[+r.dataset.s], r.querySelector('.bval').textContent]);
+                const vals = rows.map(r => +r[1]);
+                return rows.length > 0 && vals.every((v, i) => !i || v <= vals[i - 1])
+                  && rows.every(([o, shown]) => { const c = sheetRows(o, 'all').find(x => x.c === cat); return c && c.avg.toFixed(1) === shown; }); })()""")
+            check(same, f"leaderboard: {whole[0][6:]} average matches the stat sheet's and is in order")
         page.select_option("#bmetric", "__vfm"); page.wait_for_timeout(300)
         check(page.locator("#board .row").count() > 0 and "least squares" in page.locator("#board-note").inner_text(),
               "leaderboard: value for money")

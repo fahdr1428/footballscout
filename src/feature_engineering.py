@@ -264,11 +264,135 @@ def add_possession_adjusted(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Full feature pipeline: per-90 -> ratios -> derived -> possession-adjusted."""
+# Shares of the team's output: (metric, the player's count, the team's count).
+TEAM_SHARES = [
+    ("team_shot_share", "shots", "shots"),
+    ("team_npxg_share", "npxg", "npxg"),
+    ("team_key_pass_share", "key_passes", "key_passes"),
+    # xGChain counts every move he touched that ended in a shot, so against the
+    # team's xG it reads "how much of the team's attack runs through him".
+    ("team_xg_chain_share", "xg_chain", "xg"),
+    ("team_touch_share", "touches", "touches"),
+    ("team_progressive_pass_share", "progressive_passes", "progressive_passes"),
+    ("team_defensive_action_share", "_tackles_interceptions", "_tackles_interceptions"),
+]
+CONVERSION_PRIOR_SHOTS = 20
+TEAM_SHARE_MIN_MATCHES = 5
+TEAM_SHARE_MIN_COVERAGE = 0.97
+
+
+def add_depth_metrics(df: pd.DataFrame, shots_include_penalties: bool = False) -> pd.DataFrame:
+    """More readings from counts a source already carries. Nothing here is modelled.
+
+    Each is a sum, a difference or a ratio of the source's own season counts,
+    guarded so a source without the inputs does not get the column:
+
+    * composites a scout asks for by name - tackles plus interceptions, times
+      dribbled past (dribblers faced minus dribblers tackled), passes blocked
+      (blocks minus shots blocked), non-penalty xG plus xA;
+    * rates per attempt rather than per 90 - goals per shot, xA per key pass,
+      progressive passes per 100 completed, possession lost per 100 touches -
+      the percentages shrunk towards the position's rate like every other;
+    * the mix of a player's own actions - short, medium and long passes as
+      shares of his passing, build-up as a share of his xGChain;
+    * his share of the team's output: his per-90 rate over the team's per-90
+      rate (the team's season total over its players' minutes / 11). A player
+      who changed clubs mid-season has no single team, so he gets none.
+    """
+    df = df.copy()
+    exposure = df["minutes"] / 90.0
+    groups = df["position_group"]
+    has = lambda *columns: set(columns).issubset(df.columns)
+    nonzero = lambda series: pd.to_numeric(series, errors="coerce").replace(0, np.nan)
+
+    if has("tackles", "interceptions"):
+        df["_tackles_interceptions"] = df[["tackles", "interceptions"]].sum(axis=1, min_count=2)
+        df["tackles_interceptions_per90"] = (df["_tackles_interceptions"] / exposure).round(3)
+    if has("dribblers_challenged", "dribblers_tackled"):
+        df["dribbled_past_per90"] = ((df["dribblers_challenged"] - df["dribblers_tackled"]) / exposure).round(3)
+    if has("blocks", "shots_blocked"):
+        df["passes_blocked_per90"] = ((df["blocks"] - df["shots_blocked"]) / exposure).round(3)
+    if has("npxg", "xa"):
+        df["npxg_xa_per90"] = ((df["npxg"] + df["xa"]) / exposure).round(3)
+    if has("assists", "xa"):
+        df["assists_minus_xa_per90"] = ((df["assists"] - df["xa"]) / exposure).round(3)
+
+    # Goals per shot, on the source's own definition of a shot: non-penalty
+    # goals over non-penalty shots wherever penalties can be taken out exactly.
+    if has("shots", "np_goals"):
+        if not shots_include_penalties:
+            scored, taken = df["np_goals"], df["shots"]
+        elif has("pens_taken"):
+            scored, taken = df["np_goals"], df["shots"] - df["pens_taken"].fillna(0)
+        elif has("goals"):
+            scored, taken = df["goals"], df["shots"]      # penalties in both, as the source counts them
+        else:
+            scored = taken = None
+        if scored is not None:
+            df["shot_conversion_pct"] = (100 * _shrunk_rate(scored, taken, groups, CONVERSION_PRIOR_SHOTS)).round(2)
+    if has("key_passes", "xa"):
+        df["xa_per_key_pass"] = _shrunk_rate(df["xa"], df["key_passes"], groups, XG_PER_SHOT_PRIOR_SHOTS).round(4)
+    if has("crosses", "crosses_into_pen_area"):
+        df["cross_box_pct"] = (100 * _shrunk_rate(df["crosses_into_pen_area"], df["crosses"], groups, 20)).round(2)
+    if has("gk_psxg", "gk_shots_on_target_against"):
+        rate = _shrunk_rate(df["gk_psxg"], df["gk_shots_on_target_against"], groups, 30)
+        df["gk_psxg_per_sot"] = rate.where(groups.eq("GK")).round(4)
+
+    # The mix of his own actions.
+    if has("passes_attempted"):
+        attempted = nonzero(df["passes_attempted"])
+        for length in ("short", "medium", "long"):
+            if has(f"{length}_passes_attempted"):
+                df[f"{length}_pass_share"] = (100 * df[f"{length}_passes_attempted"] / attempted).round(2)
+    if has("progressive_passes", "passes_completed"):
+        df["progressive_pass_rate"] = (100 * df["progressive_passes"] / nonzero(df["passes_completed"])).round(2)
+    if has("progressive_carries", "carries"):
+        df["progressive_carry_rate"] = (100 * df["progressive_carries"] / nonzero(df["carries"])).round(2)
+    if has("miscontrols", "dispossessed", "touches"):
+        lost = df[["miscontrols", "dispossessed"]].sum(axis=1, min_count=2)
+        df["turnover_rate"] = (100 * lost / nonzero(df["touches"])).round(2)
+    if has("dribbles_attempted", "touches"):
+        df["take_on_rate"] = (100 * df["dribbles_attempted"] / nonzero(df["touches"])).round(2)
+    zones = ["touches_def_third", "touches_mid_third", "touches_att_third"]
+    if has(*zones):
+        total = nonzero(df[zones].sum(axis=1, min_count=len(zones)))
+        df["mid_third_touch_share"] = (100 * df["touches_mid_third"] / total).round(2)
+    if has("xg_chain", "xg_buildup"):
+        # Under half an expected goal of involvement all season is too little to split.
+        chain = df["xg_chain"].where(df["xg_chain"] >= 0.5)
+        df["buildup_share"] = (100 * df["xg_buildup"] / chain).clip(upper=100).round(2)
+
+    # Shares of the team's output while he plays.
+    if has("team", "season", "league"):
+        team = [df["season"], df["league"], df["team"]]
+        team_minutes = df["minutes"].groupby(team).transform("sum") / 11.0
+        # One club all season: a second club in the count, or two names in the
+        # club field (how Understat lists a mid-season move), means no single team.
+        one_club = ~df["team"].astype(str).str.contains(",")
+        if has("clubs_in_season"):
+            one_club &= df["clubs_in_season"].fillna(1).le(1)
+        # A real team's season: at least five matches of minutes between its players.
+        real_team = team_minutes >= TEAM_SHARE_MIN_MATCHES * 90
+        for metric, mine, theirs in TEAM_SHARES:
+            if not has(mine, theirs) or not df[theirs].notna().any():
+                continue
+            total = nonzero(df[theirs].groupby(team).transform(lambda s: s.sum(min_count=1)))
+            # ... and the count recorded for nearly all of those minutes: a feed that
+            # has shots for two of a club's players does not know the club's shots.
+            covered = (df["minutes"].where(df[theirs].notna(), 0).groupby(team).transform("sum") / 11.0
+                       / team_minutes.replace(0, np.nan))
+            share = 100 * (df[mine] / df["minutes"]) / (total / team_minutes)
+            keep = one_club & real_team & covered.ge(TEAM_SHARE_MIN_COVERAGE)
+            df[metric] = share.where(keep).replace([np.inf, -np.inf], np.nan).round(2)
+    return df.drop(columns=[c for c in ["_tackles_interceptions"] if c in df.columns])
+
+
+def build_features(df: pd.DataFrame, shots_include_penalties: bool = False) -> pd.DataFrame:
+    """Full feature pipeline: per-90 -> ratios -> derived -> depth -> possession-adjusted."""
     out = add_per90(df)
     out = add_ratio_metrics(out)
     out = add_derived_metrics(out)
+    out = add_depth_metrics(out, shots_include_penalties=shots_include_penalties)
     out = add_possession_adjusted(out)
     return out
 

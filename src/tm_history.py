@@ -172,7 +172,13 @@ def load_season_positions(cache: Path, progress=print) -> pd.DataFrame:
         frames.append(pd.DataFrame({
             "tm_id": pd.to_numeric(lineups["player_id"], errors="coerce"),
             "start": pd.to_numeric(lineups["season"], errors="coerce"),
-            "tm_season_detail": lineups["position"], "how": "line-ups"}))
+            "tm_season_detail": lineups["position"], "how": "line-ups",
+            # The record behind it: starts in that position, its share of his
+            # starts, every position started, and games started as captain.
+            "tm_starts": pd.to_numeric(lineups.get("starts"), errors="coerce"),
+            "tm_share": pd.to_numeric(lineups.get("share"), errors="coerce"),
+            "tm_played": lineups["played"] if "played" in lineups.columns else None,
+            "tm_captain": pd.to_numeric(lineups["captain"], errors="coerce") if "captain" in lineups.columns else np.nan}))
     try:
         from .fbref import download, read_rds
         squads = read_rds(download(SQUAD_RECORDS, cache, "tm_squad_records.rds"))

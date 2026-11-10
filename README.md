@@ -56,9 +56,13 @@ seasons you are looking at:
 - **Compare** — two players side by side, **each over his own seasons**: one season, a different
   one, or several added up (Saka over 2023/24 to 2025/26 against Salah's 2025/26). A big
   similarity number and what it means, **what makes them similar** in plain sentences, a radar,
-  headline tiles chosen for the position, and every metric grouped by category with a difference
-  column and a metric search. Any player in a list opens Compare against the player you started from.
-- **Rankings** — a **leaderboard** for a position on any metric, his rating, market value, age or
+  **category by category** — on the stats both players have, each one's average percentile for
+  defending, passing, playmaking and the rest, and how many of those stats each has the better
+  figure on — headline tiles chosen for the position, and every metric grouped by category with a
+  difference column and a metric search. Any player in a list opens Compare against the player you
+  started from.
+- **Rankings** — a **leaderboard** for a position on any metric, **a whole category** (the average
+  the stat sheet prints for defending, passing and so on, ranked), his rating, market value, age or
   **value for money** (his rating minus the rating his price predicts, from a least-squares fit of
   rating on log price, with the fit and its r² printed beside it); a **chart** of a position on any
   two metrics, rating against price included; and **find by profile** — describe the player you
@@ -90,17 +94,41 @@ those in his own league** (one click; both ranked in the export at full precisio
 average-rank rule, flipped where lower is better). A category's percentile is the plain average of
 the percentiles listed under it, with team readings — goals conceded, shots and crosses a keeper
 faces — shown, tagged and left out. **Role and style** (touches by third, how deep or high a player
-operates, set-piece duty, how often a keeper goes long) says how a player plays rather than how
-well, so it is drawn neutral and never averaged.
+operates, set-piece duty, how often a keeper goes long, **his share of his team's shots, chances,
+touches, progressive passes and defensive actions**) says how a player plays rather than how well,
+so it is drawn neutral and never averaged. Every row also prints **the position's median** beside
+his figure. A **find box** narrows the sheet to the stats that match a word ("tackle", "long",
+"xg"), the rows can be read in scouting order, **best first or weakest first**, and long sections
+fold to their first eight rows.
 
-Big five, in depth carries up to **109 metrics** for an outfield position and 40 for a keeper (95
-and 40 from 2022/23, when the pressure and shot-creation columns stop; 2024/25 has no defending,
-dribbling or keeping columns at all): progressive passes, carries and receptions, passes into the
+Big five, in depth carries up to **133 metrics** for an outfield position and 45 for a keeper (119
+from 2022/23, when the pressure and shot-creation columns stop; 2024/25 has no defending,
+dribbling or keeping columns at all, and 55): progressive passes, carries and receptions, passes into the
 final third and box, switches, through balls, pass completion by length and under pressure,
 tackles in each third, dribblers challenged and stopped, interceptions, blocks, clearances,
 recoveries, pressures, errors, every defensive count adjusted for possession, aerial duels won and
 lost, touches by third — and for keepers post-shot xG against goals conceded, save percentage,
 crosses faced and claimed, sweeping, penalties faced and saved, launches and pass length.
+
+**Depth worked out from those counts** (`src/feature_engineering.add_depth_metrics`), each a
+ratio of two columns the source records, so it can be checked by hand:
+
+| Reads | Metric | How it is worked out |
+|---|---|---|
+| Finishing | Shot conversion % | non-penalty goals ÷ non-penalty shots (goals ÷ shots where the feed cannot separate penalties), pulled towards the position's rate with a 20-shot prior like every percentage here |
+| Chance quality | xA per key pass | xA ÷ key passes, with the same kind of prior |
+| Team-mates' finishing | Assists minus xA per 90 | (assists − xA) per 90 |
+| Forward thinking | Progressive passes per 100 completed; progressive distance per pass | progressive passes ÷ completed passes; progressive yards ÷ passes attempted |
+| Security | Possession lost per 100 touches | (miscontrols + dispossessed) ÷ touches |
+| Carrying | Progressive carries per 100 carries; progressive distance per carry | the same two ratios for carries |
+| Ball-winning | Tackles + interceptions per 90; dribbled past per 90; passes blocked per 90 | the sum; dribblers faced − dribblers tackled; blocks − shots blocked |
+| Midfield role | Build-up share; short, medium and long pass mix; take-on rate; middle-third touch share | each a share of the player's own passes, xG chain or touches |
+| Keeping | Post-shot xG per shot on target | how hard the shots he faced were: a team reading, shown and not averaged |
+| Usage | Share of his team's shots, non-penalty xG, key passes, xG chain, touches, progressive passes, tackles + interceptions | 100 × his per-minute rate ÷ the team's per-player-minute rate — 100% is one eleventh of the team's output for every minute he is on the pitch |
+
+A team share is only printed for a player who spent the season at one club, whose team has at least
+five matches of minutes in the data, and where at least 97% of the team's minutes carry the stat —
+otherwise the share would be of a team that is only partly there.
 
 **Exact positions in the four-bucket feeds.** Top leagues and the Premier League feed only record
 keepers, defenders, midfielders and forwards, so their models and ratings stay on those four. But
@@ -113,13 +141,26 @@ player Transfermarkt has no position for is not guessed into one. Premier League
 Premier League's xG conceded, recorded from 2022/23 — and its outfield players tackles, recoveries and clearances, blocks
 and interceptions from 2025/26, when the feed began recording them.
 
-**The category that matters most comes first.** A centre-back's sheet opens on defending, a
-keeper's on goalkeeping, a central midfielder's on passing, a striker's on attacking. Where a source
-does not record that category at all — Top leagues has no tackles — the sheet opens on the same
-player's numbers for it from the nearest season of a source that does: the Premier League feed's
-tackles, recoveries and clearances for a Premier League defender this season, Big five, in depth for
-the rest. They are labelled with the source and season, ranked against that source's players in his
-position, and never mixed into this source's averages, rating or similar players.
+**The category that matters most comes first, and no category is left out because one feed lacks
+it.** A centre-back's sheet opens on defending, a keeper's on goalkeeping, a central midfielder's on
+passing, a striker's on attacking. Where a source does not record a category — Top leagues has no
+tackles, no passing, no dribbling and nothing a keeper does — that section is drawn from **the same
+player's nearest season in a source that does**: the Premier League feed's tackles, recoveries and
+clearances for a Premier League defender this season, Big five, in depth for passing, carrying and
+the rest. Declan Rice's Top leagues sheet goes from 28 stats to 79 that way; a Top leagues keeper
+gets goalkeeping and distribution. Where a season or two away records a category far more fully
+(twice the rows or more), it is added underneath as **in depth** — this season's five defending
+numbers, then the twenty-four the deeper source kept. Each borrowed section is shaded, names its
+source, season and club and how many seasons away it is, is ranked against that source's players in
+his position, offers the other seasons that record the category one click away, and is **never
+mixed into this source's averages, rating or similar players**. The four headline numbers are picked
+the same way, each saying where it came from. A category no source here records for him is named as
+missing rather than left blank.
+
+**Where he actually lined up.** For the feeds matched to Transfermarkt, the profile names his main
+position that season and the share of his league starts there, and — once the daily refresh has
+rebuilt the line-up counts — every position he started in, most often first ("Right Winger 21, Left
+Winger 6, Centre-Forward 3"), and how many starts he captained.
 
 **Keepers in Top leagues.** Understat's season figures record nothing a keeper does, but its match
 list has both sides' xG and goals for every match, and each keeper's own match list says which he
@@ -144,7 +185,7 @@ leagues has shots and chances, not tackles) names the categories it lacks and li
 where more of his game is recorded. Compare groups every metric by the same categories, and the
 Rankings metric list does too.
 
-![A keeper's stat sheet: goals prevented, save percentage and distribution first](assets/screenshot-stat-sheet.png)
+![A central midfielder's stat sheet in Top leagues: passing borrowed from Big five, in depth and defending from the Premier League feed, each naming its source and season](assets/screenshot-stat-sheet.png)
 
 Jargon has a plain-English explanation on hover, focus or tap and a glossary under **How it
 works**, and every calculation has a "how is this worked out?" note one tap away rather than in the way.
@@ -1046,7 +1087,7 @@ That means:
   its percentile against his position, his position in his own league, or — in the four-bucket
   feeds — his exact Transfermarkt position;
 - follow a player across every season he appears in, with his category percentiles season by season;
-- search by profile, rank a position on any metric, or plot it on any two;
+- search by profile, rank a position on any metric or a whole category's average, or plot it on any two;
 - keep a shortlist with notes across sources and seasons, in the browser's own storage, and share
   it as a link that re-opens the same players.
 

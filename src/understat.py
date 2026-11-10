@@ -189,7 +189,9 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
 
     frame = frame.merge(link[["player_id", "tm_id", "how"]], on="player_id", how="left")
     progress("reading where each player played, season by season")
-    frame = assign_positions(frame, profiles, tm_history.load_season_positions(cache, progress=progress))
+    seasonal = tm_history.load_season_positions(cache, progress=progress)
+    frame = assign_positions(frame, profiles, seasonal)
+    frame = attach_positions_played(frame, seasonal)
     frame = frame.merge(
         profiles[["tm_id", "date_of_birth", "height_cm", "foot", "nationality"]
                  + (["contract_expiry"] if "contract_expiry" in profiles.columns else [])],
@@ -203,7 +205,7 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
     wrong = frame["age"].notna() & ~frame["age"].between(MIN_PLAUSIBLE_AGE, MAX_PLAUSIBLE_AGE)
     rejected = int(wrong.sum())
     frame.loc[wrong, [c for c in ["age", "height_cm", "foot", "nationality", "tm_id",
-                                  "date_of_birth", "contract_expiry"] if c in frame.columns]] = np.nan
+                                  "date_of_birth", "contract_expiry", *POSITIONS_PLAYED] if c in frame.columns]] = np.nan
 
     progress("attaching market values")
     frame = _attach_values(frame, cache, progress=progress)
@@ -225,6 +227,30 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
 # Transfermarkt's buckets, and the Understat role letter each one corresponds to.
 TM_BUCKETS = {"Goalkeeper": "GK", "Defender": "DEF", "Midfield": "MID", "Attack": "FWD"}
 ROLE_LETTER = {"GK": "GK", "DEF": "D", "MID": "M", "FWD": "F"}
+
+
+POSITIONS_PLAYED = ["position_starts", "position_share", "positions_played", "captain_starts"]
+
+
+def attach_positions_played(frame: pd.DataFrame, seasonal: pd.DataFrame | None) -> pd.DataFrame:
+    """Transfermarkt's line-up record for each player-season: how many league
+    games he started in his main position, what share of his starts that was,
+    every position he started in, and how many he started as captain. Line-ups
+    only - a squad page names one position and counts nothing."""
+    frame = frame.drop(columns=[c for c in POSITIONS_PLAYED if c in frame.columns])
+    if seasonal is None or not len(seasonal) or "tm_starts" not in seasonal.columns:
+        return frame
+    record = seasonal[seasonal["how"].eq("line-ups")].rename(columns={
+        "tm_starts": "position_starts", "tm_share": "position_share",
+        "tm_played": "positions_played", "tm_captain": "captain_starts"})
+    record = record[["tm_id", "start"] + [c for c in POSITIONS_PLAYED if c in record.columns]]
+    key = pd.DataFrame({"tm_id": pd.to_numeric(frame["tm_id"], errors="coerce"),
+                        "start": pd.to_numeric(frame["season"].astype(str).str.slice(0, 4), errors="coerce")},
+                       index=frame.index)
+    hit = key.merge(record, on=["tm_id", "start"], how="left")
+    for column in POSITIONS_PLAYED:
+        frame[column] = hit[column].to_numpy() if column in hit.columns else np.nan
+    return frame
 
 
 def assign_positions(frame: pd.DataFrame, profiles: pd.DataFrame,

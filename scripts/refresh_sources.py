@@ -436,6 +436,17 @@ def tm_table(name: str, usecols=None) -> pd.DataFrame:
     return frame
 
 
+def positions_played(counts: pd.DataFrame) -> pd.DataFrame:
+    """Every position a player started in that season, most-started first:
+    "Right Winger:21|Left Winger:6|Centre-Forward:3" - the record behind his
+    main position, his second one and how often he moved."""
+    counts = counts.sort_values(["player_id", "season", "starts", "position"],
+                                ascending=[True, True, False, True])
+    text = counts["position"].astype(str) + ":" + counts["starts"].astype(int).astype(str)
+    return (text.groupby([counts["player_id"], counts["season"]], sort=False).agg("|".join)
+                .rename("played").reset_index())
+
+
 def season_positions(games: pd.DataFrame, wanted: set, target: Path) -> int:
     """Where each player started most league games, season by season.
 
@@ -459,9 +470,14 @@ def season_positions(games: pd.DataFrame, wanted: set, target: Path) -> int:
                          .rename("starts").reset_index())
         total = counts.groupby(["player_id", "season"])["starts"].transform("sum")
         counts["share"] = (counts["starts"] / total).round(3)
-        best = (counts.sort_values(["player_id", "season", "starts", "position"],
-                                   ascending=[True, True, False, True])
-                      .drop_duplicates(["player_id", "season"]))
+        counts = counts.sort_values(["player_id", "season", "starts", "position"],
+                                    ascending=[True, True, False, True])
+        best = counts.drop_duplicates(["player_id", "season"]).copy()
+        best = best.merge(positions_played(counts), on=["player_id", "season"], how="left")
+        if "team_captain" in lineups.columns:
+            captain = (pd.to_numeric(lineups["team_captain"], errors="coerce").fillna(0).gt(0)
+                       .groupby([lineups["player_id"], lineups["season"]]).sum().rename("captain").reset_index())
+            best = best.merge(captain, on=["player_id", "season"], how="left")
         best.to_csv(target / "tm_season_positions.csv.gz", index=False, compression=GZIP)
         log(f"  {len(best):,} player-seasons with a most-started position")
         return len(best)

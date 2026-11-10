@@ -447,7 +447,9 @@ def build_features(source: str = DEFAULT_SOURCE) -> tuple[pd.DataFrame, Cleaning
     raw, used = load_source(source)
     clean, report = clean_players(raw)
     report.source = used
-    return fe.build_features(clean), report, used
+    source_info = DATA_SOURCES.get(used)
+    return (fe.build_features(clean, shots_include_penalties=bool(source_info and source_info.shots_include_penalties)),
+            report, used)
 
 
 def build_platform(

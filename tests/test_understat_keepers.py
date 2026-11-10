@@ -109,3 +109,23 @@ def test_finished_seasons_are_fetched_once_and_the_current_one_every_run(tmp_pat
     asked.clear(); rs.LEAGUE_DATA.clear()
     rs.refresh_understat_keepers([2024, 2025], tmp_path, current=2025)
     assert {season for _, season in asked} == {2025}   # the finished season is not asked for again
+
+
+def test_positions_played_are_listed_most_started_first_and_reach_the_player():
+    """The line-up record: every position started, and the season it belongs to."""
+    from src.understat import POSITIONS_PLAYED, attach_positions_played
+    counts = pd.DataFrame({"player_id": [5, 5, 5, 9], "season": [2025, 2025, 2025, 2025],
+                           "position": ["Left Winger", "Right Winger", "Centre-Forward", "Centre-Back"],
+                           "starts": [6, 21, 3, 30]})
+    played = rs.positions_played(counts)
+    assert dict(zip(played["player_id"], played["played"])) == {
+        5: "Right Winger:21|Left Winger:6|Centre-Forward:3", 9: "Centre-Back:30"}
+    seasonal = pd.DataFrame({"tm_id": [5, 9], "start": [2025, 2024], "tm_season_detail": ["Right Winger", "Centre-Back"],
+                             "how": ["line-ups", "squad page"], "tm_starts": [21, np.nan], "tm_share": [0.7, np.nan],
+                             "tm_played": ["Right Winger:21|Left Winger:6|Centre-Forward:3", None], "tm_captain": [4, np.nan]})
+    frame = pd.DataFrame({"tm_id": [5.0, 9.0, np.nan], "season": ["2025-26", "2024-25", "2025-26"]})
+    out = attach_positions_played(frame, seasonal)
+    assert list(out.columns[-4:]) == POSITIONS_PLAYED
+    assert out.loc[0, "positions_played"].startswith("Right Winger:21") and out.loc[0, "captain_starts"] == 4
+    # A squad page counts nothing, and an unmatched player has no record.
+    assert out.loc[1:, POSITIONS_PLAYED].isna().all().all()

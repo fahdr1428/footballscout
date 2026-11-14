@@ -350,6 +350,7 @@
         </div>
         <p class="sub board-hits" id="board-hits">&mdash;</p>
         <p class="note" id="board-note"></p>
+        <div class="board-missing" id="board-missing" hidden></div>
         <div class="list" id="board"></div>
       </section>
     </div>
@@ -1303,7 +1304,25 @@ function defaultSubject(){
 const QUICK = ["Lamine Yamal", "Virgil van Dijk", "Jude Bellingham", "Erling Haaland", "Pedri",
   "Kylian Mbappé", "Kylian Mbappe-Lottin", "Lionel Messi", "Cristiano Ronaldo", "Kevin De Bruyne", "Mohamed Salah",
   "N'Golo Kanté", "Harry Kane", "Bukayo Saka", "Florian Wirtz", "Declan Rice"];
-const plain = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+// Accents off and the letters NFD cannot split spelled out, so "Odegaard" finds "Ødegaard".
+const TRANSLIT = {"ø": "o", "Ø": "O", "đ": "d", "Đ": "D", "ł": "l", "Ł": "L", "ß": "ss", "æ": "ae", "Æ": "Ae",
+                  "œ": "oe", "Œ": "Oe", "ð": "d", "ı": "i", "þ": "th"};
+const plain = s => String(s).replace(/[øØđĐłŁßæÆœŒðıþ]/g, c => TRANSLIT[c]).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+// The same player in another source's all-seasons index: by his Transfermarkt id
+// where both sides have one, else by name - exactly, or (same league and club)
+// every word of the shorter name in the longer. A name match is never taken
+// against a row that carries a different Transfermarkt id: that is someone else.
+const TM_AT = 14;
+function sameRows(A, p){
+  if (p.tm){ const hit = A.players.filter(r => r[TM_AT] === p.tm); if (hit.length) return hit; }
+  const words = n => plain(n).split(/[^a-z0-9]+/).filter(Boolean), mine = words(p.n);
+  const free = r => !p.tm || r[TM_AT] == null;
+  const exact = A.players.filter(r => free(r) && words(r[1]).join(" ") === mine.join(" "));
+  if (exact.length) return exact;
+  return A.players.filter(r => free(r) && r[3] === p.l && plain(r[2]).slice(0, 3) === plain(p.t).slice(0, 3) && (() => {
+    const w = words(r[1]), [short, long] = w.length < mine.length ? [w, mine] : [mine, w];
+    return short.length > 0 && short.every(x => long.includes(x)); })());
+}
 function drawQuick(){
   const at = new Map(P.map((p, i) => [plain(p.n), i]));
   const hits = QUICK.map(n => at.get(plain(n)))
@@ -1627,29 +1646,41 @@ function medianOf(cacheKey, players, spec, k){
 // The same player in the other sources (and this source's other seasons where
 // this one is thinner than they are): his nearest seasons, until the categories
 // missing here are covered or three seasons of a source have been tried.
+// Which leagues a source records a category in, from its all-seasons index.
+const COVERS = new Map();
+function leaguesRecording(c, A, category){
+  const ck = c.key + "|" + category;
+  if (!COVERS.has(ck)){
+    const seasons = new Set(c.seasons.filter(e => (e.cats || []).includes(category)).map(e => e.season));
+    COVERS.set(ck, new Set(A.players.filter(r => seasons.has(A.seasons[r[4]])).map(r => r[3])));
+  }
+  return COVERS.get(ck);
+}
 async function findSheetsElsewhere(p){
-  const words = n => plain(n).split(/[^a-z0-9]+/).filter(Boolean);
-  const mine = words(p.n), year = +seasonsIn(dsKey).slice().sort().pop().slice(0, 4);
-  const sameClub = (x, y) => plain(x).slice(0, 3) === plain(y).slice(0, 3);
-  const sameName = (r, loose) => { const w = words(r[1]);
-    if (w.join(" ") === mine.join(" ")) return true;
-    if (!loose) return false;
-    const [short, long] = w.length < mine.length ? [w, mine] : [mine, w];
-    return short.every(x => long.includes(x)); };
+  const year = +seasonsIn(dsKey).slice().sort().pop().slice(0, 4);
   const style = new Set(M.style || []), own = new Set(((G[p.g] && G[p.g].s) || []).map(x => x[0]));
   const wanted = sheetOrderFor(p).filter(c => !own.has(c) && !style.has(c) && !OPTIONAL_CATS.has(c));
-  const out = [];
-  if (!wanted.length) return out;
+  const out = [], checked = [];
+  if (!wanted.length) return {cands: out, checked};
   const current = new Set(seasonsIn(dsKey));
+  // A full league season of a category comes before three tournament matches of
+  // it: tournaments are looked in only for what no league season covered well.
+  const covered = new Set();
   for (const c of BUNDLE.catalog){
     const same = c.key === sourceOf(dsKey);
     if (same && !((M.lacks || []).length || M.combined)) continue;
-    let A; try { A = await getAll(c.key); } catch { continue; }
-    let rows = A.players.filter(r => sameName(r, false));
-    if (!rows.length) rows = A.players.filter(r => r[3] === p.l && sameClub(r[2], p.t) && sameName(r, true));
+    const ask = c.tournament ? wanted.filter(x => !covered.has(x)) : wanted;
+    const record = {key: c.key, name: c.name, tournament: !!c.tournament, found: false, inLeague: {}};
+    checked.push(record);
+    if (!ask.length){ record.skipped = true; continue; }
+    let A; try { A = await getAll(c.key); } catch { record.failed = true; continue; }
+    ask.forEach(x => { record.inLeague[x] = c.tournament || leaguesRecording(c, A, x).has(p.l); });
+    let rows = sameRows(A, p);
     if (same) rows = rows.filter(r => String(r[0]) === String(p.id) && !current.has(A.seasons[r[4]]));
+    record.found = rows.length > 0;
+    record.seasons = [...new Set(rows.map(r => A.seasons[r[4]]))].sort();
     const near = r => Math.abs(+A.seasons[r[4]].slice(0, 4) - year);
-    const left = new Set(wanted);
+    const left = new Set(ask);
     // Only seasons the catalogue says record a category still missing are loaded.
     const records = r => { const e = c.seasons.find(x => x.season === A.seasons[r[4]]);
       return !e || !e.cats || e.cats.some(x => left.has(x)); };
@@ -1665,13 +1696,40 @@ async function findSheetsElsewhere(p){
       const has = spec.s.map(x => x[0]).filter(x => left.has(x));
       if (!has.length) continue;
       has.forEach(x => left.delete(x));
-      out.push({key, id: o.id, source: c.name, season: A.seasons[r[4]], club: o.t, near: near(r), spec, o, meta: d.meta,
-        group: (d.meta.groupNames || {})[o.g] || o.g, peers: (d.meta.counts || {})[o.g] || 0,
+      const tour = !!d.meta.tournament;
+      has.forEach(x => { const part = spec.s.find(y => y[0] === x);
+        if (!tour && part && part[1].filter(k => { const cell = o.d[spec.d.indexOf(k)]; return cell && cell[0] != null; }).length >= 6) covered.add(x); });
+      out.push({key, id: o.id, source: c.name, season: A.seasons[r[4]], club: o.t, near: near(r), spec, o, meta: d.meta, tour,
+        label: tour ? o.l : `${c.name}, ${seasonLabel(A.seasons[r[4]])}`, short: tour ? o.l : `${c.name} ${seasonLabel(A.seasons[r[4]])}`,
+        group: (d.meta.groupNames || {})[o.g] || o.g, peers: tour ? d.players.filter(x => x.g === o.g && !x.sq).length : (d.meta.counts || {})[o.g] || 0,
         regs: d.players.filter(x => x.g === o.g && !x.sq)});
       if (!left.size) break;
     }
   }
-  return out;
+  return {cands: out, checked};
+}
+// Why a category cannot be shown for him, from what the search found: said, not left blank.
+function notPossible(p, name, checked, srcName){
+  const cat = name.toLowerCase(), recorders = BUNDLE.catalog.filter(c => c.key !== sourceOf(dsKey)
+    && c.seasons.some(e => (e.cats || []).includes(name)));
+  const span = c => { const xs = c.seasons.filter(e => (e.cats || []).includes(name)).map(e => e.season).sort();
+    return c.tournament ? "2018 to 2024" : xs.length > 1 ? `${seasonLabel(xs[0])} to ${seasonLabel(xs[xs.length - 1])}` : seasonLabel(xs[0]); };
+  const named = recorders.map(c => `${c.name} (${span(c)})`);
+  const rec = new Map(checked.map(x => [x.key, x]));
+  const leagues = recorders.filter(c => !c.tournament);
+  const noLeague = leagues.length && leagues.every(c => rec.get(c.key) && rec.get(c.key).inLeague[name] === false);
+  const found = recorders.filter(c => rec.get(c.key) && rec.get(c.key).found)
+    .map(c => `${c.name} (${listing(rec.get(c.key).seasons.map(seasonLabel))})`);
+  const tours = recorders.find(c => c.tournament);
+  let why;
+  if (!recorders.length) why = `No free source here records ${cat}.`;
+  else if (noLeague) why = `${srcName} does not record ${cat}, and none of the free sources that do covers ${article(p.l)}: ${listing(named)}.`
+    + (tours ? ` Nor did he play at one of the tournaments StatsBomb publishes in full.` : "");
+  else if (!found.length) why = `${srcName} does not record ${cat}, and he has no season with the minutes to rank him (450 in a league season, 180 at a tournament) in a free source that does: ${listing(named)}.`
+    + (name === "Defending" && sourceOf(dsKey) === "understat_big6" && p.l !== "Premier League"
+      ? " Free tackle data for his league ends with 2023/24, so a player who arrived after it, and played no tournament since, is in none of them." : "");
+  else why = `${srcName} does not record ${cat}, and the seasons of his that the free sources hold - ${listing(found)} - do not record it for his position.`;
+  return why;
 }
 // One category of a player's sheet in another season or source.
 function candRows(cand, category){
@@ -1692,7 +1750,27 @@ const nameIn = (k, labels) => { const l = (labels && labels[k]) || label(k), e =
 const descIn = (k, labels, descs) => { const d = (descs || {})[k] || "", bare = x => plain(x).replace(/per 90|\(.*?\)|[^a-z]/g, "");
   return d && !bare((labels && labels[k]) || label(k)).includes(bare(d)) ? d : ""; };
 const fmtIn = (k, v, pcts) => v == null ? "—" : pcts.has(k) ? v.toFixed(1) + "%" : Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
-const fromText = cand => `${cand.source} ${seasonLabel(cand.season)}`;
+const fromText = cand => cand.short || `${cand.source} ${seasonLabel(cand.season)}`;
+// Three rows of a section that split one action by third of the pitch, drawn on
+// a pitch: his figure in each third, the position's median, and the third
+// tinted by his percentile there. The same numbers as the rows below it.
+const THIRDS = {
+  "Defending": {keys: ["tackles_def_third_per90", "tackles_mid_third_per90", "tackles_att_third_per90"], title: "Where he wins the ball", what: "tackles"},
+  "Role and style": {keys: ["touches_def_third_per90", "touches_mid_third_per90", "touches_att_third_per90"], title: "Where he has the ball", what: "touches", neutral: true},
+};
+function thirdsStrip(name, rows, median, pcts){
+  const t = THIRDS[name];
+  if (!t) return "";
+  const cells = t.keys.map(k => rows.find(r => r.k === k));
+  if (cells.some(c => !c || c.v == null)) return "";
+  const zone = ["Own third", "Middle third", "Final third"];
+  return `<figure class="thirds" aria-label="${esc(t.title)}: ${esc(t.what)} per 90 in each third of the pitch">
+    <figcaption><b>${esc(t.title)}</b><span>${esc(t.what)} per 90 by third of the pitch, his team attacking left to right</span></figcaption>
+    <div class="th-pitch">${cells.map((c, i) => { const m = median(c.k);
+      return `<div class="th-zone ${t.neutral ? "n" : "b" + band(c.pct)}"><span class="th-name">${zone[i]}</span>
+        <b class="tnum">${fmtIn(c.k, c.v, pcts)}</b><small class="tnum">median ${m == null ? "—" : fmtIn(c.k, m, pcts)}${c.pct == null ? "" : ` · ${ord(c.pct)} pct`}</small></div>`; }).join("")}
+      <span class="th-arrow" aria-hidden="true"></span></div></figure>`;
+}
 function drawSheet(){
   const p = P[subject], spec = G[p.g], panel = $("sheet-panel");
   const gn = gname(p.g).toLowerCase(), src = BUNDLE.catalog.find(c => c.key === sourceOf(dsKey)), srcName = src ? src.name : "this source";
@@ -1723,38 +1801,42 @@ function drawSheet(){
   const style = new Set(M.style || []), order = sheetOrderFor(p);
   const need = order.filter(c => !own.some(x => x.c === c) && !style.has(c) && !OPTIONAL_CATS.has(c));
   const ck = `${dsKey}|${p.id}`;
-  let cands = ELSEWHERE.get(ck), looking = false;
-  if (cands === undefined && need.length){
+  let found = ELSEWHERE.get(ck), looking = false;
+  if (found === undefined && need.length){
     const asked = subject, key = dsKey;
-    looking = true; cands = [];
+    looking = true; found = null;
     ELSEWHERE.set(ck, null);
-    findSheetsElsewhere(p).then(found => {
-      ELSEWHERE.set(ck, found);
+    findSheetsElsewhere(p).then(result => {
+      ELSEWHERE.set(ck, result);
       if (subject === asked && dsKey === key && mode === "similar" && ptab === "profile") drawSheet();
-    }).catch(() => ELSEWHERE.set(ck, []));
-  } else if (cands === null){ looking = true; cands = []; }
-  cands = cands || [];
+    }).catch(() => ELSEWHERE.set(ck, {cands: [], checked: []}));
+  } else if (found === null) looking = true;
+  const cands = found ? found.cands : [], checked = found ? found.checked : [];
 
   // ---- one section a category, in the position's order
-  const sections = [], nowhere = [];
+  const sections = [];
   for (const name of [...new Set([...order, ...own.map(c => c.c)])]){
     const mine = own.find(c => c.c === name) || null;
+    // League seasons before tournaments, then the nearest, then the fullest.
     const others = cands.map(cd => candRows(cd, name)).filter(Boolean)
-      .sort((x, y) => x.from.near - y.from.near || y.rows.length - x.rows.length);
+      .sort((x, y) => x.from.tour - y.from.tour || x.from.near - y.from.near || y.rows.length - x.rows.length);
     // The nearest season that records the category properly: one stray row from
     // a nearer season does not stand in for thirty from the one before.
     const richest = Math.max(0, ...others.map(x => x.rows.length));
     const auto = mine || others.find(x => x.rows.length >= Math.max(3, 0.15 * richest)) || others[0] || null;
     const picked = embedPick.get(name);
     const sec = picked === "own" ? (mine || auto) : (others.find(x => x.from.key === picked) || auto);
-    if (!sec){ if (need.includes(name)) nowhere.push(name); continue; }
+    // A category the position needs and nobody records for him keeps its place
+    // in the order, saying so - every sheet of a position has the same sections.
+    if (!sec){ if (need.includes(name) && !looking) sections.push({name, none: true, fold: name}); continue; }
     if (sec.from && OPTIONAL_CATS.has(name)) continue;
     // Other seasons worth switching to: ones that record more of the category,
     // or - under a borrowed section - a nearer season or this source's own.
     // A far fuller record of the same category a season or two away goes under
     // it, not behind a button: this season's five defending numbers, then the
     // twenty-four the deeper source kept.
-    const fuller = sec.style ? [] : others.filter(x => x !== sec && x.rows.length >= 2 * sec.rows.length && x.rows.length >= sec.rows.length + 6);
+    const fuller = sec.style ? [] : others.filter(x => x !== sec && x.rows.length >= 2 * sec.rows.length && x.rows.length >= sec.rows.length + 6
+      && !(x.from.tour && sec.from && !sec.from.tour));
     const most = Math.max(0, ...fuller.map(x => x.rows.length));
     const deep = fuller.find(x => x.rows.length >= 0.5 * most) || null;
     const alts = [mine, ...others].filter(x => x && x !== sec && x !== deep && (!x.from || x.rows.length >= 3)
@@ -1762,7 +1844,8 @@ function drawSheet(){
     sections.push({name, sec, alts: alts.slice(0, 3), fold: name});
     if (deep) sections.push({name, sec: deep, alts: [], deep: sec.rows.length, fold: name + "|deep"});
   }
-  const embedded = sections.filter(x => x.sec.from);
+  const filled = sections.filter(x => !x.none), missing = sections.filter(x => x.none);
+  const embedded = filled.filter(x => x.sec.from);
 
   $("sheet-sub").textContent = hasOwn
     ? `Every number ${srcName} records for a ${p.r && roles ? rn : gn}, in the order that matters for the position. Percentiles against ${peersTxt}.`
@@ -1772,7 +1855,7 @@ function drawSheet(){
 
   // ---- the position's headline numbers, from whichever section holds them
   const byKey = new Map();
-  sections.forEach(x => { if (!x.sec.style) x.sec.rows.forEach(r => { if (r.v != null && !byKey.has(r.k)) byKey.set(r.k, {r, sec: x.sec}); }); });
+  filled.forEach(x => { if (!x.sec.style) x.sec.rows.forEach(r => { if (r.v != null && !byKey.has(r.k)) byKey.set(r.k, {r, sec: x.sec}); }); });
   const headline = (M.headline || {})[p.r && hasRoles() ? p.r : p.g] || (hasOwn ? sheetOf(p).k : []);
   // ... the first four the sections hold, shown in the sections' own order so the lead category leads.
   const at = sec => sections.findIndex(x => x.sec === sec);
@@ -1794,10 +1877,18 @@ function drawSheet(){
 
   const notes = M.notRecorded || {};
   let matched = 0;
-  const html = sections.map(({name, sec, alts, deep, fold: foldKey}, i) => {
+  const html = sections.map(({name, sec, alts, deep, none, fold: foldKey}, i) => {
+    const id = `sheet-cat-${i}`;
+    if (none) return q ? "" : `<section class="sheet-cat none" id="${id}" data-cat="${esc(name)}" aria-labelledby="${id}-h">
+      <header class="sc-head"><h3 id="${id}-h">${esc(name)}</h3>
+        <div class="sc-pct none"><b>—</b><span>not possible</span></div></header>
+      <p class="sc-none"><b>Not possible for him.</b> ${esc(notPossible(p, name, checked, srcName))}</p>
+      <p class="sc-none-sub">Only free, openly published data is used here. The paid feeds that record ${esc(name.toLowerCase())} for every player in every league (Opta, StatsBomb, Wyscout) cannot be republished.</p>
+    </section>`;
     const cd = sec.from || null, labels = cd ? cd.meta.labels : M.labels, descs = cd ? cd.meta.desc : M.desc;
     const pcts = cd ? new Set(cd.meta.pct || []) : PCT, lower = cd ? new Set(cd.meta.lower || []) : LOWER;
-    const against = cd ? `${cd.peers.toLocaleString()} ${cd.group.toLowerCase()}s in ${fromText(cd)}` : peersTxt;
+    const against = !cd ? peersTxt : cd.tour ? `${cd.peers.toLocaleString()} ${cd.group.toLowerCase()}s at ${listing(cd.meta.leagues || [cd.o.l])}`
+      : `${cd.peers.toLocaleString()} ${cd.group.toLowerCase()}s in ${fromText(cd)}`;
     const median = k => cd ? medianOf(`${cd.key}|${cd.o.g}|${k}`, cd.regs, cd.spec, k) : medianOf(`${dsKey}|${p.g}|${scope}|${scope === "league" ? p.l : scope === "role" ? p.r : ""}|${k}`, ownPeers, spec, k);
     const rows = sec.rows.slice();
     if (sheetOrder !== "scout") rows.sort((x, y) => (x.pct == null) - (y.pct == null) || (sheetOrder === "best" ? y.pct - x.pct : x.pct - y.pct));
@@ -1806,16 +1897,17 @@ function drawSheet(){
     matched += hits;
     if (q && !hits) return "";
     const fold = !q && i > 0 && !sheetOpen.has(foldKey) && rows.length > SHEET_FOLD + 2;
-    const id = `sheet-cat-${i}`;
     return `<section class="sheet-cat${cd ? " embed" : ""}" id="${id}" data-cat="${esc(name)}" aria-labelledby="${id}-h">
       <header class="sc-head">
         <h3 id="${id}-h">${esc(name)}${deep ? '<span class="sc-deep">in depth</span>' : ""}</h3>
         ${sec.style ? "" : `<div class="sc-pct b${band(sec.avg)}" data-tip="The plain average of the ${sec.n} percentiles below${sec.teamN ? ", leaving out team readings" : ""}, against ${esc(against)}.">
           <b>${sec.avg == null ? "—" : Math.round(sec.avg)}</b><span>${sec.avg == null ? "not ranked" : "category percentile"}</span></div>`}
       </header>
-      ${cd ? `<p class="sc-from"><b>From ${esc(cd.source)}, ${esc(seasonLabel(cd.season))}</b>${cd.club ? ` (${esc(cd.club)})` : ""}${
+      ${cd ? `<p class="sc-from"><b>From ${esc(cd.label || cd.source + ", " + seasonLabel(cd.season))}</b>${cd.club ? ` (${esc(cd.club)})` : ""}${
           cd.near >= 2 ? `, ${cd.near} seasons ${+cd.season.slice(0, 4) < +seasonsIn(dsKey).slice().sort().pop().slice(0, 4) ? "earlier" : "later"}` : ""}. ${
           deep ? `The fuller record of this category: ${sec.rows.length} stats to the ${deep} above, from the nearest season that keeps them`
+          : cd.tour ? `${esc(srcName)} ${own.some(x => x.c === name) ? "records less of this" : "does not record this"}, and no league season of his here does, so these are his numbers from the tournament: ${
+              cd.o.ap ? cd.o.ap + " matches, " : ""}${cd.o.m.toLocaleString()} minutes - a far smaller sample than a league season`
           : `${esc(srcName)} ${own.some(x => x.c === name) ? "records less of this" : "does not record this"}, so these are his numbers from ${
             cd.near ? "the nearest season that does" : "the same season there"}`}, ranked against ${esc(against)}.
           <button type="button" class="linkbtn" data-openseason="${esc(cd.key)}|${esc(cd.id)}">Open that season</button></p>` : ""}
@@ -1823,6 +1915,7 @@ function drawSheet(){
         : sec.n ? `Average of the ${sec.n} percentile${sec.n > 1 ? "s" : ""} below${sec.teamN ? ", team readings left out" : ""}.` : "No percentiles to average."}</p>
       ${alts.length ? `<div class="sc-alts"><span>Also recorded in</span>${alts.map(x => `<button type="button" class="chip-btn" data-embed="${esc(name)}|${x.from ? esc(x.from.key) : "own"}">${
           esc(x.from ? fromText(x.from) : srcName + " " + periodOf(dsKey))} <span class="via">${x.rows.length} stat${x.rows.length > 1 ? "s" : ""}</span></button>`).join("")}</div>` : ""}
+      ${q ? "" : thirdsStrip(name, sec.rows, median, pcts)}
       <div class="sc-rows">${rows.map((r, at) => {
         const tone = r.team || sec.style ? 3 : band(r.pct), d = descIn(r.k, labels, descs), med = median(r.k);
         return `<div class="sr${r.v == null ? " none" : ""}" data-k="${esc(r.k)}"${!hit(r) || (fold && at >= SHEET_FOLD) ? " hidden" : ""}>
@@ -1838,8 +1931,11 @@ function drawSheet(){
     </section>`; }).join("");
   $("sheet").innerHTML = (looking ? `<p class="sheet-looking">Looking in the other sources for what ${esc(srcName)} does not record for him: ${esc(listing(need.map(c => c.toLowerCase())))}…</p>` : "")
     + (q && !matched ? `<p class="sheet-looking">No stat here matches "${esc(sheetFind.trim())}".</p>` : "") + html;
-  $("sheet-find-n").textContent = q ? `${matched} stat${matched === 1 ? "" : "s"}` : `${sections.reduce((t, x) => t + x.sec.rows.length, 0)} stats`;
-  $("sheet-jump").innerHTML = sections.map(({name, sec, deep}, i) => `<button type="button" class="sj${sec.style ? " style" : ""}${sec.from ? " embed" : ""}" data-jump="sheet-cat-${i}">
+  $("sheet-find-n").textContent = q ? `${matched} stat${matched === 1 ? "" : "s"}` : `${filled.reduce((t, x) => t + x.sec.rows.length, 0)} stats`
+    + (missing.length && !q ? `, ${missing.length} ${missing.length > 1 ? "categories" : "category"} not possible` : "");
+  $("sheet-jump").innerHTML = sections.map(({name, sec, deep, none}, i) => none
+    ? `<button type="button" class="sj none" data-jump="sheet-cat-${i}"><span>${esc(name)} <span class="via">not possible</span></span></button>`
+    : `<button type="button" class="sj${sec.style ? " style" : ""}${sec.from ? " embed" : ""}" data-jump="sheet-cat-${i}">
       <span>${esc(name)}${deep ? " in depth" : ""}${sec.from ? ` <span class="via">${esc(seasonLabel(sec.from.season))}</span>` : ""}</span>${
       sec.style ? "" : `<span class="chip c${band(sec.avg)}">${sec.avg == null ? "—" : Math.round(sec.avg)}</span>`}</button>`).join("");
 
@@ -1849,11 +1945,10 @@ function drawSheet(){
     .filter(x => x.without.length && x.without.length < M.seasons.length) : [];
   const without = [...new Set(thin.flatMap(x => x.without))];
   const physical = notes["Physical and availability"] || "";
-  $("sheet-foot").innerHTML = (thin.length || (nowhere.length && !looking)) ? `<div class="sheet-missing">${thin.length ? `<p><b>Not in every one of these seasons:</b>
+  $("sheet-foot").innerHTML = thin.length ? `<div class="sheet-missing">${thin.length ? `<p><b>Not in every one of these seasons:</b>
       ${esc(listing(thin.map(x => x.c.toLowerCase())))} - ${esc(listing(without.map(seasonLabel)))} ${without.length > 1 ? "do" : "does"} not record ${
       thin.length > 1 ? "them" : "it"}, and seasons taken together show only what all of them record.</p>` : ""}${
-      nowhere.length && !looking ? `<p><b>Not recorded for him in any source here:</b> ${esc(listing(nowhere.map(c => c.toLowerCase())))}. ${
-        esc(srcName)} does not record ${nowhere.length > 1 ? "them" : "it"}, and he is not in a season of another source that does.</p>` : ""}${
+
       physical && !sections.some(x => x.name === "Physical and availability") ? `<p>${esc(physical)}</p>` : ""}</div>` : "";
   $("sheet-how").textContent = `Each row is a rate or percentage worked out from the source's own counts, per 90 minutes where it says so. `
     + `The percentile is his rank among the players named: 80 means a higher figure than about 80% of them, flipped where lower is better; the median is the middle figure among them. `
@@ -1861,11 +1956,12 @@ function drawSheet(){
       : `The league percentiles rank him among the regulars in his position in his own league only, by the same rule. `) : "")
     + (scope === "role" ? `The exact-position percentiles rank him among the regulars Transfermarkt lists in the same position that season${
         M.combined ? ", ranked here on the combined figures" : ""}, by the same rule. ` : "")
-    + (sections.some(x => x.sec.style) ? `Role and style rows say how a player plays rather than how well, so they are not averaged. ` : "")
+    + (filled.some(x => x.sec.style) ? `Role and style rows say how a player plays rather than how well, so they are not averaged. ` : "")
     + `A category's percentile is the plain average of the percentiles listed under it; numbers that read the team, such as goals conceded, are shown but not averaged. `
     + `The rating above uses a smaller set of metrics per position, so its category scores differ from these. `
     + (embedded.length || !hasOwn ? `A shaded section is the same player in another season or source, because ${srcName} does not record that category or records far less of it: `
-      + `its figures and percentiles are that source's own, against its players in his position, and are not mixed into ${srcName}'s averages, rating or similar players.` : "");
+      + `its figures and percentiles are that source's own, against its players in his position, and are not mixed into ${srcName}'s averages, rating or similar players.` : "")
+    + (missing.length ? ` A category marked not possible is one no free source here records for him; it keeps its place so every sheet of the position reads the same way. ` : "");
 }
 function drawProfile(){ drawInfo(); drawSW(); drawSheet(); }
 
@@ -2075,19 +2171,11 @@ function drawMatches(){
 // word of one is in the other and the league and club agree too. Each button
 // names the club and season, so a reader can see it is him.
 async function findElsewhere(p){
-  const words = n => plain(n).split(/[^a-z0-9]+/).filter(Boolean);
-  const mine = words(p.n), year = +seasonOf(dsKey).slice(0, 4), out = [];
-  const sameClub = (a, b) => plain(a).slice(0, 3) === plain(b).slice(0, 3);
-  const sameName = (r, loose) => { const w = words(r[1]);
-    if (w.join(" ") === mine.join(" ")) return true;
-    if (!loose) return false;
-    const [short, long] = w.length < mine.length ? [w, mine] : [mine, w];
-    return short.every(x => long.includes(x)); };
+  const year = +seasonOf(dsKey).slice(0, 4), out = [];
   for (const c of BUNDLE.catalog){
     if (c.key === sourceOf(dsKey)) continue;
     let A; try { A = await getAll(c.key); } catch { continue; }
-    let rows = A.players.filter(r => sameName(r, false));
-    if (!rows.length) rows = A.players.filter(r => r[3] === p.l && sameClub(r[2], p.t) && sameName(r, true));
+    const rows = sameRows(A, p);
     if (!rows.length) continue;
     const near = r => Math.abs(+A.seasons[r[4]].slice(0, 4) - year);
     const r = rows.sort((x, y) => near(x) - near(y) || y[4] - x[4])[0], key = c.key + ":" + A.seasons[r[4]];
@@ -2343,6 +2431,10 @@ function drawCompare(){
     both.forEach(r => { const d = (LOWER.has(r.key) ? -1 : 1) * (r.av - r.bv); if (d > 1e-9) la++; else if (d < -1e-9) lb++; });
     return {g, n: both.length, a: both.length ? meanOf(both.map(r => r.ap)) : null, b: both.length ? meanOf(both.map(r => r.bp)) : null, la, lb};
   }).filter(c => c.n >= 2);
+  // What neither player's source records for the position: said, not left out.
+  const shownCats = new Set(cats.map(c => c.g)), styleOrOpt = c => styleCats.has(c) || OPTIONAL_CATS.has(c);
+  const notHere = [...new Set([...sheetOrderFor(a), ...((ref.meta.orders || {})[b.g] || [])])]
+    .filter(c => !styleOrOpt(c) && !shownCats.has(c) && !(spec && (spec.s || []).some(x => x[0] === c && grouped[c])));
   $("cmp-cats-card").hidden = !cats.length;
   if (cats.length){
     const tot = cats.reduce((t, c) => ({n: t.n + c.n, la: t.la + c.la, lb: t.lb + c.lb}), {n: 0, la: 0, lb: 0});
@@ -2359,7 +2451,9 @@ function drawCompare(){
       tot.n - tot.la - tot.lb ? `, with ${tot.n - tot.la - tot.lb} level` : ""}.`;
     $("cats-note").textContent = `Each bar is the plain average of that player's percentiles on the stats both have in the category, `
       + (ref.other ? "each against his own position and season" : "against his own position") + `, team readings left out. `
-      + `"Better figure" compares the two players' own numbers stat by stat: the higher one, or the lower where lower is better. Select a category to see its rows.`;
+      + `"Better figure" compares the two players' own numbers stat by stat: the higher one, or the lower where lower is better. Select a category to see its rows.`
+      + (notHere.length ? ` Not possible to compare here: ${listing(notHere.map(c => c.toLowerCase()))} - ${ref.other ? "these seasons do" : here_src() + " does"} not record ${
+          notHere.length > 1 ? "them" : "it"} for both players. Each player's stat sheet borrows ${notHere.length > 1 ? "them" : "it"} from the sources that do.` : "");
   }
   const widest = Math.max(0.001, ...rows.map(r => r.gap ?? 0));
   const cell = (v, pct, key) => `<td class="num"><span class="vcell">${fmt(key, v)} ${chip(pct)}</span></td>`;
@@ -2636,8 +2730,29 @@ function drawBoardControls(){
   $("bmetric").innerHTML = metricOptions(g, keep, [VFM_KEY, VALUE_KEY, AGE_KEY]);
   if (keep && G[g] && G[g].d.includes(keep)) $("bmetric").value = keep;
 }
+// What this source cannot rank for the position, said above the list, with the
+// seasons of the free sources that can.
+function drawBoardMissing(group){
+  const spec = G[group], box = $("board-missing");
+  if (!spec){ box.hidden = true; return; }
+  const own = new Set((spec.s || []).map(x => x[0])), style = new Set(M.style || []);
+  const order = (M.orders || {})[group] || spec.so || [];
+  const lacking = order.filter(c => !own.has(c) && !style.has(c) && !OPTIONAL_CATS.has(c));
+  if (!lacking.length){ box.hidden = true; return; }
+  // Each source's latest season that records the most of what is missing here.
+  const where = BUNDLE.catalog.filter(c => c.key !== sourceOf(dsKey)).map(c => {
+    const n = e => lacking.filter(k => (e.cats || []).includes(k)).length;
+    const e = c.seasons.filter(x => n(x) > 0).sort((x, y) => n(x) - n(y) || x.season.localeCompare(y.season)).pop();
+    return e ? {key: c.key + ":" + e.season, text: `${c.name} ${seasonLabel(e.season)}`, n: n(e), season: e.season} : null; })
+    .filter(Boolean).sort((a, b) => b.n - a.n || b.season.localeCompare(a.season));
+  box.hidden = false;
+  box.innerHTML = `<p><b>Not possible to rank here:</b> ${esc(here_src())} does not record ${esc(listing(lacking.map(c => c.toLowerCase())))} for ${
+    esc(gname(group).toLowerCase())}s, so none of ${lacking.length > 1 ? "those" : "its"} numbers can be ranked in it.${where.length ? " Rank them where they are recorded:" : ""}</p>`
+    + (where.length ? `<div class="chips">${where.map(w => `<button type="button" class="chip-btn" data-rankin="${esc(w.key)}">${esc(w.text)}</button>`).join("")}</div>` : "");
+}
 function drawBoard(){
   const metric = $("bmetric").value, group = $("bgroup").value, spec = G[group];
+  drawBoardMissing(group);
   if (!spec || !metric){ $("board").innerHTML = ""; $("board-hits").textContent = ""; return; }
   const role = $("brole-field").hidden ? "" : $("brole").value, rows = [];
   for (const i of (byGroup[group] || [])){
@@ -3405,6 +3520,8 @@ document.addEventListener("click", e => {
   if (t.closest("#about-data-btn")){ const open = $("about-data").hidden; $("about-data").hidden = !open;
     $("about-data-btn").setAttribute("aria-expanded", open); if (open) showFilters(false); return; }
   // ---- jumping to data
+  const ri = t.closest("[data-rankin]");
+  if (ri){ loadDataset(ri.dataset.rankin); return; }
   const cj = t.closest("[data-catjump]");
   if (cj){ $("mfilter").value = ""; filterMetrics();
     const tb = [...document.querySelectorAll("#compare tbody[data-grp]")].find(x => x.dataset.grp === cj.dataset.catjump);

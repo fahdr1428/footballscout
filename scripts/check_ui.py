@@ -334,6 +334,51 @@ def main() -> int:
                     alt.first.click(); page.wait_for_timeout(300)
                     now = page.evaluate(f"(() => {{ const s = [...document.querySelectorAll('#sheet .sheet-cat')].find(x => x.dataset.cat === {name!r}); return s.querySelectorAll('.sr').length + '|' + (s.querySelector('.sc-from b') || {{textContent: 'own'}}).textContent; }})()")
                     check(was != now, f"stat sheet: {name} switches to another season that records it ({was} -> {now})")
+            # every outfield sheet has a defending section: borrowed where it can be,
+            # "not possible" with the reason where no free source records it for him
+            season = latest[0][-2]
+            open_(f"#d=understat_big6:{season}&t=profile")
+            picks = page.evaluate("""(() => { const regs = P.map((p, i) => [p, i]).filter(([p]) => p.g !== 'GK' && !p.sq);
+                const by = l => regs.filter(([p]) => p.l === l).sort((a, b) => b[0].m - a[0].m);
+                const tm = by('Premier League').find(([p]) => p.tm);
+                return {ru: (by('Russian Premier League')[0] || [null, -1])[1], tm: tm ? tm[1] : -1}; })()""")
+            for kind, index in picks.items():
+                if index < 0:
+                    continue
+                page.evaluate(f"selectSubject({index}); setTab('profile'); setMode('similar')")
+                page.wait_for_function("!document.querySelector('.sheet-looking')", timeout=90000)
+                page.wait_for_timeout(200)
+                who = page.evaluate("P[subject].n")
+                sec = page.evaluate("""(() => { const s = [...document.querySelectorAll('#sheet .sheet-cat')].find(x => x.dataset.cat === 'Defending');
+                    return s ? {none: s.classList.contains('none'), rows: s.querySelectorAll('.sr').length, text: s.innerText} : null; })()""")
+                if kind == "tm":
+                    check(sec is not None and not sec["none"] and sec["rows"] >= 3,
+                          f"stat sheet: {who}'s defending found by his Transfermarkt id ({sec and sec['rows']} stats)")
+                else:
+                    check(sec is not None and (sec["none"] and "Not possible for him" in sec["text"] or sec["rows"] > 0),
+                          f"stat sheet: {who} (Russian Premier League) has a defending section that says why, or numbers")
+                    if sec and sec["none"]:
+                        check(page.locator("#sheet-jump .sj.none").count() >= 1, "stat sheet: a category not possible is named in the jump list")
+            # Rankings say what a source cannot rank, and where it can be
+            go("board")
+            page.select_option("#bgroup", "DEF"); page.wait_for_timeout(300)
+            missing = page.locator("#board-missing")
+            check(missing.is_visible() and "Not possible to rank here" in missing.inner_text()
+                  and page.locator("#board-missing [data-rankin]").count() >= 1, "rankings: says what Top leagues cannot rank, and where to")
+            target = page.locator("#board-missing [data-rankin]").first.get_attribute("data-rankin")
+            page.locator("#board-missing [data-rankin]").first.click()
+            page.wait_for_function(f"dsKey === {target!r}", timeout=60000); page.wait_for_timeout(300)
+            check(page.evaluate("[...document.querySelectorAll('#bmetric option')].some(o => /tackle/i.test(o.textContent))"),
+                  f"rankings: {target} ranks tackles")
+        # where he wins the ball, on a pitch, from the same three rows the sheet lists
+        if fbref:
+            open_("#d=fbref_big5:2023-24&t=profile&p=Rodri")
+            strip = page.evaluate("""(() => { const f = document.querySelector('#sheet .sheet-cat[data-cat="Defending"] .thirds');
+                if (!f) return null; const shown = [...f.querySelectorAll('.th-zone b')].map(b => b.textContent);
+                const rows = ['tackles_def_third_per90', 'tackles_mid_third_per90', 'tackles_att_third_per90'].map(k =>
+                  document.querySelector(`#sheet .sheet-cat[data-cat="Defending"] .sr[data-k="${k}"] .sr-v`).firstChild.textContent.trim());
+                return {shown, rows}; })()""")
+            check(strip is not None and strip["shown"] == strip["rows"], f"stat sheet: where he wins the ball matches the rows ({strip})")
         open_("#v=similar")
         page.click("#pt-similar"); page.wait_for_timeout(200)
         # a match opens Compare, with the player and him side by side

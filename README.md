@@ -157,6 +157,31 @@ mixed into this source's averages, rating or similar players**. The four headlin
 the same way, each saying where it came from. A category no source here records for him is named as
 missing rather than left blank.
 
+**One player, every source, by his Transfermarkt id.** Each source spells names its own way —
+"Martin Odegaard" and "Martin Ødegaard", "Dayotchanculle Upamecano" and "Dayot Upamecano", "Kylian
+Mbappe-Lottin" and "Kylian Mbappé", "Álex Balde" and "Alejandro Balde" — and matching on names alone
+had left 37% of Top leagues 2025/26 outfield regulars with no defending at all. The export now links
+every source to Transfermarkt with the same name, league-season and club matcher the Understat
+build uses (99% of regulars in each source), and the page finds a player in another source by that
+id first, by name only where a source has no id, and never by a name that belongs to a different id.
+With the tournaments added, **1,136 of the 1,689 outfield regulars in Top leagues 2025/26 now have
+defending on their sheet (1,058 before)**. The 553 without are 188 players in the Russian league and
+365 who arrived in the big five after 2023/24: only 99 of those appear in Big five, in depth at all,
+almost all for under 450 minutes.
+
+**Every sheet of a position has the same sections, and says when one is not possible.** A category
+no free source records for him keeps its place in the order, marked **not possible** with the reason:
+his league is covered by none of the sources that record it (the Russian Premier League has no free
+defensive data), or he has no season in any of them (a player who arrived after 2023/24 and played
+at none of the tournaments). Rankings say the same — "Not possible to rank here: Top leagues does
+not record defending…" — with one-click links to the seasons that can rank it. Paid feeds (Opta,
+StatsBomb, Wyscout) record these for every league, but cannot be republished; everything on the
+site is free, openly published data.
+
+**Where he wins the ball.** Above the defending rows, a small pitch splits his tackles per 90 into his
+own, middle and final third, each tinted by his percentile there and printed beside the position's
+median; the same for his touches under Role and style. The numbers are the rows underneath.
+
 **Where he actually lined up.** For the feeds matched to Transfermarkt, the profile names his main
 position that season and the share of his league starts there, and — once the daily refresh has
 rebuilt the line-up counts — every position he started in, most often first ("Right Winger 21, Left
@@ -558,6 +583,42 @@ Benzema.
 ```bash
 python scripts/fetch_statsbomb.py          # ~10 minutes, resumable
 python scripts/build_statsbomb_2015_16.py  # the site's 2015/16 season, with Transfermarkt joined on
+```
+
+### International tournaments, 2018 → 2024 — defending for players the league feeds miss
+
+The free league feeds stop recording tackles after 2023/24 (Big five, in depth) or only start in
+2025/26 (the Premier League feed), and none covers the Russian league — so a player who reached the
+big leagues after 2023/24 had no defensive numbers anywhere. StatsBomb publishes every match of six
+recent men's tournaments, and `scripts/build_tournaments.py` derives the same schema from their raw
+events:
+
+| Tournament | Filed under | Matches | Regulars (270+ minutes) |
+| --- | --- | --- | --- |
+| World Cup 2018 | 2017/18 | 64 | 218 |
+| Euro 2020 (played 2021) | 2020/21 | 51 | 176 |
+| World Cup 2022 | 2022/23 | 64 | 195 |
+| Africa Cup of Nations 2023 (played 2024) | 2023/24 | 52 | 152 |
+| Euro 2024 | 2023/24 | 51 | 173 |
+| Copa America 2024 | 2023/24 | 32 | 96 |
+
+Each tournament is filed under the club season it closes or interrupts, and a regular is anyone with
+three full matches (270 minutes) — so every figure rests on far fewer minutes than a league season,
+and the page says so wherever one is shown. The event parser now also counts **tackles in each
+third, dribblers tackled and times dribbled past (from StatsBomb's linked events), shots blocked
+apart from passes blocked, pressures in the final third, counter-pressing (pressing within five
+seconds of losing the ball), balls won back in the opponent's half, fouls won and touches by
+third**; the counts reconcile (74 completed dribbles against 77 "dribbled past" events, 51 failed
+dribbles against 48 tackles on a dribbler, in a six-match check).
+
+A tournament player has no league-season for the club matcher, so he is linked to Transfermarkt by
+his StatsBomb nickname or full name, nationality and an age that is possible at the tournament —
+then by every word of Transfermarkt's name inside his full name ("Rodrigo Hernández Cascante"),
+then by a surname held by one player of his country and age ("Dayotchanculle Upamecano"). Only a
+link that leaves one Transfermarkt player standing is kept: **82.8% of regulars matched**.
+
+```bash
+python scripts/build_tournaments.py   # ~2 minutes, resumable
 ```
 
 ### Simulated — the supervised check real data cannot give
@@ -1202,6 +1263,12 @@ The derived datasets in `data/raw/` are transformations of those feeds; the code
 own.
 
 ## Known limitations
+
+- **No free defensive data for some players.** Free tackle and interception data ends with
+  2023/24 for the big five (FBref's public mirror), starts in 2025/26 for the Premier League (FPL)
+  and does not exist for the Russian Premier League. A player who arrived after 2023/24 and played at
+  none of the six tournaments StatsBomb publishes has no defending anywhere; his sheet says **not
+  possible** and why, rather than leaving a gap or estimating one.
 
 - **One of the datasets is simulated.** The rest are real — six leagues 2014/15 → the season being
   played, the big five in depth 2017/18 → 2024/25, Premier League 2016/17 → 2025/26, StatsBomb Open

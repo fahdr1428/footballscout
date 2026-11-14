@@ -91,6 +91,21 @@ COMPETITIONS: list[Competition] = [
     Competition(135, 281, "Frauen Bundesliga", "Germany", "female", "2023-24", 1, 0.96),
 ]
 
+# Men's international tournaments the open data publishes in full. Each is
+# filed under the club season it closes or interrupts, so a tournament sits
+# beside the league seasons around it: the 2022 World Cup (November and
+# December) inside 2022/23, the 2023 Africa Cup of Nations (played January and
+# February 2024), Euro 2024 and the 2024 Copa America at the end of 2023/24.
+# `strength` is not used to adjust any figure from these tournaments.
+TOURNAMENTS: list[Competition] = [
+    Competition(43, 3, "World Cup 2018", "International", "male", "2017-18", 1, 1.00),
+    Competition(55, 43, "Euro 2020", "International", "male", "2020-21", 1, 1.00),
+    Competition(43, 106, "World Cup 2022", "International", "male", "2022-23", 1, 1.00),
+    Competition(1267, 107, "Africa Cup of Nations 2023", "International", "male", "2023-24", 1, 1.00),
+    Competition(55, 282, "Euro 2024", "International", "male", "2023-24", 1, 1.00),
+    Competition(223, 282, "Copa America 2024", "International", "male", "2023-24", 1, 1.00),
+]
+
 # --------------------------------------------------------------------------
 # Pitch geometry (StatsBomb coordinates: 120 x 80 yards, attacking left to right)
 # --------------------------------------------------------------------------
@@ -99,6 +114,7 @@ PITCH_X, PITCH_Y = 120.0, 80.0
 GOAL = np.array([120.0, 40.0])
 YARD_M = 0.9144
 FINAL_THIRD_X = 80.0
+DEFENSIVE_THIRD_X = 40.0
 BOX_X, BOX_Y_LOW, BOX_Y_HIGH = 102.0, 18.0, 62.0
 HALFWAY_X = 60.0
 LONG_PASS_YARDS = 30.0          # FBref's long-pass threshold
@@ -204,6 +220,15 @@ def in_box(point) -> bool:
     return point is not None and point[0] >= BOX_X and BOX_Y_LOW <= point[1] <= BOX_Y_HIGH
 
 
+def third_of(point) -> str | None:
+    """"def", "mid" or "att": the third of the pitch a location is in, seen from the
+    team making the event (StatsBomb draws every event attacking left to right)."""
+    if not point:
+        return None
+    x = float(point[0])
+    return "def" if x < DEFENSIVE_THIRD_X else "att" if x >= FINAL_THIRD_X else "mid"
+
+
 def in_final_third(point) -> bool:
     return point is not None and point[0] >= FINAL_THIRD_X
 
@@ -242,6 +267,10 @@ COUNTER_KEYS = [
     "gk_shots_on_target_against", "gk_saves", "gk_goals_against", "gk_crosses_faced",
     "gk_crosses_stopped", "gk_def_actions_outside_box", "gk_launches_attempted",
     "gk_launches_completed",
+    # Where and how a player defends, which only an event feed can say.
+    "tackles_def_third", "tackles_mid_third", "tackles_att_third", "dribblers_tackled",
+    "dribblers_challenged", "shots_blocked", "pressures_att_third", "counterpressures",
+    "recoveries_opp_half", "fouls_won", "touches_def_third", "touches_mid_third", "touches_att_third",
 ]
 
 
@@ -253,6 +282,7 @@ class PlayerMatch:
     player: str
     team: str
     nationality: str = ""
+    full_name: str = ""
     minutes: float = 0.0
     started: bool = False
     position_minutes: dict[str, float] = field(default_factory=lambda: defaultdict(float))
@@ -284,6 +314,7 @@ def _minutes_from_lineups(lineups: list[dict], match_end: float) -> dict[int, Pl
             record = PlayerMatch(
                 player_id=entry["player_id"],
                 player=entry.get("player_nickname") or entry["player_name"],
+                full_name=entry["player_name"],
                 team=team["team_name"],
                 nationality=(entry.get("country") or {}).get("name", ""),
             )
@@ -353,9 +384,16 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
             players[player["id"]].counters[key] += value
 
     pass_owner: dict[str, dict] = {}
+    by_id: dict[str, dict] = {}
     for event in events:
+        by_id[event["id"]] = event
         if event["type"]["name"] == "Pass" and event.get("player"):
             pass_owner[event["id"]] = event
+
+    def related(event: dict, kind: str) -> bool:
+        """Whether StatsBomb links this event to one of the given type."""
+        return any((by_id.get(i) or {}).get("type", {}).get("name") == kind
+                   for i in event.get("related_events") or [])
 
     # Index events by team-second for the pressure and error look-aheads.
     ordered = sorted(events, key=lambda e: e.get("index", 0))
@@ -372,6 +410,9 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
             if not incomplete:
                 team_touches[team] += 1
                 bump(player, "touches")
+                zone = third_of(location)
+                if zone:
+                    bump(player, f"touches_{zone}_third")
                 if kind == "Ball Receipt*" and in_box(location):
                     bump(player, "touches_att_pen")
 
@@ -498,6 +539,13 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
                 bump(player, "tackles")
                 if outcome in DUEL_WON:
                     bump(player, "tackles_won")
+                zone = third_of(location)
+                if zone:
+                    bump(player, f"tackles_{zone}_third")
+                # A tackle on a player who was dribbling: one dribbler stopped.
+                if related(event, "Dribble"):
+                    bump(player, "dribblers_tackled")
+                    bump(player, "dribblers_challenged")
             elif duel_type == "Aerial Lost":
                 bump(player, "aerials_lost")
 
@@ -506,8 +554,15 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
             if outcome not in {"Lost", "Lost Out"}:
                 bump(player, "interceptions")
 
+        elif kind == "Dribbled Past":
+            # Beaten by a dribbler: one dribbler faced, not stopped.
+            bump(player, "dribblers_challenged")
+        elif kind == "Foul Won":
+            bump(player, "fouls_won")
         elif kind == "Block":
             bump(player, "blocks")
+            if related(event, "Shot"):
+                bump(player, "shots_blocked")
         elif kind == "Clearance":
             bump(player, "clearances")
             if event.get("clearance", {}).get("aerial_won"):
@@ -515,6 +570,8 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
         elif kind == "Ball Recovery":
             if not event.get("ball_recovery", {}).get("recovery_failure"):
                 bump(player, "ball_recoveries")
+                if location and float(location[0]) >= HALFWAY_X:
+                    bump(player, "recoveries_opp_half")
         elif kind == "Miscontrol":
             bump(player, "miscontrols")
             if event.get("miscontrol", {}).get("aerial_won"):
@@ -526,6 +583,11 @@ def parse_match(events: list[dict], lineups: list[dict]) -> tuple[dict[int, Play
 
         elif kind == "Pressure":
             bump(player, "pressures")
+            if third_of(location) == "att":
+                bump(player, "pressures_att_third")
+            # Pressing within five seconds of the team losing the ball.
+            if event.get("counterpress"):
+                bump(player, "counterpressures")
             # Successful when the pressing team holds the ball within five seconds.
             window_end = times[position] + PRESSURE_WINDOW_SECONDS
             for ahead in range(position + 1, len(ordered)):
@@ -660,6 +722,7 @@ def collect_match(match_id: int) -> tuple[list[dict], dict[str, float]]:
             "match_id": match_id,
             "player_id": record.player_id,
             "player": record.player,
+            "full_name": record.full_name,
             "nationality": record.nationality,
             "team": record.team,
             "minutes": round(record.minutes, 2),
@@ -778,6 +841,7 @@ def aggregate_player_seasons(match_rows: pd.DataFrame) -> pd.DataFrame:
         record = {
             "player_id": f"SB{int(player_id)}",
             "player": block["player"].iloc[-1],
+            **({"full_name": block["full_name"].iloc[-1]} if "full_name" in block.columns else {}),
             "nationality": block["nationality"].mode().iloc[0] if block["nationality"].notna().any() else "",
             "position": detailed,
             "position_group": group,
@@ -893,3 +957,114 @@ def attach_transfermarkt(frame: pd.DataFrame, cache: Path,
         "with_market_value": float(frame["market_value_eur"].notna().mean()),
     }
     return frame.drop(columns=["key", "tm_id", "how"]), coverage
+
+
+# --------------------------------------------------------------------------
+# International tournaments, linked to the same players' club seasons
+# --------------------------------------------------------------------------
+# A tournament has no league-season for the club matcher to work from - a
+# player's "team" is his country - so a tournament player is linked to
+# Transfermarkt by name and nationality instead: his StatsBomb nickname or full
+# name against Transfermarkt's name, an age that is possible at the tournament,
+# and the same country where both feeds name one. Only a link that leaves one
+# Transfermarkt player standing is kept: a wrong link would put another
+# player's tackles on his page.
+
+_COUNTRY_ALIASES = {"korea republic": "korea south", "south korea": "korea south", "turkiye": "turkey",
+                    "cote d ivoire": "cote d ivoire", "ivory coast": "cote d ivoire", "usa": "united states",
+                    "congo dr": "dr congo", "democratic republic of the congo": "dr congo",
+                    "cape verde islands": "cape verde", "cabo verde": "cape verde", "iran": "iran",
+                    "ir iran": "iran", "republic of ireland": "ireland", "czechia": "czech republic"}
+
+
+def _country(value) -> str:
+    from .tm_history import normalise_name
+
+    key = normalise_name(value) if isinstance(value, str) else ""
+    return _COUNTRY_ALIASES.get(key, key)
+
+
+def link_internationals(frame: pd.DataFrame, profiles: pd.DataFrame) -> pd.DataFrame:
+    """player_id -> tm_id for tournament players: name, then name tokens, with nationality and age agreeing."""
+    from .tm_history import normalise_name
+
+    tm = profiles.dropna(subset=["tm_id", "tm_name"]).copy()
+    tm["key"] = tm["tm_name"].map(normalise_name)
+    tm["country"] = tm["nationality"].map(_country) if "nationality" in tm.columns else ""
+    tm["born"] = pd.to_datetime(tm["date_of_birth"], errors="coerce").dt.year
+    sb = frame[["player_id", "player", "season", "nationality"] + (["full_name"] if "full_name" in frame.columns else [])].copy()
+    sb["year"] = sb["season"].str.slice(0, 4).astype(int) + 1
+    sb["country"] = sb["nationality"].map(_country)
+    names = [sb.assign(key=sb["player"].map(normalise_name))]
+    if "full_name" in sb.columns:
+        names.append(sb.assign(key=sb["full_name"].map(normalise_name)))
+    keyed = pd.concat(names, ignore_index=True).drop_duplicates(["player_id", "season", "key"])
+
+    def plausible(c: pd.DataFrame) -> pd.DataFrame:
+        age = c["year"] - c["born"]
+        same = (c["country_x"] == c["country_y"]) | c["country_x"].eq("") | c["country_y"].eq("")
+        return c[age.between(16, 42) & same]
+
+    exact = plausible(keyed.merge(tm[["tm_id", "key", "country", "born"]], on="key"))
+    exact = exact.drop_duplicates(["player_id", "season", "tm_id"])
+    exact = exact[~exact.duplicated(["player_id", "season"], keep=False)].assign(how="name")
+
+    # Whoever is left: every word of Transfermarkt's name inside his full name
+    # ("Rodrigo Hernandez Cascante" for "Rodrigo Hernandez"), same country.
+    rest = keyed[~keyed["player_id"].isin(exact["player_id"])]
+    loose = []
+    if len(rest):
+        tm_words = tm[tm["country"].ne("")][["tm_id", "key", "country", "born"]]
+        by_country = {c: block for c, block in tm_words.groupby("country")}
+        for row in rest.drop_duplicates(["player_id", "season"]).itertuples():
+            block = by_country.get(row.country)
+            if block is None:
+                continue
+            words = set(row.key.split()) | (set(normalise_name(row.full_name).split()) if "full_name" in rest.columns and isinstance(row.full_name, str) else set())
+            alive = block[(row.year - block["born"]).between(16, 42)]
+            hits = alive[[len(k.split()) >= 2 and set(k.split()) <= words for k in alive["key"]]]
+            how = "words"
+            if hits.empty:
+                # Last resort: the same surname, held by one player of his country and age
+                # ("Dayotchanculle Upamecano" for "Dayot Upamecano").
+                surname = row.key.split()[-1] if row.key else ""
+                hits = alive[[len(surname) >= 4 and k.split()[-1:] == [surname] for k in alive["key"]]] if surname else alive.iloc[:0]
+                how = "surname"
+            if hits["tm_id"].nunique() == 1:
+                loose.append({"player_id": row.player_id, "season": row.season, "tm_id": hits["tm_id"].iloc[0], "how": how})
+    found = pd.concat([exact[["player_id", "season", "tm_id", "how"]], pd.DataFrame(loose)], ignore_index=True)
+    if found.empty:
+        return pd.DataFrame(columns=["player_id", "tm_id", "how"])
+    # One Transfermarkt id per StatsBomb player, agreed across his tournaments,
+    # and never one Transfermarkt player for two StatsBomb ones.
+    votes = found.groupby(["player_id", "tm_id"], as_index=False).agg(n=("season", "size"), how=("how", "first"))
+    votes = votes.sort_values(["player_id", "n", "tm_id"], ascending=[True, False, True], kind="stable")
+    top = votes.drop_duplicates("player_id")
+    top = top[~top["tm_id"].duplicated(keep=False)]
+    return top[["player_id", "tm_id", "how"]].astype({"tm_id": "int64"})
+
+
+def tournaments_table(frame: pd.DataFrame, cache: Path, progress=print) -> tuple[pd.DataFrame, dict]:
+    """The tournament player table with Transfermarkt's ages, heights, feet and prices, and his tm_id kept."""
+    from . import tm_history
+    from .understat import MAX_PLAUSIBLE_AGE, MIN_PLAUSIBLE_AGE, _age, _attach_values
+
+    frame = frame.drop(columns=["age", "height_cm", "foot", "date_of_birth", "market_value_eur",
+                                "latest_value_eur", "latest_value_date", "tm_id"], errors="ignore").copy()
+    profiles = tm_history.load_profiles(cache, progress=progress)
+    progress("matching tournament players to Transfermarkt by name and nationality")
+    link = link_internationals(frame, profiles)
+    frame = frame.merge(link, on="player_id", how="left")
+    frame = frame.merge(profiles[["tm_id", "date_of_birth", "height_cm", "foot"]].drop_duplicates("tm_id"),
+                        on="tm_id", how="left")
+    frame["date_of_birth"] = pd.to_datetime(frame["date_of_birth"]).dt.strftime("%Y-%m-%d")
+    frame["age"] = _age(frame)
+    wrong = frame["age"].notna() & ~frame["age"].between(MIN_PLAUSIBLE_AGE, MAX_PLAUSIBLE_AGE)
+    frame.loc[wrong, ["age", "height_cm", "foot", "tm_id", "date_of_birth"]] = np.nan
+    frame = _attach_values(frame, cache, progress=progress)
+    matched = frame["tm_id"].notna()
+    coverage = {"players": int(len(frame)), "matched": float(matched.mean()),
+                "minutes_covered": float(frame.loc[matched, "minutes"].sum() / frame["minutes"].sum()),
+                "by_words": int(frame["how"].eq("words").sum()), "by_surname": int(frame["how"].eq("surname").sum()),
+                "regulars_matched": float(matched[frame["minutes"] >= 270].mean())}
+    return frame.drop(columns=["how"]), coverage

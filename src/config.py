@@ -30,6 +30,7 @@ RAW_PLAYERS_CSV = RAW_DIR / "players_raw.csv.gz"
 PROCESSED_PLAYERS_CSV = PROCESSED_DIR / "players_processed.csv.gz"
 STATSBOMB_PLAYERS_CSV = RAW_DIR / "statsbomb_players.csv.gz"
 STATSBOMB_2015_16_CSV = RAW_DIR / "statsbomb_2015_16.csv.gz"
+STATSBOMB_TOURNAMENTS_CSV = RAW_DIR / "statsbomb_tournaments.csv.gz"
 PREMIER_LEAGUE_CSV = RAW_DIR / "premier_league.csv.gz"
 FBREF_BIG5_CSV = RAW_DIR / "fbref_big5.csv.gz"
 UNDERSTAT_CSV = RAW_DIR / "understat_big6.csv.gz"
@@ -189,6 +190,8 @@ COUNTING_STATS = {
     "ball_recoveries": "Ball recoveries",
     "pressures": "Pressures",
     "pressures_successful": "Successful pressures",
+    "counterpressures": "Counterpressures",
+    "recoveries_opp_half": "Ball recoveries in the opponent's half",
     "aerials_won": "Aerial duels won",
     "aerials_lost": "Aerial duels lost",
     "fouls_committed": "Fouls committed",
@@ -284,6 +287,7 @@ RATIO_METRICS = {
 
 # Derived metrics that are neither a plain per-90 nor a ratio.
 DERIVED_METRICS = {
+    "dc_bar_pct": "Matches reaching FPL's defensive-contribution bar %",
     "npxg_per_shot": "Non-penalty xG per shot",
     "clean_sheet_rate": "Clean sheets per appearance %",
     "starts_share": "Share of appearances that were starts %",
@@ -428,6 +432,7 @@ METRIC_LABELS.update(
 
 # Percentage-style metrics are displayed with a % suffix and one decimal.
 PERCENT_METRICS = set(RATIO_METRICS) | {
+    "dc_bar_pct",
     "team_possession", "pressured_pass_share", "open_play_npxg_share",
     "clean_sheet_rate", "starts_share", "ownership_pct",
     "att_third_touch_share", "box_touch_share", "def_third_touch_share",
@@ -1396,6 +1401,38 @@ DATA_SOURCES: dict[str, DataSource] = {
             "**Ages, heights, feet and prices are matched from Transfermarkt** on name, season, "
             "league and club (99% of minutes). Goals agree with Transfermarkt's own count for "
             "97.5% of matched regulars. A price is the valuation in force on 1 July 2016.",
+            "Post-shot xG is a paid StatsBomb feature, so goalkeepers are measured on saves and "
+            "goals conceded rather than goals prevented.",
+        ),
+        missing=("gk_psxg",),
+    ),
+    "statsbomb_tournaments": DataSource(
+        key="statsbomb_tournaments",
+        label="International tournaments 2018-2024, event data (StatsBomb)",
+        path=STATSBOMB_TOURNAMENTS_CSV,
+        kind="real",
+        summary=(
+            "Every match of the 2018 and 2022 World Cups, Euro 2020 and Euro 2024, the 2024 Copa "
+            "America and the 2023 Africa Cup of Nations, each metric derived here from the raw "
+            "events, with Transfermarkt's ages, heights, feet and prices joined on."
+        ),
+        attribution=(
+            "Data provided by StatsBomb Open Data "
+            "(https://github.com/statsbomb/open-data), free for public use. Ages, heights, feet "
+            "and market values from Transfermarkt via dcaribou/transfermarkt-datasets "
+            "(https://github.com/dcaribou/transfermarkt-datasets, CC0) and "
+            "salimt/football-datasets."
+        ),
+        caveats=(
+            "**Three to seven matches a player.** A regular here has played 270 minutes - three "
+            "full matches - so every per-90 figure rests on far fewer minutes than a league "
+            "season's, and swings more.",
+            "**Each tournament is filed under the club season it closes or interrupts**: the 2022 "
+            "World Cup under 2022/23; the 2023 Africa Cup of Nations (played in early 2024), Euro "
+            "2024 and the 2024 Copa America under 2023/24. Players are ranked against everyone in "
+            "their position at the tournaments of that season, or only their own tournament.",
+            "**Positions are StatsBomb's own**: the position a player was lined up in for most of "
+            "his minutes.",
             "Post-shot xG is a paid StatsBomb feature, so goalkeepers are measured on saves and "
             "goals conceded rather than goals prevented.",
         ),

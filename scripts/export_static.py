@@ -93,7 +93,8 @@ SITE_SOURCES = [
         "skip": set(),
         "blurb": "The most current: the big five plus Russia, 2014/15 to 2025/26 and the season "
                  "in progress, every player priced by Transfermarkt. Attacking output only - "
-                 "xG, xA, xGChain, xGBuildup - so no defending. "
+                 "xG, xA, xGChain, xGBuildup. Each player's stat sheet borrows his defending, passing and "
+                 "keeping from the sources that record them, or says it is not possible. "
                  "Players are grouped as defenders, midfielders and forwards; the stat sheet also "
                  "ranks each against his exact Transfermarkt position, such as defensive midfielders.",
         # Said only once the keepers' matches have been fetched and modelled.
@@ -135,6 +136,17 @@ SITE_SOURCES = [
                  "prices joined on.",
     },
 ]
+SITE_SOURCES.append({
+    "key": "statsbomb_tournaments", "name": "Tournaments", "via": "StatsBomb, 2018-2024",
+    "skip": set(), "floor": 270, "squad": 180,
+    "stops": "the tournaments StatsBomb has published openly",
+    "updated": "Match events: StatsBomb's open data, every match of each tournament",
+    "blurb": "The 2018 and 2022 World Cups, Euro 2020 and Euro 2024, the 2024 Copa America and the 2023 "
+             "Africa Cup of Nations, every metric derived from the raw events: tackles by third, "
+             "pressing and counter-pressing, ball won back in the opponent's half, dribblers stopped. "
+             "Three to seven matches a player, so regulars are those with 270 minutes. Each tournament "
+             "is filed under the club season it closes or interrupts.",
+})
 DEFAULT_DATASET = "understat_big6:2025-26"
 
 # A season still being played cannot use the 900-minute floor - nobody has
@@ -155,12 +167,13 @@ SQUAD_MINUTES = 450
 SQUAD_MINUTES_IN_PROGRESS = 270
 
 
-def squad_players(features: pd.DataFrame, platform, season: str, floors: dict | None) -> pd.DataFrame:
+def squad_players(features: pd.DataFrame, platform, season: str, floors: dict | None,
+                  squad_floor: int | None = None) -> pd.DataFrame:
     """This season's players between the squad floor and the regulars' floor."""
     rows = features[features["season"] == season]
     if floors:
         regular = rows["league"].map(floors).fillna(MIN_MINUTES)
-        squad = rows[(rows["minutes"] >= SQUAD_MINUTES_IN_PROGRESS) & (rows["minutes"] < regular)]
+        squad = rows[(rows["minutes"] >= (squad_floor or SQUAD_MINUTES_IN_PROGRESS)) & (rows["minutes"] < regular)]
     else:
         squad = rows[(rows["minutes"] >= SQUAD_MINUTES) & (rows["minutes"] < platform.min_minutes)]
     squad = squad[squad["league"].isin(set(platform.pool["league"]))].copy()
@@ -349,6 +362,8 @@ def export(platform, season: str, squad: pd.DataFrame | None = None, notes: dict
         players.append({
             "id": str(row["player_id"]),
             "n": row["player"], "t": row["team"], "l": row["league"],
+            # His Transfermarkt id: the same player in every source, whatever each spells his name.
+            **({"tm": int(row["tm_id"])} if pd.notna(row.get("tm_id")) else {}),
             "p": row["position"], "g": group,
             "fl": row.get("flank") if pd.notna(row.get("flank")) else None,
             "fs": row.get("footed_side") if pd.notna(row.get("footed_side")) else None,
@@ -489,12 +504,35 @@ def _prune_empty_metrics(groups: dict, players: list) -> None:
             player["d"] = [player["d"][i] for i in keep if i < len(player["d"])]
 
 
+def link_transfermarkt(features: pd.DataFrame, progress=print) -> pd.DataFrame:
+    """Each player's Transfermarkt id, where the source table does not carry one.
+
+    The same matcher the Understat build uses (name, league-season and club,
+    `tm_history.link_by_season`), run on any source: it is what lets the page
+    find one player in every source when each spells him differently -
+    "Martin Odegaard" in one, "Martin Ødegaard" in another.
+    """
+    from src import tm_history
+
+    if "tm_id" in features.columns and features["tm_id"].notna().any():
+        return features
+    frame = features[["player_id", "player", "season", "league", "team", "minutes"]].copy()
+    frame["player_id"] = frame["player_id"].astype(str)
+    frame["key"] = frame["player"].map(tm_history.normalise_name)
+    link = tm_history.link_by_season(frame)
+    features = features.copy()
+    features["tm_id"] = features["player_id"].astype(str).map(link)
+    progress(f"  Transfermarkt ids for {features['tm_id'].notna().mean():.1%} of player-seasons")
+    return features
+
+
 def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> dict[str, dict]:
     """Every complete season of one source, fitted and exported."""
     features, report, used = build_features(spec["key"])
     if used != spec["key"]:
         progress(f"  {spec['key']} is not built - skipped")
         return {}
+    features = link_transfermarkt(features, progress)
     seasons = [s for s in sorted(features["season"].unique()) if s not in spec["skip"]]
     if only_seasons:
         seasons = [s for s in seasons if s in only_seasons]
@@ -502,10 +540,17 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
     payloads: dict[str, dict] = {}
     for season in seasons:
         rows = features[features["season"] == season]
-        in_progress = rows["minutes"].max() < IN_PROGRESS_MAX_MINUTES
+        fixed = spec.get("floor")
+        in_progress = not fixed and rows["minutes"].max() < IN_PROGRESS_MAX_MINUTES
         floors = {}
         source_rows = features
-        if in_progress:
+        if fixed:
+            # A tournament is three to seven matches: its regulars are those with
+            # three full matches, the same floor for every tournament.
+            floors = {league: fixed for league in rows["league"].unique()}
+            keep = (features["season"] != season) | (features["minutes"] >= fixed)
+            source_rows = features[keep]
+        elif in_progress:
             for league, block in rows.groupby("league"):
                 floor = int(block["minutes"].max() * IN_PROGRESS_SHARE // 90 * 90)
                 floors[league] = max(IN_PROGRESS_MIN_FLOOR, floor)
@@ -517,9 +562,12 @@ def build_source(spec: dict, only_seasons: set[str] | None, progress=print) -> d
         if platform.pool.empty or not platform.models:
             progress(f"  {season}: nothing to model - skipped")
             continue
-        squad = squad_players(features, platform, season, floors if in_progress else None)
+        squad_floor = spec.get("squad") if fixed else SQUAD_MINUTES_IN_PROGRESS if in_progress else SQUAD_MINUTES
+        squad = squad_players(features, platform, season, floors if (in_progress or fixed) else None, squad_floor)
         payloads[season] = export(platform, season, squad, notes=spec.get("notes"))
-        payloads[season]["meta"]["squadMinutes"] = (SQUAD_MINUTES_IN_PROGRESS if in_progress else SQUAD_MINUTES) if len(squad) else None
+        payloads[season]["meta"]["squadMinutes"] = squad_floor if len(squad) else None
+        if fixed:
+            payloads[season]["meta"]["tournament"] = True
         if in_progress:
             payloads[season]["meta"].update({
                 "inProgress": True, "floors": floors,
@@ -586,7 +634,7 @@ def all_seasons(payloads: dict[str, dict]) -> dict:
         for p in payloads[season]["players"]:
             if p["z"]:
                 rows.append([p["id"], p["n"], p["t"], p["l"], i, p["g"], p["a"], p["m"], p["v"], p["z"],
-                             p["h"], p["ft"], p["fl"], p.get("sq", 0)])
+                             p["h"], p["ft"], p["fl"], p.get("sq", 0), p.get("tm")])
     return {"seasons": seasons, "groups": groups, "players": rows}
 
 
@@ -660,6 +708,7 @@ def main() -> int:
         catalog.append({"key": spec["key"], "name": spec["name"], "via": spec["via"],
                         "blurb": blurb, "updated": updated,
                         **({"stops": spec["stops"]} if spec.get("stops") else {}),
+                        **({"tournament": True} if spec.get("floor") else {}),
                         "attribution": DATA_SOURCES[spec["key"]].attribution,
                         "seasons": entries, "all": everything})
 

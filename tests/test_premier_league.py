@@ -85,3 +85,20 @@ def test_a_season_understat_stopped_early_is_detected():
     coverage = understat_coverage(data)
     assert coverage[2023] >= UNDERSTAT_COVERAGE_FLOOR
     assert coverage[2024] < UNDERSTAT_COVERAGE_FLOOR
+
+
+def test_the_defensive_bar_is_counted_match_by_match_on_fpls_own_thresholds():
+    from src.premier_league import defensive_bar
+    played = pd.DataFrame({
+        "element": [1, 1, 1, 1, 2, 2, 3],
+        "position": ["DEF", "DEF", "DEF", "DEF", "MID", "MID", "GK"],
+        # A defender clears 10 in two of four matches; a midfielder needs 12, so 11 is not enough.
+        "defensive_contribution": [10, 9, 14, 3, 11, 12, 5],
+    })
+    out = defensive_bar(played).set_index("fpl_element")
+    assert out.loc[1, "dc_bar_matches"] == 2 and out.loc[1, "dc_bar_pct"] == 50.0
+    assert out.loc[2, "dc_bar_matches"] == 1 and out.loc[2, "dc_bar_pct"] == 50.0
+    assert 3 not in out.index                      # a keeper has no bar
+    # A season whose gameweek file does not record the count gets nothing, not zeros.
+    assert defensive_bar(played.drop(columns="defensive_contribution")).empty
+    assert defensive_bar(played.assign(defensive_contribution=0)).empty

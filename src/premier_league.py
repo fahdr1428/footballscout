@@ -192,6 +192,35 @@ def load_fpl_season(repo: Path, season: str, team_names: dict) -> pd.DataFrame:
     return frame
 
 
+# FPL's defensive-contribution bar, per match: 10 clearances, blocks,
+# interceptions and tackles for a defender; 12, recoveries included, for a
+# midfielder or forward. Keepers have none.
+DC_BAR = {"DEF": 10, "MID": 12, "FWD": 12}
+
+
+def defensive_bar(played: pd.DataFrame) -> pd.DataFrame:
+    """How often a player reached FPL's defensive-contribution bar in the matches he played.
+
+    A reading of consistency rather than volume: two players with the same
+    per-90 count, one who clears the bar every other week and one who clears
+    it twice in a season, are different defenders. Only seasons whose
+    gameweek file records the count (2025/26 on) get it.
+    """
+    columns = ["fpl_element", "dc_bar_matches", "dc_bar_pct"]
+    if "defensive_contribution" not in played.columns or "position" not in played.columns:
+        return pd.DataFrame(columns=columns)
+    count = pd.to_numeric(played["defensive_contribution"], errors="coerce")
+    bar = played["position"].map(DC_BAR)
+    known = count.notna() & bar.notna()
+    if not known.any() or count[known].sum() == 0:
+        return pd.DataFrame(columns=columns)
+    rows = pd.DataFrame({"fpl_element": played.loc[known, "element"], "hit": (count[known] >= bar[known]).astype(int)})
+    out = rows.groupby("fpl_element")["hit"].agg(["sum", "size"]).reset_index()
+    out["dc_bar_matches"] = out["sum"].astype(int)
+    out["dc_bar_pct"] = (100 * out["sum"] / out["size"]).round(1)
+    return out[columns]
+
+
 def appearances_from_gameweeks(repo: Path, season: str) -> pd.DataFrame:
     """Appearances, and the club actually played for, from the gameweek export.
 
@@ -216,6 +245,7 @@ def appearances_from_gameweeks(repo: Path, season: str) -> pd.DataFrame:
 
     out = played.groupby("element").size().rename("matches").reset_index()
     out = out.rename(columns={"element": "fpl_element"})
+    out = out.merge(defensive_bar(played), on="fpl_element", how="left")
     if "team" in played.columns:
         minutes_by_club = played.groupby(["element", "team"])["minutes"].sum()
         modal = minutes_by_club.groupby(level=0).idxmax().map(lambda pair: pair[1]).rename("gw_team")

@@ -81,3 +81,34 @@ def test_exact_position_percentiles_follow_the_figures(path):
                 for (v0, p0), (v1, p1) in zip(rows, rows[1:]):
                     if v1 > v0:
                         assert (p1 <= p0) if metric in lower else (p1 >= p0), (group, role, metric)
+
+
+ALL_FILES = sorted(DATA.glob("*__all.json"))
+
+
+@pytest.mark.skipif(not ALL_FILES, reason="the site has not been exported")
+@pytest.mark.parametrize("path", ALL_FILES, ids=[p.stem for p in ALL_FILES])
+def test_every_source_links_its_regulars_to_one_transfermarkt_id(path):
+    """The page finds a player in another source by this id, so most regulars must carry it,
+    and one id must never stand for two players in the same season."""
+    index = json.loads(path.read_text())
+    rows = [r for r in index["players"] if not r[13]]
+    linked = [r for r in rows if len(r) > 14 and r[14] is not None]
+    assert len(linked) >= 0.75 * len(rows), f"{len(linked)} of {len(rows)}"
+    seen = {}
+    for r in linked:
+        key = (r[4], r[14])
+        assert key not in seen or seen[key] == r[0], (r[1], seen.get(key))
+        seen[key] = r[0]
+
+
+def test_link_transfermarkt_keeps_an_id_the_table_already_has():
+    import sys
+
+    import pandas as pd
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from export_static import link_transfermarkt
+
+    frame = pd.DataFrame({"player_id": ["a"], "player": ["X"], "season": ["2023-24"], "league": ["Euro 2024"],
+                          "team": ["Spain"], "minutes": [400], "tm_id": [357565]})
+    assert link_transfermarkt(frame, progress=lambda *_: None)["tm_id"].tolist() == [357565]
